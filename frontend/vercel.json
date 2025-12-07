@@ -2,7 +2,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "installCommand": "npm install --include=optional --force",
+  "installCommand": "rm -rf node_modules package-lock.json && npm install && npm install @rollup/rollup-linux-x64-gnu --save-dev --force || true",
   "rewrites": [
     {
       "source": "/(.*)",
