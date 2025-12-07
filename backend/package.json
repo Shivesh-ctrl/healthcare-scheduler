@@ -1,0 +1,26 @@
+{
+  "name": "healthcare-scheduler-backend",
+  "version": "1.0.0",
+  "description": "Supabase backend for healthcare patient scheduling chatbot",
+  "type": "module",
+  "scripts": {
+    "setup": "supabase init",
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "functions:serve": "supabase functions serve",
+    "functions:deploy": "supabase functions deploy"
+  },
+  "keywords": [
+    "supabase",
+    "healthcare",
+    "chatbot",
+    "ai",
+    "scheduling"
+  ],
+  "devDependencies": {
+    "supabase": "^1.145.0"
+  }
+}
+

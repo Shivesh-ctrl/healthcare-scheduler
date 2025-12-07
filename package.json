@@ -1,0 +1,28 @@
+{
+  "name": "healthcare-scheduler",
+  "version": "1.0.0",
+  "description": "Full-stack healthcare scheduling system with AI-powered therapist matching",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "deploy:backend": "cd backend && supabase functions deploy --project-ref ljxugwfzkbjlrjwpglnx",
+    "deploy:frontend": "cd frontend && npm run build",
+    "setup": "cd frontend && npm install && cd ../backend && echo 'Backend uses Supabase CLI'"
+  },
+  "keywords": [
+    "healthcare",
+    "scheduler",
+    "therapy",
+    "ai",
+    "react",
+    "supabase"
+  ],
+  "author": "",
+  "license": "MIT"
+}
+

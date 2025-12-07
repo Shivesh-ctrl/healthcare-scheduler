@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net --allow-env --allow-read server.ts"
+  },
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3",
+    "ai": "https://esm.sh/ai@3.4.0",
+    "@ai-sdk/openai": "https://esm.sh/@ai-sdk/openai@1.0.0",
+    "@ai-sdk/anthropic": "https://esm.sh/@ai-sdk/anthropic@1.0.0",
+    "@ai-sdk/google": "https://esm.sh/@ai-sdk/google@1.0.2"
+  }
+}
+
