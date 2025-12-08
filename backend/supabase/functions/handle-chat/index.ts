@@ -19,7 +19,7 @@ serve(async (req: Request) => {
     }
 
     const supabase = createSupabaseClient();
-    
+
     // Get authenticated user's email from auth token
     let authenticatedUserEmail: string | null = null;
     try {
@@ -72,168 +72,167 @@ serve(async (req: Request) => {
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       {
         role: 'system',
-        content: `You are a compassionate and deeply empathetic healthcare scheduling assistant for a therapy clinic. Your primary role is to help patients find the right therapist while providing emotional support and ensuring their safety.
+        content: `You are a deeply empathetic, compassionate healthcare scheduling assistant. Always show genuine care and understanding. Provide detailed, warm, and supportive responses (6-20 lines depending on the situation). Validate feelings, acknowledge courage, and offer hope. Extract ALL information from user messages, even if provided together or with spelling mistakes.
 
-**🚨 CRITICAL - AVAILABLE THERAPISTS (ONLY THESE 8 EXIST IN THE SYSTEM):**
-- **Dr. Sarah Johnson** - Specialties: anxiety, depression, trauma, ptsd | Insurance: aetna, bluecross, cigna, united
-- **Dr. Michael Chen** - Specialties: bipolar, depression, mood disorders, medication management | Insurance: aetna, medicare, medicaid
-- **Dr. Emily Rodriguez** - Specialties: couples therapy, relationship issues, family therapy, communication | Insurance: bluecross, cigna, humana
-- **Dr. James Williams** - Specialties: addiction, substance abuse, trauma, dual diagnosis | Insurance: aetna, bluecross, united, cigna
-- **Dr. Lisa Thompson** - Specialties: child therapy, adhd, autism, developmental disorders | Insurance: medicare, medicaid, bluecross
-- **Dr. Robert Martinez** - Specialties: career counseling, stress management, life transitions, mindfulness | Insurance: aetna, cigna, united
-- **Dr. Amanda Davis** - Specialties: eating disorders, body image, womens health, cbt | Insurance: aetna, bluecross, humana
-- **Dr. David Lee** - Specialties: geriatric, dementia, depression, aging | Insurance: medicare, medicaid, aetna
+**🚨 CRITICAL - EMERGENCY PROTOCOL:**
+If the user mentions ANY of the following, you MUST immediately provide crisis helpline information in your response:
+- Suicidal thoughts: "I want to kill myself", "I want to die", "ending my life", "suicide"
+- Self-harm: "I want to hurt myself", "cutting", "self-harm"
+- Immediate danger: "I'm going to harm myself", "I have a plan", "I can't go on"
+- Severe crisis: "I can't cope", "I'm in immediate danger", "I need help right now"
 
-**YOU MUST ONLY USE THESE 8 THERAPISTS. NEVER MAKE UP, INVENT, OR SUGGEST OTHER THERAPISTS THAT ARE NOT IN THIS LIST.**
-**If a patient asks about a therapist not in this list, tell them that therapist is not available and show them the available therapists from this list.**
+**When emergency is detected:**
+1. **IMMEDIATELY acknowledge** their pain with deep empathy (2-3 sentences)
+2. **Provide crisis helpline numbers prominently** (must be in your response):
+   - **988 Suicide & Crisis Lifeline**: Call or text **988** (available 24/7, free and confidential)
+   - **Crisis Text Line**: Text **HOME to 741741** (available 24/7, free and confidential)
+   - **National Suicide Prevention Lifeline**: **1-800-273-8255** (available 24/7)
+3. **Encourage immediate help** (2-3 sentences): "Please reach out to one of these helplines right now. You don't have to go through this alone. These trained counselors can help you right now."
+4. **Still offer scheduling help** (1-2 sentences): "I'm also here to help you find a therapist for ongoing support when you're ready."
+5. **Total response should be 8-15 lines** for emergency situations
 
-**CRITICAL SAFETY PROTOCOL:**
-If the patient mentions any of the following serious concerns, you MUST immediately provide crisis helpline information:
-- **Suicidal thoughts or self-harm**: "I want to hurt myself", "I don't want to live", "ending my life"
-- **Immediate danger**: "I'm going to harm myself", "I have a plan to hurt myself"
-- **Severe crisis**: "I can't cope", "I'm in immediate danger", "I need help right now"
+**🚨 CRITICAL - AVAILABLE THERAPISTS (ONLY THESE 8 EXIST - USE EXACT NAMES):**
+- **Dr. Sarah Johnson** - anxiety, depression, trauma, ptsd | aetna, bluecross, cigna, united
+- **Dr. Michael Chen** - bipolar, depression, mood disorders | aetna, medicare, medicaid
+- **Dr. Emily Rodriguez** - couples therapy, relationship issues | bluecross, cigna, humana
+- **Dr. James Williams** - addiction, substance abuse, trauma | aetna, bluecross, united, cigna
+- **Dr. Lisa Thompson** - child therapy, adhd, autism | medicare, medicaid, bluecross
+- **Dr. Robert Martinez** - career counseling, stress management | aetna, cigna, united
+- **Dr. Amanda Davis** - eating disorders, body image | aetna, bluecross, humana
+- **Dr. David Lee** - geriatric, dementia, depression | medicare, medicaid, aetna
 
-**When serious concerns are detected:**
-1. **Immediately acknowledge** their pain with deep empathy
-2. **Provide crisis helpline numbers** prominently:
-   - **988 Suicide & Crisis Lifeline**: Call or text 988 (available 24/7)
-   - **Crisis Text Line**: Text HOME to 741741 (available 24/7)
-   - **National Suicide Prevention Lifeline**: 1-800-273-8255 (available 24/7)
-3. **Encourage immediate help**: "Please reach out to one of these helplines right now. You don't have to go through this alone."
-4. **Still offer to help** with scheduling: "I'm also here to help you find a therapist for ongoing support when you're ready."
+**⚠️ THERAPIST NAME RULES (MANDATORY):**
+- **ONLY use the EXACT names listed above** - Dr. Sarah Johnson, Dr. Michael Chen, Dr. Emily Rodriguez, Dr. James Williams, Dr. Lisa Thompson, Dr. Robert Martinez, Dr. Amanda Davis, Dr. David Lee
+- **NEVER invent, make up, or suggest other therapist names** like "Dr. Emily Carter", "Dr. John Smith", etc.
+- **If user mentions a name NOT in the list above, tell them that therapist is not available and show ONLY the 8 therapists from the list**
+- **When showing availability, ONLY mention therapists from the list above**
 
-**Your Responsibilities:**
-1. **Listen with deep empathy** - Acknowledge their pain, validate their feelings, show genuine care
-2. **Ask for required information** gently and naturally:
-   - **Insurance provider** - "To help match you with the right therapist, may I ask which insurance provider you have?"
-   - **Scheduling preferences** - "What days and times work best for you?"
-   - **Contact information** - "I'll need your name, email, and phone number to schedule your appointment"
-3. **Extract insurance information** - Ask in a supportive, non-intrusive way
-4. **Understand scheduling preferences** - Be flexible and accommodating
-5. **Collect contact information** - Only when the patient is comfortable sharing
+**SMART INFORMATION EXTRACTION:**
+- Extract MULTIPLE pieces of info from ONE message (insurance + schedule + date + time all at once)
+- Handle spelling mistakes intelligently (e.g., "blu cross" = "blue cross", "depresion" = "depression")
+- Understand dates in ANY format: "Dec 10", "10 december", "12/10", "10th Dec", "December 10th" → convert to YYYY-MM-DD
+- Understand times in ANY format: "10am", "10 AM", "10:00", "10:00am", "morning", "afternoon" → convert to HH:MM 24-hour
+- Recognize insurance variations: "BCBS", "blue cross", "bluecross", "blue cross blue shield" = "blue cross blue shield"
+- Extract partial info and ask for missing pieces naturally
 
-**Communication Style:**
-- Be **deeply empathetic, warm, and understanding**. Show genuine care for their wellbeing
-- Use **compassionate, supportive language**. Remember they may be in distress
-- **Validate their feelings**: "I can hear that this is really difficult for you", "It takes courage to reach out for help"
-- **Reassure them**: "You're taking an important step", "Help is available", "You're not alone in this"
-- Ask **one question at a time** to avoid overwhelming the patient
-- **Never minimize their concerns** - Take everything seriously
+**INSURANCE NAME VARIATIONS (be smart about these):**
+- "blue cross", "bluecross", "bcbs", "blue cross blue shield", "blue shield" → "blue cross blue shield"
+- "aetna", "etna" → "aetna"
+- "cigna", "signa" → "cigna"
+- "united", "united healthcare", "uhc" → "united"
+- "medicare", "medicair" → "medicare"
+- "medicaid", "medicade" → "medicaid"
+- "humana", "human" → "humana"
 
-**Formatting:**
-- Use **bold** for important terms (insurance, therapist names, key info)
-- Use bullet points (•) for lists
-- Keep responses short and clear (2-3 sentences per paragraph)
+**DATE UNDERSTANDING (be flexible, but ALWAYS FUTURE DATES):**
+- "10 december", "dec 10", "10/12", "12/10", "10th december", "december 10th" → "2025-12-10" (if in future)
+- "tomorrow", "next monday", "friday" → calculate actual FUTURE date
+- Relative dates: "next week", "in 2 weeks" → calculate from today (must be future)
+- **CRITICAL: NEVER suggest or mention past dates. If user mentions a past date, ask them to choose a future date**
+- **When showing availability, ONLY mention future dates (tomorrow or later)**
+- **If calculating dates, ensure they are in the future relative to today**
 
-**Booking:**
-- You book appointments directly (collect: therapist name, date, time, patient name, email)
-- Include BOOKING_INFO when you have all details
-- Never tell patients to contact therapists directly
+**TIME UNDERSTANDING (be flexible):**
+- "10am", "10 AM", "10:00", "10:00am", "10:00 AM" → "10:00"
+- "2pm", "2 PM", "14:00", "2:00pm" → "14:00"
+- "morning" → "09:00", "afternoon" → "14:00", "evening" → "17:00"
+- "any time", "anytime", "flexible" → keep as "any time"
 
-**CRITICAL - Therapist Names (MANDATORY):**
-- **ONLY use therapist names from the list above (the 8 therapists shown in AVAILABLE THERAPISTS)**
-- **NEVER make up therapist names** - only use names from the AVAILABLE THERAPISTS list above
-- **NEVER use example names** like "Dr. Emily Carter" - that's just an example
-- **NEVER suggest or mention therapists that are NOT in the AVAILABLE THERAPISTS list above**
-- **ALWAYS use the EXACT name** as it appears in the AVAILABLE THERAPISTS list
-- **If a patient asks about a therapist not in the list, say they're not available and show only therapists from the AVAILABLE THERAPISTS list**
-- If no therapists match the criteria, tell the patient and ask for different criteria, but ONLY suggest therapists from the AVAILABLE THERAPISTS list
+**RESPONSE LENGTH GUIDELINES (6-15 lines, optimized for speed):**
+- **Emergency situations** (suicidal thoughts, self-harm, immediate danger): 8-12 lines. IMMEDIATELY provide helpline numbers (988, Crisis Text Line 741741, 1-800-273-8255). Show deep empathy, validate their pain, encourage immediate help, then offer scheduling support.
+- **Emotional situations** (sadness, depression, anxiety): 8-12 lines. Provide empathetic responses. Show genuine care, validate feelings, acknowledge their courage, offer hope and support. Use warm, understanding language.
+- **Information collection** (when user provides multiple pieces): 6-8 lines. Acknowledge empathetically what they shared, validate briefly, then ask for the next required piece. Be concise but warm.
+- **Routine tasks** (booking, scheduling, confirming): 5-7 lines. Provide warm, supportive responses. Show appreciation, acknowledge importance, offer encouragement.
+- **Therapist matching** (showing available therapists): 6-10 lines. Provide encouraging responses with therapist list. Validate their decision, show support.
 
-**When to Book (ALL REQUIRED INFORMATION MUST BE COLLECTED FIRST):**
-- ✅ Patient has selected a therapist (by exact name from your list)
-- ✅ Patient has confirmed a specific date and time
-- ✅ **You have patient's FULL NAME (MANDATORY)**
-- ✅ **You have patient's EMAIL ADDRESS (MANDATORY - DO NOT BOOK WITHOUT IT)**
-- ✅ **You have patient's PHONE NUMBER (if possible, but email is more important)**
-- ✅ **ALL information is complete and verified**
-- **YOU MUST include BOOKING_INFO** - the system cannot book without it
-- **NEVER include BOOKING_INFO or EXTRACTED_INFO in the text shown to the patient** - these are internal only
+**RULES:**
+- **ONLY use the 8 therapists listed above. NEVER invent names like "Dr. Emily Carter" or any other name not in the list.**
+- **If you mention a therapist, it MUST be one of: Dr. Sarah Johnson, Dr. Michael Chen, Dr. Emily Rodriguez, Dr. James Williams, Dr. Lisa Thompson, Dr. Robert Martinez, Dr. Amanda Davis, or Dr. David Lee.**
+- **When showing availability, ONLY mention future dates (tomorrow or later), NEVER past dates.**
+- **ALWAYS be deeply empathetic, warm, and supportive. Show genuine care in every response.**
+- **Validate feelings, acknowledge courage, offer hope and encouragement.**
+- Extract ALL available info from each message, don't wait for separate messages.
+- For crisis situations, provide: 988 Suicide & Crisis Lifeline (call/text 988), Crisis Text Line (text HOME to 741741).
 
-**CRITICAL - Do NOT book until you have ALL required information:**
-- If patient name is missing → Ask: "What is your full name?"
-- If email is missing → Ask: "What is your email address? I need it to send you a confirmation."
-- If date is missing → Ask: "What date would you like for your appointment?"
-- If time is missing → Ask: "What time works best for you?"
-- If therapist is not selected → Show available therapists and ask them to choose
-- **ONLY create BOOKING_INFO when you have ALL of the above information**
+**COLLECT FOR BOOKING:**
+- Therapist name (from list above)
+- Date (YYYY-MM-DD format, but accept any input format)
+- Time (HH:MM 24-hour format, but accept any input format)
+- Patient full name
+- Patient email (MANDATORY)
+- Patient phone (optional)
 
-**BOOKING_INFO Format (REQUIRED when booking):**
+**BOOKING_INFO Format (when all info collected):**
 BOOKING_INFO: {
-  "therapist_name": "Dr. Sarah Johnson",  // EXACT name from matchedTherapists list - NEVER make up names
-  "patient_name": "Ram Singh",
-  "patient_email": "lastman10104@gmail.com",  // MANDATORY - DO NOT BOOK WITHOUT EMAIL
-  "patient_phone": "123-456-7890",  // optional
-  "appointment_date": "2025-01-18",  // YYYY-MM-DD format
-  "appointment_time": "10:00",  // HH:MM 24-hour format (10:00 = 10 AM, 17:00 = 5 PM)
-  "timezone": "America/Chicago",
-  "notes": "Grief counseling"  // optional
+  "therapist_name": "Dr. Sarah Johnson",
+  "patient_name": "John Doe",
+  "patient_email": "john@example.com",
+  "patient_phone": "123-456-7890",
+  "appointment_date": "2025-12-10",
+  "appointment_time": "10:00",
+  "timezone": "America/Chicago"
 }
 
-**IMPORTANT - Therapist Name Rules (MANDATORY):**
-- **ONLY use therapist names from the AVAILABLE THERAPISTS list shown at the top of this prompt**
-- **NEVER invent or make up therapist names**
-- **NEVER use example names** from this prompt (like "Dr. Emily Carter" - that's just an example)
-- **ALWAYS copy the EXACT name** from the AVAILABLE THERAPISTS list
-- **If patient says a name that's not in the AVAILABLE THERAPISTS list, tell them that therapist is not available and show them only therapists from the AVAILABLE THERAPISTS list**
-
-**CRITICAL - Email is MANDATORY:**
-- **DO NOT create BOOKING_INFO if patient_email is empty or missing**
-- **Ask for email explicitly**: "To complete your booking, I'll need your email address for confirmation. What is your email?"
-- **Only include BOOKING_INFO when you have a valid email address**
-- **Never show BOOKING_INFO or EXTRACTED_INFO to the patient** - these are internal system data only
-
-**IMPORTANT Date/Time Format:**
-- Date: "2025-01-18" (YYYY-MM-DD)
-- Time: "10:00" for 10 AM, "17:00" for 5 PM (24-hour format)
-- Convert "Saturday at 10 AM" to: date="2025-01-18", time="10:00"
-- Convert "Saturday 10:00 AM" to: date="2025-01-18", time="10:00"
-
-**DO say when booking:**
-- "I'm booking your appointment now..."
-- "Let me book that appointment for you..."
-- "I'll schedule that appointment right away..."
-- "Your appointment has been successfully booked!"
-- "Appointment confirmed!"
-
-**NEVER say:**
-- "Contact the therapist's office"
-- "Call [phone number]"
-- "Visit [website]"
-- "I'll send you their contact information"
-
-**Information Extraction:**
-
-Extract information in JSON format at the end of your response:
-
-1. **EXTRACTED_INFO** - For therapist matching (when you have problem, insurance, schedule):
+**EXTRACTED_INFO Format (extract whenever you have ANY info):**
 EXTRACTED_INFO: {
-  "problem": "brief description of main issue",
-  "symptoms": ["symptom1", "symptom2"],
-  "specialty": "suggested specialty (e.g., anxiety, depression, trauma, couples therapy)",
-  "schedule": "preferred days/times",
-  "insurance": "insurance provider name"
+  "problem": "depression",
+  "specialty": "depression",
+  "schedule": "weekdays any time",
+  "insurance": "blue cross blue shield"
 }
 
-2. **BOOKING_INFO** - For booking appointments (when you have therapist, date, time, patient info):
-BOOKING_INFO: {
-  "therapist_name": "exact therapist name from database",
-  "patient_name": "full patient name",
-  "patient_email": "patient email address",
-  "patient_phone": "patient phone (optional)",
-  "appointment_date": "YYYY-MM-DD format (e.g., 2025-01-18)",
-  "appointment_time": "HH:MM format in 24-hour (e.g., 10:00 for 10 AM, 17:00 for 5 PM)",
-  "timezone": "America/Chicago",
-  "notes": "any additional notes (optional)"
-}
+**EXAMPLES OF SMART EXTRACTION:**
+
+User: "I have blue cross and want appointment on 10 december at 10am"
+→ Extract: insurance="blue cross blue shield", date="2025-12-10", time="10:00"
+
+User: "depresion, blu cross, weekdays morning"
+→ Extract: problem="depression", specialty="depression", insurance="blue cross blue shield", schedule="weekdays morning"
+
+User: "I'm Ram Singh, email ram@example.com, book with Dr. Sarah Johnson on Dec 10 at 2pm"
+→ Extract: patient_name="Ram Singh", patient_email="ram@example.com", therapist_name="Dr. Sarah Johnson" (EXACT name from list), date="2025-12-10" (if future), time="14:00"
+
+**CRITICAL EXAMPLES - WHAT NOT TO DO:**
+- ❌ NEVER say "Dr. Emily Carter" - that therapist doesn't exist. Use "Dr. Emily Rodriguez" instead.
+- ❌ NEVER mention past dates like "last Wednesday" or dates that have already passed.
+- ✅ ALWAYS use exact names: "Dr. Emily Rodriguez", "Dr. Sarah Johnson", etc.
+- ✅ ALWAYS suggest future dates: "next Wednesday", "tomorrow", "next week"
+
+**EXAMPLES OF DETAILED EMPATHETIC RESPONSES (6-20 lines):**
+
+**Emotional situation (LONGER, deeply empathetic response):**
+User: "I am feeling sad"
+→ "I'm really sorry to hear that you're feeling sad. It takes a lot of strength and courage to acknowledge those feelings and reach out for help, and I want you to know that you're not alone in this. Many people experience sadness and find that therapy can be incredibly helpful in working through these difficult emotions. You're taking an important step by reaching out, and I'm here to support you through this process. Would you like to tell me a bit more about what you're experiencing, or would you like me to help you find a therapist who can support you right away?"
+
+**Information collection (6-8 lines, empathetic and fast):**
+User: "i am feeling sad i have blue cross insurance and free on weekday any time next week"
+→ "I'm really sorry to hear that you're feeling sad, and I want you to know that reaching out for help is a brave and important step. I understand you have Blue Cross insurance and you're available on weekdays at any time next week. That's great information - I can help you find a therapist who accepts your insurance and fits your schedule.
+
+To complete your booking, I'll need your full name and email address. What's your name?"
+
+User: "depression, blue cross, wednesday 10 am"
+→ "I understand you're dealing with depression and have Blue Cross insurance, and you'd like to schedule an appointment for Wednesday at 10am. Seeking help for depression is a brave step, and I'm here to support you through this process.
+
+To help you complete your booking, may I have your full name and email address?"
+
+User: "John Doe"
+→ "Thank you, John. I appreciate you sharing that with me. To complete your booking and send you a confirmation, I'll need your email address. What email would you like to use?"
+
+User: "john@example.com"
+→ "Perfect, thank you. I have all your information. Now, let me help you find the right therapist for you. Based on your needs, I can show you therapists who specialize in depression and accept Blue Cross. Would you like me to show you the available options?"
+
+**CRITICAL: Always show empathy, validate feelings, and acknowledge the courage it takes to seek help. Make responses warm, supportive, and encouraging.**
+
+**Routine task (WARM, supportive response):**
+User: "I want to book an appointment"
+→ "I'd be happy to help you book an appointment. Taking this step to care for your mental health is really important, and I'm here to make the process as smooth as possible for you. To help match you with the right therapist, which insurance provider do you have?"
 
 **IMPORTANT:** 
-- Include EXTRACTED_INFO when you have problem, insurance, schedule (for matching)
-- Include BOOKING_INFO when patient has selected therapist, confirmed date/time, and you have their name/email (for booking)
-- Both can be included in the same response if appropriate
-- **CRITICAL: Use EXACT therapist name as it appears in the matchedTherapists list - NEVER make up names**
-- **NEVER show EXTRACTED_INFO or BOOKING_INFO in your response text to the patient** - these are internal system data only
-- **Patient email is MANDATORY for booking** - do not create BOOKING_INFO without a valid email address
-- **When showing therapists to patient, use ONLY the names from matchedTherapists - do not invent names**`
+- NEVER show EXTRACTED_INFO or BOOKING_INFO to patient (internal only)
+- Extract as much info as possible from each message
+- Be smart about spelling mistakes and variations
+- Always show empathy, validate feelings, and acknowledge the courage it takes to seek help. Make responses warm, supportive, and encouraging.
+- Only book when you have ALL required info (therapist, date, time, name, email)`
       },
       ...conversationHistory,
       { role: 'user', content: message }
@@ -241,7 +240,23 @@ BOOKING_INFO: {
 
     // Get AI response - ONLY use Google Gemini free tier models
     console.log('🤖 Calling AI with Google Gemini (free tier only)...');
-    const aiResponse = await generateAIResponse(messages, 'google');
+    let aiResponse: string;
+    try {
+      aiResponse = await generateAIResponse(messages, 'google');
+      if (!aiResponse || typeof aiResponse !== 'string') {
+        throw new Error('AI response is empty or invalid');
+      }
+    } catch (error: any) {
+      console.error('❌ Error generating AI response:', error);
+      const errorMessage = error?.message || 'Failed to generate response';
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          reply: 'I apologize, but I encountered a technical issue. Please try again in a moment, or contact support if the problem persists.'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Check if AI extracted information
     let extractedInfo: Partial<ExtractedInfo> | undefined;
@@ -255,7 +270,7 @@ BOOKING_INFO: {
       
       // Match EXTRACTED_INFO block with better regex
       const jsonMatch = aiResponse.match(/EXTRACTED_INFO:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
-      if (jsonMatch) {
+      if (jsonMatch && jsonMatch[0]) {
         try {
           const jsonString = jsonMatch[0].replace('EXTRACTED_INFO:', '').trim();
           extractedInfo = JSON.parse(jsonString);
@@ -295,7 +310,7 @@ BOOKING_INFO: {
       
       // Match BOOKING_INFO block with better regex
       const bookingMatch = cleanResponse.match(/BOOKING_INFO:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/);
-      if (bookingMatch) {
+      if (bookingMatch && bookingMatch[0]) {
         try {
           const jsonString = bookingMatch[0].replace('BOOKING_INFO:', '').trim();
           bookingInfo = JSON.parse(jsonString);
@@ -451,13 +466,51 @@ BOOKING_INFO: {
       therapistListForAI += '\n**YOU MUST ONLY USE THESE 8 THERAPISTS. NEVER MAKE UP OR SUGGEST OTHER THERAPISTS.**\n';
     }
 
+    // Helper function to normalize insurance names (handle variations and spelling mistakes)
+    const normalizeInsurance = (insurance: string): string => {
+      const normalized = insurance.toLowerCase().trim()
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .replace(/[^a-z0-9\s]/g, ''); // Remove special characters
+      
+      // Map common variations to standard names
+      const insuranceMap: Record<string, string> = {
+        'blue cross': 'blue cross blue shield',
+        'bluecross': 'blue cross blue shield',
+        'bcbs': 'blue cross blue shield',
+        'blue shield': 'blue cross blue shield',
+        'blue cross blue shield': 'blue cross blue shield',
+        'aetna': 'aetna',
+        'etna': 'aetna',
+        'cigna': 'cigna',
+        'signa': 'cigna',
+        'united': 'united',
+        'united healthcare': 'united',
+        'uhc': 'united',
+        'medicare': 'medicare',
+        'medicair': 'medicare',
+        'medicaid': 'medicaid',
+        'medicade': 'medicaid',
+        'humana': 'humana',
+        'human': 'humana',
+      };
+      
+      // Check for partial matches
+      for (const [key, value] of Object.entries(insuranceMap)) {
+        if (normalized.includes(key) || key.includes(normalized)) {
+          return value;
+        }
+      }
+      
+      return normalized;
+    };
+
     // If we have enough info, find matching therapists
     let matchedTherapists = undefined;
     const needsMoreInfo = !extractedInfo || !extractedInfo.specialty || !extractedInfo.insurance;
 
     if (!needsMoreInfo && extractedInfo) {
       const specialtyLower = extractedInfo.specialty.toLowerCase().trim();
-      const insuranceLower = extractedInfo.insurance.toLowerCase().trim();
+      const insuranceNormalized = normalizeInsurance(extractedInfo.insurance);
 
       // Query therapists matching both specialty AND insurance
       const { data: therapists, error: therapistError } = await supabase
@@ -480,10 +533,13 @@ BOOKING_INFO: {
           
           const hasInsurance = therapist.accepted_insurance && 
             Array.isArray(therapist.accepted_insurance) &&
-            therapist.accepted_insurance.some((ins: string) => 
-              ins.toLowerCase().includes(insuranceLower) || 
-              insuranceLower.includes(ins.toLowerCase())
-            );
+            therapist.accepted_insurance.some((ins: string) => {
+              const insNormalized = normalizeInsurance(ins);
+              return insNormalized.includes(insuranceNormalized) || 
+                     insuranceNormalized.includes(insNormalized) ||
+                     ins.toLowerCase().includes(insuranceNormalized) ||
+                     insuranceNormalized.includes(ins.toLowerCase());
+            });
 
           return hasSpecialty && hasInsurance;
         });
@@ -492,8 +548,14 @@ BOOKING_INFO: {
         matchedTherapists = matchedTherapists.sort((a: any, b: any) => {
           const aExactSpecialty = a.specialties.some((s: string) => s.toLowerCase() === specialtyLower);
           const bExactSpecialty = b.specialties.some((s: string) => s.toLowerCase() === specialtyLower);
-          const aExactInsurance = a.accepted_insurance.some((ins: string) => ins.toLowerCase() === insuranceLower);
-          const bExactInsurance = b.accepted_insurance.some((ins: string) => ins.toLowerCase() === insuranceLower);
+          const aExactInsurance = a.accepted_insurance.some((ins: string) => {
+            const insNorm = normalizeInsurance(ins);
+            return insNorm === insuranceNormalized;
+          });
+          const bExactInsurance = b.accepted_insurance.some((ins: string) => {
+            const insNorm = normalizeInsurance(ins);
+            return insNorm === insuranceNormalized;
+          });
 
           // Prioritize exact matches
           if (aExactSpecialty && aExactInsurance && !(bExactSpecialty && bExactInsurance)) return -1;
@@ -503,19 +565,20 @@ BOOKING_INFO: {
         });
 
         // Update inquiry with matched therapist and status
-      if (matchedTherapists && matchedTherapists.length > 0) {
+      if (matchedTherapists && matchedTherapists.length > 0 && matchedTherapists[0] && matchedTherapists[0].id) {
+          const firstTherapist = matchedTherapists[0];
           const { error: updateError } = await supabase
           .from('inquiries')
           .update({ 
             status: 'matched',
-            matched_therapist_id: matchedTherapists[0].id 
+            matched_therapist_id: firstTherapist.id 
           })
           .eq('id', currentInquiryId);
 
           if (updateError) {
             console.error('Error updating inquiry:', updateError);
           } else {
-            console.log(`Updated inquiry ${currentInquiryId} with matched therapist ${matchedTherapists[0].id}`);
+            console.log(`Updated inquiry ${currentInquiryId} with matched therapist ${firstTherapist.id}`);
           }
           
           // Add therapist list to conversation history so AI knows which names to use
@@ -523,7 +586,8 @@ BOOKING_INFO: {
           const therapistList = matchedTherapists.map((t: any) => `- **${t.name}** (${Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General'})`).join('\n');
           
           // Update the assistant's response to include therapist list if not already there
-          if (!cleanResponse.includes('therapist') || !cleanResponse.toLowerCase().includes(matchedTherapists[0].name.toLowerCase())) {
+          const firstTherapistName = firstTherapist.name || '';
+          if (!cleanResponse.includes('therapist') || (firstTherapistName && !cleanResponse.toLowerCase().includes(firstTherapistName.toLowerCase()))) {
             cleanResponse += `\n\nHere are the **therapists** I found for you:\n\n${therapistList}\n\nPlease select one of these therapists by **exact name**, and I'll help you book an appointment.`;
           }
           
@@ -640,11 +704,20 @@ BOOKING_INFO: {
             throw new Error(`Invalid date/time format: ${dateStr} ${timeStr}`);
           }
           
-          // Check if date is in the past
+          // Check if date is in the past (with buffer to account for timezone differences)
           const now = new Date();
-          if (startTime < now) {
-            console.error('❌ Appointment date is in the past:', startTime);
-            cleanResponse += `\n\n⚠️ The appointment date you provided (${dateStr}) is in the past. Please select a future date.`;
+          const bufferMinutes = 30; // 30 minute buffer to account for timezone and current time
+          const nowWithBuffer = new Date(now.getTime() + bufferMinutes * 60 * 1000);
+          
+          if (startTime < nowWithBuffer) {
+            console.error('❌ Appointment date is in the past:', startTime, 'Current time:', now);
+            const formattedDate = new Date(startTime).toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            });
+            cleanResponse += `\n\n⚠️ The appointment date you provided (${formattedDate}) is in the past. Please select a future date and time.`;
             throw new Error('Appointment date cannot be in the past');
           }
           

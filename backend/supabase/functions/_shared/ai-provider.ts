@@ -99,29 +99,16 @@ export async function generateAIResponse(
     const requestBody = {
       contents,
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 512, // Further reduced for faster responses
+        temperature: 0.6, // Slightly lower for faster, more deterministic responses
+        maxOutputTokens: 300, // Further reduced to 300 for faster responses
+        topP: 0.9, // Add topP for faster generation
       }
     };
     
-    // ONLY USE FREE TIER GEMINI MODELS - Prioritize fastest, most available models
-    // Expanded list with more free-tier models for better availability
+    // ONLY USE FASTEST GEMINI MODEL - Maximum speed optimization
+    // Single model only for fastest response
     const models = [
-      'gemini-1.5-flash',           // Most reliable and fast - PRIMARY
-      'gemini-1.5-flash-latest',    // Latest flash variant
-      'gemini-1.5-flash-001',       // Versioned flash variant
-      'gemini-1.5-flash-002',       // Another versioned variant
-      'gemini-2.5-flash',           // Gemini 2.5 Flash (new!)
-      'gemini-2.5-flash-latest',    // Latest 2.5 Flash variant (new!)
-      'gemini-2.5-pro',             // Gemini 2.5 Pro (new!)
-      'gemini-2.5-pro-latest',      // Latest 2.5 Pro variant (new!)
-      'gemini-1.5-pro',             // Pro version (free tier)
-      'gemini-1.5-pro-latest',      // Latest pro variant
-      'gemini-pro',                 // Legacy - stable fallback
-      'gemini-2.0-flash-exp',       // Experimental 2.0 version
-      'gemini-2.0-flash',           // Stable 2.0 flash
-      'gemini-1.0-pro',             // Original model
-      'gemini-pro-vision',          // Vision-capable model (free tier)
+      'gemini-1.5-flash',           // Fastest and most reliable - ONLY MODEL
     ];
     
     let lastError = null;
@@ -131,31 +118,61 @@ export async function generateAIResponse(
     
     for (const apiVersion of apiVersions) {
       for (const modelName of models) {
-        // Create new timeout for each model attempt
+        // Create new timeout for each model attempt - maximum speed optimization
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.log(`⏱️  Timeout (8s) for ${modelName}, aborting...`);
+          console.log(`⏱️  Timeout (2s) for ${modelName}, aborting...`);
           controller.abort();
-        }, 8000); // 8 second timeout per model
+        }, 2000); // 2 second timeout - maximum speed
         
         try {
           console.log(`🔄 Trying model: ${modelName} (API: ${apiVersion})`);
-          const response = await fetch(
+          // Use fetch with timeout for faster response
+          const fetchPromise = fetch(
             `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${apiKey}`,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
               body: JSON.stringify(requestBody),
               signal: controller.signal,
             }
           );
+          
+          const response = await fetchPromise;
           
           clearTimeout(timeoutId); // Clear timeout on success
           
           if (response.ok) {
             const data = await response.json();
             console.log(`✅ Success with model: ${modelName} (API: ${apiVersion})`);
-            return data.candidates[0].content.parts[0].text;
+            
+            // Validate response structure before accessing nested properties
+            if (!data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+              console.error('❌ Invalid response: no candidates array');
+              throw new Error(`Invalid response from ${modelName}: no candidates found`);
+            }
+            
+            const candidate = data.candidates[0];
+            if (!candidate || !candidate.content || !candidate.content.parts) {
+              console.error('❌ Invalid response: missing content or parts');
+              throw new Error(`Invalid response from ${modelName}: missing content/parts`);
+            }
+            
+            if (!Array.isArray(candidate.content.parts) || candidate.content.parts.length === 0) {
+              console.error('❌ Invalid response: empty parts array');
+              throw new Error(`Invalid response from ${modelName}: empty parts array`);
+            }
+            
+            const text = candidate.content.parts[0].text;
+            if (!text || typeof text !== 'string') {
+              console.error('❌ Invalid response: no text in parts[0]');
+              throw new Error(`Invalid response from ${modelName}: no text found`);
+            }
+            
+            return text;
           }
           
           const errorText = await response.text();
@@ -218,17 +235,14 @@ export async function generateAIResponse(
       }
     }
     
-    // All Gemini models failed - NO FALLBACK to other providers
-    console.log('❌ All Gemini free tier models failed - no fallback providers configured');
-    
-    // All Gemini models failed
-    console.error('❌ All Gemini free tier models failed');
+    // All Gemini models failed - ONLY GEMINI SUPPORTED
+    console.log('❌ All Gemini models failed');
     console.error('Last error:', lastError);
     
-    throw new Error('All free Gemini models are currently at capacity. Please wait a moment and try again. This is a temporary limit on Google\'s free tier.');
+    throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again. This is a temporary limit on Google\'s free tier.');
   }
   
-  // ONLY SUPPORT GOOGLE/GEMINI - No other providers
+  // ONLY SUPPORT GEMINI - No other providers
   throw new Error(`Only Google Gemini models are supported. Provider '${provider}' is not available.`);
 }
 

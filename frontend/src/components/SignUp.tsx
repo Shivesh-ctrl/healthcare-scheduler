@@ -32,11 +32,16 @@ export default function SignUp() {
     }
 
     try {
+      // Use production URL if available, otherwise use current origin
+      const redirectUrl = import.meta.env.VITE_PRODUCTION_URL 
+        ? `${import.meta.env.VITE_PRODUCTION_URL}/chat`
+        : `${window.location.origin}/chat`
+      
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/chat`,
+          emailRedirectTo: redirectUrl,
         },
       })
 
@@ -68,11 +73,16 @@ export default function SignUp() {
     setLoading(true)
     setError('')
     try {
+      // Use production URL if available, otherwise use current origin
+      const redirectUrl = import.meta.env.VITE_PRODUCTION_URL 
+        ? `${import.meta.env.VITE_PRODUCTION_URL}/chat`
+        : `${window.location.origin}/chat`
+      
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: email,
         options: {
-          emailRedirectTo: `${window.location.origin}/chat`,
+          emailRedirectTo: redirectUrl,
         },
       })
       if (resendError) throw resendError
