@@ -1,8 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import ChatInterface from './components/ChatInterface'
 import AdminDashboard from './components/AdminDashboard'
+import UserDashboard from './components/UserDashboard'
+import SignUp from './components/SignUp'
+import UserLogin from './components/UserLogin'
 import OAuthCallback from './components/OAuthCallback'
-import { Home, Shield, MessageCircle } from 'lucide-react'
+import { Home, MessageCircle, LogIn, UserPlus, Shield } from 'lucide-react'
 
 function LandingPage() {
   return (
@@ -26,6 +29,13 @@ function LandingPage() {
             >
               <MessageCircle className="w-6 h-6" />
               Start Chat
+            </Link>
+            <Link
+              to="/signup"
+              className="bg-white text-gray-800 border-2 border-green-800 rounded-xl px-8 py-4 font-semibold text-lg hover:shadow-lg hover:bg-green-50 transition-all flex items-center gap-2"
+            >
+              <UserPlus className="w-6 h-6" />
+              Sign Up
             </Link>
             <Link
               to="/admin"
@@ -125,8 +135,11 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/chat" element={<ChatInterface />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/login" element={<UserLogin />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/oauth/callback" element={<OAuthCallback />} />
+        <Route path="/dashboard" element={<ChatInterface />} />
       </Routes>
     </Router>
   )

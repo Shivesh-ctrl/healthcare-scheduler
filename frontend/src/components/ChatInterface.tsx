@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
-import { Send, Bot, User, Loader, Home } from 'lucide-react'
-import { chatAPI } from '../lib/supabase'
+import { Link, useNavigate } from 'react-router-dom'
+import { Send, Bot, User, Loader, Home, LogIn, UserPlus, MessageCircle } from 'lucide-react'
+import { chatAPI, supabase } from '../lib/supabase'
 import TherapistSelection from './TherapistSelection'
 import MarkdownText from './MarkdownText'
-import type { ConversationMessage, Therapist } from '../lib/types'
+import type { ConversationMessage, Therapist, Session } from '../lib/types'
 
 export default function ChatInterface() {
+  const [session, setSession] = useState<Session | null>(null)
+  const [checkingAuth, setCheckingAuth] = useState(true)
+  const navigate = useNavigate()
   const [messages, setMessages] = useState<ConversationMessage[]>([
     {
       role: 'assistant',
@@ -19,6 +22,102 @@ export default function ChatInterface() {
   const [inquiryId, setInquiryId] = useState<string | null>(null)
   const [matchedTherapists, setMatchedTherapists] = useState<Therapist[] | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Check authentication
+  useEffect(() => {
+    // Handle email confirmation callback from URL hash
+    const handleEmailConfirmation = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+      const type = hashParams.get('type')
+
+      if (type === 'signup' || type === 'email_change' || (accessToken && refreshToken)) {
+        try {
+          const { data: { session: newSession }, error } = await supabase.auth.setSession({
+            access_token: accessToken || '',
+            refresh_token: refreshToken || '',
+          })
+
+          if (!error && newSession) {
+            setSession(newSession as Session)
+            window.history.replaceState(null, '', window.location.pathname)
+          }
+        } catch (err) {
+          console.error('Error handling email confirmation:', err)
+        }
+      }
+    }
+
+    handleEmailConfirmation()
+
+    // Function to ensure user record exists in database
+    const ensureUserRecord = async (session: Session | null) => {
+      if (!session?.user) return
+
+      try {
+        // Try to get user record
+        const { data: existingUser, error: fetchError } = await supabase
+          .from('patients')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .single()
+
+        // If user doesn't exist, create it
+        if (fetchError && fetchError.code === 'PGRST116') {
+          const { error: insertError } = await supabase
+            .from('patients')
+            .insert({
+              user_id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name || session.user.email || '',
+            })
+
+          if (insertError) {
+            console.error('Error creating user record:', insertError)
+          } else {
+            console.log('✅ User record created in database')
+          }
+        } else if (fetchError) {
+          console.error('Error checking user record:', fetchError)
+        } else {
+          console.log('✅ User record already exists')
+        }
+      } catch (err) {
+        console.error('Error ensuring user record:', err)
+      }
+    }
+
+    // Check for existing session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session as Session)
+      setCheckingAuth(false)
+      // Ensure user record exists
+      if (session) {
+        await ensureUserRecord(session as Session)
+      } else {
+        // Redirect to login if not authenticated
+        navigate('/login')
+      }
+    })
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session as Session)
+      setCheckingAuth(false)
+      // Ensure user record exists
+      if (session) {
+        await ensureUserRecord(session as Session)
+      } else {
+        // Redirect to login if not authenticated
+        navigate('/login')
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [navigate])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -83,6 +182,27 @@ export default function ChatInterface() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Show loading while checking auth
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center">
+        <Loader className="w-12 h-12 animate-spin text-green-800" />
+      </div>
+    )
+  }
+
+  // Redirect to login page if not authenticated (handled by useEffect above)
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+          <Loader className="w-12 h-12 animate-spin text-green-800 mx-auto mb-4" />
+          <p className="text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    )
   }
 
   if (matchedTherapists && matchedTherapists.length > 0) {

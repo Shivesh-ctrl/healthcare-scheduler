@@ -45,7 +45,7 @@ serve(async (req: Request) => {
       patientInfo
     }: BookAppointmentRequest = requestBody;
 
-    if (!therapistId || !startTime || !patientInfo?.patient_name || !patientInfo?.patient_email) {
+    if (!therapistId || !startTime || !patientInfo?.patient_name) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -54,17 +54,46 @@ serve(async (req: Request) => {
 
     console.log('✅ Step 1 Complete: Received inquiryId, therapistId, startTime, patientInfo');
 
+    const supabase = createSupabaseClient();
+
+    // Get authenticated user's email from auth token if patient_email is missing
+    let authenticatedUserEmail: string | null = null;
+    try {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (!authError && user?.email) {
+          authenticatedUserEmail = user.email;
+          console.log('✅ Authenticated user email:', authenticatedUserEmail);
+        }
+      }
+    } catch (err) {
+      console.log('ℹ️ No authenticated user or error getting user:', err);
+    }
+
+    // Use authenticated email if patient_email is not provided
+    const finalPatientEmail = patientInfo.patient_email || authenticatedUserEmail;
+    if (!finalPatientEmail) {
+      return new Response(
+        JSON.stringify({ error: 'Patient email is required. Please provide email or ensure you are signed in.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Calculate end time (1 hour after start time)
     const start = new Date(startTime);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
     const endTime = end.toISOString();
 
     const patientName = patientInfo.patient_name;
-    const patientEmail = patientInfo.patient_email;
+    const patientEmail = finalPatientEmail;
     const patientPhone = patientInfo.patient_phone;
     const notes = patientInfo.notes;
-
-    const supabase = createSupabaseClient();
+    
+    if (authenticatedUserEmail && !patientInfo.patient_email) {
+      console.log('✅ Using authenticated user email for appointment:', authenticatedUserEmail);
+    }
 
     // ============================================
     // STEP 2: FETCH CREDENTIALS

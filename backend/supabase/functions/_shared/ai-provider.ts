@@ -39,8 +39,38 @@ export function getAIModel(provider: AIProvider = 'openai') {
 
 export async function generateAIResponse(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-  provider: AIProvider = 'openai'
+  provider: AIProvider = 'google'
 ) {
+  // Handle OpenAI provider
+  if (provider === 'openai') {
+    const openaiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiKey) throw new Error('OpenAI API key not configured');
+    
+    try {
+      // Convert messages format for OpenAI
+      const openaiMessages = messages.map(msg => {
+        if (msg.role === 'system') {
+          return { role: 'system' as const, content: msg.content };
+        } else if (msg.role === 'assistant') {
+          return { role: 'assistant' as const, content: msg.content };
+        } else {
+          return { role: 'user' as const, content: msg.content };
+        }
+      });
+      
+      const result = await generateText({
+        model: openai('gpt-3.5-turbo', { apiKey: openaiKey }),
+        messages: openaiMessages,
+        maxTokens: 512,
+        temperature: 0.7,
+      });
+      return result.text;
+    } catch (error) {
+      console.error('OpenAI API error:', error);
+      throw error;
+    }
+  }
+  
   // Try Google first with fallback to Groq if all Google models fail
   if (provider === 'google') {
     const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY');
@@ -75,13 +105,23 @@ export async function generateAIResponse(
     };
     
     // ONLY USE FREE TIER GEMINI MODELS - Prioritize fastest, most available models
-    // Reduced list for faster response times - try fewer models
+    // Expanded list with more free-tier models for better availability
     const models = [
       'gemini-1.5-flash',           // Most reliable and fast - PRIMARY
       'gemini-1.5-flash-latest',    // Latest flash variant
+      'gemini-1.5-flash-001',       // Versioned flash variant
+      'gemini-1.5-flash-002',       // Another versioned variant
+      'gemini-2.5-flash',           // Gemini 2.5 Flash (new!)
+      'gemini-2.5-flash-latest',    // Latest 2.5 Flash variant (new!)
+      'gemini-2.5-pro',             // Gemini 2.5 Pro (new!)
+      'gemini-2.5-pro-latest',      // Latest 2.5 Pro variant (new!)
+      'gemini-1.5-pro',             // Pro version (free tier)
+      'gemini-1.5-pro-latest',      // Latest pro variant
       'gemini-pro',                 // Legacy - stable fallback
-      'gemini-2.0-flash-exp',       // Try 2.0 if 1.5 fails
-      'gemini-1.0-pro',             // Original fallback
+      'gemini-2.0-flash-exp',       // Experimental 2.0 version
+      'gemini-2.0-flash',           // Stable 2.0 flash
+      'gemini-1.0-pro',             // Original model
+      'gemini-pro-vision',          // Vision-capable model (free tier)
     ];
     
     let lastError = null;

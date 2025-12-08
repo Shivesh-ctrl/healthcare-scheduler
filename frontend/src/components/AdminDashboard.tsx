@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase, adminAPI } from '../lib/supabase'
-import { LogOut, Users, Calendar, MessageSquare, Loader, Shield, ArrowLeft, Home, CheckCircle, XCircle, Link2, RefreshCw, ExternalLink } from 'lucide-react'
+import { LogOut, Users, Calendar, MessageSquare, Loader, Shield, ArrowLeft, Home, CheckCircle, XCircle, Link2, RefreshCw, ExternalLink, LogIn } from 'lucide-react'
 import type { Session, AdminData } from '../lib/types'
 
 export default function AdminDashboard() {
@@ -17,10 +17,64 @@ export default function AdminDashboard() {
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Handle email confirmation callback from URL hash
+    const handleEmailConfirmation = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+      const type = hashParams.get('type')
+
+      // Check if this is an email confirmation callback
+      if (type === 'signup' || type === 'email_change' || (accessToken && refreshToken)) {
+        try {
+          // Exchange the tokens for a session
+          const { data: { session: newSession }, error } = await supabase.auth.setSession({
+            access_token: accessToken || '',
+            refresh_token: refreshToken || '',
+          })
+
+          if (error) {
+            console.error('Error setting session from email confirmation:', error)
+            setLoginError('Failed to confirm email. Please try logging in.')
+          } else if (newSession) {
+            // Check if user is admin (you can add admin check logic here)
+            // For now, if they confirm email via /admin, assume they're admin
+            setSession(newSession as Session)
+            // Clear the hash from URL
+            window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          }
+        } catch (err: any) {
+          console.error('Error handling email confirmation:', err)
+          setLoginError('Failed to confirm email. Please try logging in.')
+        }
+      }
+    }
+
+    // Handle email confirmation first
+    handleEmailConfirmation()
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session as Session | null)
       setLoading(false)
-      if (session) {
+      if (session?.user) {
+        // Ensure user record exists in database
+        try {
+          const { error: insertError } = await supabase
+            .from('patients')
+            .upsert({
+              user_id: session.user.id,
+              email: session.user.email || '',
+              name: session.user.user_metadata?.name || session.user.email || '',
+            }, {
+              onConflict: 'user_id'
+            })
+
+          if (insertError && insertError.code !== '23505') {
+            console.error('Error ensuring user record:', insertError)
+          }
+        } catch (err) {
+          console.error('Error ensuring user record:', err)
+        }
         loadAdminData(session as Session)
       }
     })
@@ -29,6 +83,7 @@ export default function AdminDashboard() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session as Session | null)
+      setLoading(false)
       if (session) {
         loadAdminData(session as Session)
       }
@@ -91,8 +146,36 @@ export default function AdminDashboard() {
         password,
       })
 
-      if (error) throw error
-      setSession(data.session as Session)
+      if (error) {
+        // Check if it's an email confirmation error
+        if (error.message.includes('Email not confirmed') || error.message.includes('email_not_confirmed')) {
+          setLoginError('Please check your email and click the confirmation link before logging in.')
+        } else {
+          throw error
+        }
+      } else {
+        setSession(data.session as Session)
+        // Ensure user record exists in database
+        if (data.session?.user) {
+          try {
+            const { error: insertError } = await supabase
+              .from('patients')
+              .upsert({
+                user_id: data.session.user.id,
+                email: data.session.user.email || '',
+                name: data.session.user.user_metadata?.name || data.session.user.email || '',
+              }, {
+                onConflict: 'user_id'
+              })
+
+            if (insertError && insertError.code !== '23505') {
+              console.error('Error ensuring user record:', insertError)
+            }
+          } catch (err) {
+            console.error('Error ensuring user record:', err)
+          }
+        }
+      }
     } catch (error: any) {
       setLoginError(error.message || 'Login failed')
     } finally {
@@ -131,64 +214,87 @@ export default function AdminDashboard() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 relative border border-gray-100">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full">
           <Link
             to="/"
-            className="absolute top-4 right-4 flex items-center gap-2 text-gray-600 hover:text-green-800 transition-colors"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-6 transition-colors"
           >
-            <Home className="w-5 h-5" />
-            <span className="hidden sm:inline">Home</span>
+            <ArrowLeft className="w-5 h-5" />
+            Back to Home
           </Link>
-          <div className="bg-gradient-to-r from-green-800 to-green-900 p-4 rounded-xl w-fit mx-auto mb-6 shadow-md">
-            <Shield className="w-12 h-12 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-800 text-center mb-2">Admin Login</h1>
-          <p className="text-gray-600 text-center mb-8">Access the admin dashboard</p>
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-green-700 focus:ring-2 focus:ring-green-100 transition-colors"
-                placeholder="admin@example.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-green-700 focus:ring-2 focus:ring-green-100 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {loginError && (
-              <div className="bg-green-50 border-2 border-green-200 rounded-xl p-3 text-green-800 text-sm">
-                {loginError}
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="text-center mb-8">
+              <div className="bg-gradient-to-r from-green-800 to-green-900 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <LogIn className="w-8 h-8 text-white" />
               </div>
-            )}
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">Login</h1>
+              <p className="text-gray-600">Sign in to access your dashboard</p>
+            </div>
 
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full bg-gradient-to-r from-green-800 to-green-900 text-white rounded-xl px-6 py-3 font-semibold hover:shadow-lg hover:from-green-900 hover:to-green-950 transition-all disabled:opacity-50 shadow-md"
-            >
-              {isLoggingIn ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-800 focus:border-transparent outline-none transition-all"
+                  placeholder="your@email.com"
+                />
+              </div>
 
-          <p className="text-sm text-gray-500 text-center mt-6">
-            Create an admin account in Supabase Dashboard
-          </p>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-800 focus:border-transparent outline-none transition-all"
+                  placeholder="Enter your password"
+                />
+              </div>
+
+              {loginError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoggingIn}
+                className="w-full bg-gradient-to-r from-green-800 to-green-900 text-white py-3 rounded-lg font-semibold hover:from-green-900 hover:to-green-950 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isLoggingIn ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-gray-500">
+                Admin access only. For patient chat, go to{' '}
+                <Link to="/chat" className="text-green-800 font-semibold hover:underline">
+                  Chat Interface
+                </Link>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     )

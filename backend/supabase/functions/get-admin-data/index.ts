@@ -64,7 +64,7 @@ serve(async (req: Request) => {
           status
         )
       `)
-      .order('start_time', { ascending: false })
+      .order('start_time', { ascending: true })
       .limit(100);
     
     console.log('📅 Raw appointments query result:', {

@@ -26,11 +26,15 @@ export const chatAPI = {
     inquiryId: string | null = null,
     conversationHistory: ChatRequest['conversationHistory'] = []
   ): Promise<ChatResponse> => {
+    // Get user's session token to send authenticated email
+    const { data: { session } } = await supabase.auth.getSession()
+    const authToken = session?.access_token || supabaseAnonKey
+    
     const response = await fetch(`${supabaseUrl}/functions/v1/handle-chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`,
+        'Authorization': `Bearer ${authToken}`,
       },
       body: JSON.stringify({ message, inquiryId, conversationHistory }),
     })

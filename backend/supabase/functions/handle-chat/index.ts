@@ -19,6 +19,22 @@ serve(async (req: Request) => {
     }
 
     const supabase = createSupabaseClient();
+    
+    // Get authenticated user's email from auth token
+    let authenticatedUserEmail: string | null = null;
+    try {
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (!authError && user?.email) {
+          authenticatedUserEmail = user.email;
+          console.log('✅ Authenticated user email:', authenticatedUserEmail);
+        }
+      }
+    } catch (err) {
+      console.log('ℹ️ No authenticated user or error getting user:', err);
+    }
 
     // Create or load existing inquiry
     let currentInquiryId = inquiryId;
@@ -123,12 +139,23 @@ If the patient mentions any of the following serious concerns, you MUST immediat
 - **If a patient asks about a therapist not in the list, say they're not available and show only therapists from the AVAILABLE THERAPISTS list**
 - If no therapists match the criteria, tell the patient and ask for different criteria, but ONLY suggest therapists from the AVAILABLE THERAPISTS list
 
-**When to Book:**
-- Patient has selected a therapist (by exact name from your list)
-- Patient has confirmed a specific date and time
-- **You have patient's name AND email (EMAIL IS MANDATORY - DO NOT BOOK WITHOUT IT)**
+**When to Book (ALL REQUIRED INFORMATION MUST BE COLLECTED FIRST):**
+- ✅ Patient has selected a therapist (by exact name from your list)
+- ✅ Patient has confirmed a specific date and time
+- ✅ **You have patient's FULL NAME (MANDATORY)**
+- ✅ **You have patient's EMAIL ADDRESS (MANDATORY - DO NOT BOOK WITHOUT IT)**
+- ✅ **You have patient's PHONE NUMBER (if possible, but email is more important)**
+- ✅ **ALL information is complete and verified**
 - **YOU MUST include BOOKING_INFO** - the system cannot book without it
 - **NEVER include BOOKING_INFO or EXTRACTED_INFO in the text shown to the patient** - these are internal only
+
+**CRITICAL - Do NOT book until you have ALL required information:**
+- If patient name is missing → Ask: "What is your full name?"
+- If email is missing → Ask: "What is your email address? I need it to send you a confirmation."
+- If date is missing → Ask: "What date would you like for your appointment?"
+- If time is missing → Ask: "What time works best for you?"
+- If therapist is not selected → Show available therapists and ask them to choose
+- **ONLY create BOOKING_INFO when you have ALL of the above information**
 
 **BOOKING_INFO Format (REQUIRED when booking):**
 BOOKING_INFO: {
@@ -367,6 +394,12 @@ BOOKING_INFO: {
         patient_name: bookingInfo.patient_name,
         patient_email: bookingInfo.patient_email
       });
+    }
+    
+    // Automatically add authenticated user's email if available and not already set
+    if (authenticatedUserEmail && !inquiryData.patient_email) {
+      inquiryData.patient_email = authenticatedUserEmail;
+      console.log('✅ Added authenticated user email to inquiry:', authenticatedUserEmail);
     }
     
     if (!currentInquiryId) {
@@ -617,18 +650,31 @@ BOOKING_INFO: {
           
           console.log('✅ Valid start time:', startTime.toISOString());
           
+          // Use authenticated user's email if available and bookingInfo doesn't have email
+          const finalPatientEmail = bookingInfo.patient_email || authenticatedUserEmail;
+          if (!finalPatientEmail) {
+            console.error('❌ No patient email available for booking');
+            cleanResponse += '\n\n⚠️ I need your email address to complete the booking. Please provide your email.';
+            throw new Error('Patient email is required for booking');
+          }
+          
           // Call book-appointment function internally
           const bookingRequest = {
             inquiryId: currentInquiryId,
             therapistId: therapist.id,
             startTime: startTime.toISOString(),
             patientInfo: {
-              patient_name: bookingInfo.patient_name,
-              patient_email: bookingInfo.patient_email,
+              patient_name: bookingInfo.patient_name || '',
+              patient_email: finalPatientEmail,
               patient_phone: bookingInfo.patient_phone || null,
               notes: bookingInfo.notes || null
             }
           };
+          
+          console.log('📝 Using patient email for booking:', finalPatientEmail);
+          if (authenticatedUserEmail && !bookingInfo.patient_email) {
+            console.log('✅ Using authenticated user email:', authenticatedUserEmail);
+          }
           
           console.log('📅 Calling book-appointment with:', bookingRequest);
           
@@ -674,11 +720,12 @@ BOOKING_INFO: {
           }
             
             // Update inquiry status AND patient info
+            const finalEmail = bookingInfo.patient_email || authenticatedUserEmail;
             const inquiryUpdateData: any = {
               status: 'scheduled',
               matched_therapist_id: therapist.id,
-              patient_name: bookingInfo.patient_name,
-              patient_email: bookingInfo.patient_email,
+              patient_name: bookingInfo.patient_name || '',
+              patient_email: finalEmail,
             };
             
             if (bookingInfo.patient_phone) {
