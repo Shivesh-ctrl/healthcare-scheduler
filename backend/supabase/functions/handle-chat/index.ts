@@ -301,14 +301,24 @@ Say: "I'm sorry, that therapist is not available in our system. However, I can h
 
 **CRITICAL RULE - THERAPIST NAMES (ABSOLUTE FORBIDDEN - READ CAREFULLY):**
 - 🚨🚨🚨 NEVER mention a therapist name UNTIL the system has found matches AND user has provided their problem/insurance
+- 🚨🚨🚨 NEVER say "I'm here to help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "I can help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "[Therapist Name] who can provide that support" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "[Therapist Name] would be [date]" or "[Therapist Name] Friday's date"
 - 🚨🚨🚨 NEVER use therapist names in date examples like "Friday, [Jasmine Goins, LCSW's Date]"
 - 🚨🚨🚨 NEVER say "I'll search for [therapist name]" or mention a therapist before matching
-- 🚨🚨🚨 FORBIDDEN EXAMPLES: "Jasmine Goins, LCSW would be December 13th", "Friday, [Jasmine Goins, LCSW's Date]", "[Jasmine Goins, LCSW Friday's date]" - ALL FORBIDDEN
+- 🚨🚨🚨 FORBIDDEN EXAMPLES: 
+  - "I'm here to help you find Jasmine Goins, LCSW who can provide that support" - FORBIDDEN
+  - "Jasmine Goins, LCSW would be December 13th" - FORBIDDEN
+  - "Friday, [Jasmine Goins, LCSW's Date]" - FORBIDDEN
+  - "[Jasmine Goins, LCSW Friday's date]" - FORBIDDEN
+  - "I can help you find [Therapist Name]" - FORBIDDEN
+  - ALL FORBIDDEN
 - 🚨🚨🚨 NEVER say "you're looking for [Therapist Name]" or "So, to recap, you're looking for [Therapist Name]" - these are FORBIDDEN
 - 🚨🚨🚨 NEVER ask "what you're looking for in [Therapist Name]" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 If user mentions a therapist name, DO NOT repeat it back - just say "I'll search for therapists who match your criteria"
 - 🚨🚨🚨 ONLY mention therapist names AFTER the system has found matches and you're showing results
+- 🚨🚨🚨 INSTEAD of saying "I'm here to help you find [Therapist Name]", say "I'm here to help you find the right therapist" or "I'm here to help you find support"
 - If user asks about a specific therapist, say "Let me check if that therapist is available" but DON'T mention their name in your response until you've confirmed they match
 - When discussing dates, ONLY mention the date itself (e.g., "Friday, December 12th, 2025") - NEVER combine with therapist names
 - When user says "next Friday", respond with: "If today is ${currentDateStr}, then 'next Friday' would be [calculate actual date]. I'll search for therapists..."
@@ -320,12 +330,17 @@ When user first says they're looking for therapy or need help:
 1. ✅ DO: Ask "What brings you in today?" or "What would you like help with?"
 2. ✅ DO: Ask "What insurance do you have?"
 3. ✅ DO: Ask about their problem/concerns (anxiety, depression, etc.)
-4. ❌ DO NOT: Mention any therapist names
-5. ❌ DO NOT: Ask "what you're looking for in [Therapist Name]"
-6. ❌ DO NOT: Assume they mentioned a therapist name when they say "I'm looking for therapy"
-7. ❌ DO NOT: Say "To help me find the best match, could you tell me a little more about what you're looking for in [Therapist Name]?"
+4. ✅ DO: Say "I'm here to help you find the right therapist" or "I'm here to help you find support"
+5. ❌ DO NOT: Mention any therapist names (even in helpful phrases)
+6. ❌ DO NOT: Say "I'm here to help you find [Therapist Name]"
+7. ❌ DO NOT: Say "I can help you find [Therapist Name]"
+8. ❌ DO NOT: Say "[Therapist Name] who can provide that support"
+9. ❌ DO NOT: Ask "what you're looking for in [Therapist Name]"
+10. ❌ DO NOT: Assume they mentioned a therapist name when they say "I'm looking for therapy"
+11. ❌ DO NOT: Say "To help me find the best match, could you tell me a little more about what you're looking for in [Therapist Name]?"
 
 **ONLY AFTER you have their problem AND insurance, THEN show matched therapists with names.**
+**BEFORE that, use generic phrases like "the right therapist" or "a therapist" - NEVER use actual therapist names.**
 
 **RULES:**
 - 🚨🚨🚨 CRITICAL RULE #1: ONLY use therapist names from the EXACT list above. The valid names are: ${allActiveTherapists && allActiveTherapists.length > 0 ? allActiveTherapists.map((t: any) => t.name).join(', ') : 'NONE'}. Before mentioning ANY therapist name, verify it exists in this exact list. If it doesn't exist, DO NOT mention it.
@@ -528,6 +543,9 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       // Check for patterns like "you're looking for [Therapist Name]" - FORBIDDEN before matching
       const lookingForPattern = /(?:you'?re\s+looking\s+for|so,?\s+to\s+recap,?\s+you'?re\s+looking\s+for)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
       
+      // Check for patterns like "I'm here to help you find [Therapist Name]" - FORBIDDEN before matching
+      const helpFindPattern = /(?:i'?m\s+here\s+to\s+help\s+you\s+find|i\s+can\s+help\s+you\s+find)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)(?:\s+who\s+can\s+provide\s+that\s+support)?/gi;
+      
       // If therapist names are mentioned before matching, remove them
       if ((!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
         if (lookingForPattern.test(aiResponse)) {
@@ -536,6 +554,14 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           aiResponse = aiResponse.replace(lookingForPattern, () => {
             // Replace with generic text
             return "I'll search for therapists who match your criteria";
+          });
+        }
+        
+        if (helpFindPattern.test(aiResponse)) {
+          console.error('❌ AI mentioned therapist name with "I\'m here to help you find" before matching - removing');
+          // Replace with generic text
+          aiResponse = aiResponse.replace(helpFindPattern, () => {
+            return "I'm here to help you find the right therapist";
           });
         }
       }
