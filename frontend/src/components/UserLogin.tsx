@@ -29,9 +29,9 @@ export default function UserLogin() {
           throw loginError
         }
       } else if (data.session) {
-        // Ensure user record exists in database
+        // Ensure user record exists in database (non-blocking)
         try {
-          const { error: insertError } = await supabase
+          const { error: upsertError } = await supabase
             .from('patients')
             .upsert({
               user_id: data.session.user.id,
@@ -41,11 +41,15 @@ export default function UserLogin() {
               onConflict: 'user_id'
             })
 
-          if (insertError && insertError.code !== '23505') {
-            console.error('Error ensuring user record:', insertError)
+          if (upsertError) {
+            // Log but don't block - this is handled by database trigger anyway
+            console.warn('⚠️  Could not upsert patient record (non-critical):', upsertError.message)
+          } else {
+            console.log('✅ Patient record ensured')
           }
         } catch (err) {
-          console.error('Error ensuring user record:', err)
+          // Don't block login - this is non-critical
+          console.warn('⚠️  Error ensuring patient record (non-critical):', err)
         }
         
         // Redirect to chat after successful login

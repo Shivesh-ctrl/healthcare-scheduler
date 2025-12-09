@@ -29,7 +29,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Get inquiries with therapist details
+    // Get inquiries with therapist details (limit to 5 most recent for display)
     const { data: inquiries, error: inquiriesError } = await supabase
       .from('inquiries')
       .select(`
@@ -42,7 +42,7 @@ serve(async (req: Request) => {
         )
       `)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(5); // Limit to 5 most recent inquiries for admin dashboard
 
     if (inquiriesError) throw inquiriesError;
 

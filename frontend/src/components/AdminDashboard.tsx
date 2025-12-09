@@ -59,7 +59,7 @@ export default function AdminDashboard() {
       if (session?.user) {
         // Ensure user record exists in database
         try {
-          const { error: insertError } = await supabase
+          const { error: upsertError } = await supabase
             .from('patients')
             .upsert({
               user_id: session.user.id,
@@ -69,11 +69,13 @@ export default function AdminDashboard() {
               onConflict: 'user_id'
             })
 
-          if (insertError && insertError.code !== '23505') {
-            console.error('Error ensuring user record:', insertError)
+          if (upsertError) {
+            // Log but don't block - this is handled by database trigger anyway
+            console.warn('⚠️  Could not upsert patient record (non-critical):', upsertError.message)
           }
         } catch (err) {
-          console.error('Error ensuring user record:', err)
+          // Don't block - this is non-critical
+          console.warn('⚠️  Error ensuring patient record (non-critical):', err)
         }
         loadAdminData(session as Session)
       }
@@ -113,8 +115,22 @@ export default function AdminDashboard() {
       setSearchParams({})
     }
 
-    return () => subscription.unsubscribe()
-  }, [searchParams, setSearchParams])
+    // Auto-refresh admin data every 30 seconds when session is active
+    let refreshInterval: NodeJS.Timeout | null = null
+    if (session) {
+      refreshInterval = setInterval(() => {
+        console.log('🔄 Auto-refreshing admin data...')
+        loadAdminData(session as Session)
+      }, 30000) // Refresh every 30 seconds
+    }
+
+    return () => {
+      subscription.unsubscribe()
+      if (refreshInterval) {
+        clearInterval(refreshInterval)
+      }
+    }
+  }, [searchParams, setSearchParams, session])
 
   const loadAdminData = async (session: Session) => {
     try {
@@ -154,7 +170,7 @@ export default function AdminDashboard() {
           throw error
         }
       } else {
-        setSession(data.session as Session)
+      setSession(data.session as Session)
         // Ensure user record exists in database
         if (data.session?.user) {
           try {
@@ -231,50 +247,50 @@ export default function AdminDashboard() {
               </div>
               <h1 className="text-3xl font-bold text-gray-800 mb-2">Login</h1>
               <p className="text-gray-600">Sign in to access your dashboard</p>
-            </div>
+          </div>
 
             <form onSubmit={handleLogin} className="space-y-6">
-              <div>
+            <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email Address
                 </label>
-                <input
+              <input
                   id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-800 focus:border-transparent outline-none transition-all"
                   placeholder="your@email.com"
-                />
-              </div>
+              />
+            </div>
 
-              <div>
+            <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                   Password
                 </label>
-                <input
+              <input
                   id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-800 focus:border-transparent outline-none transition-all"
                   placeholder="Enter your password"
-                />
-              </div>
+              />
+            </div>
 
-              {loginError && (
+            {loginError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  {loginError}
-                </div>
-              )}
+                {loginError}
+              </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={isLoggingIn}
+            <button
+              type="submit"
+              disabled={isLoggingIn}
                 className="w-full bg-gradient-to-r from-green-800 to-green-900 text-white py-3 rounded-lg font-semibold hover:from-green-900 hover:to-green-950 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
+            >
                 {isLoggingIn ? (
                   <>
                     <Loader className="w-5 h-5 animate-spin" />
@@ -283,8 +299,8 @@ export default function AdminDashboard() {
                 ) : (
                   'Sign In'
                 )}
-              </button>
-            </form>
+            </button>
+          </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-500">

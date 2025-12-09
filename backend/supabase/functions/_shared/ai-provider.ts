@@ -3,7 +3,7 @@ import { openai } from 'https://esm.sh/@ai-sdk/openai@1.0.0';
 import { anthropic } from 'https://esm.sh/@ai-sdk/anthropic@1.0.0';
 import { createGoogleGenerativeAI } from 'https://esm.sh/@ai-sdk/google@1.0.2';
 
-export type AIProvider = 'openai' | 'anthropic' | 'google' | 'groq';
+export type AIProvider = 'openai' | 'anthropic' | 'google';
 
 export function getAIModel(provider: AIProvider = 'openai') {
   switch (provider) {
@@ -22,15 +22,6 @@ export function getAIModel(provider: AIProvider = 'openai') {
       if (!googleKey) throw new Error('Google AI API key not configured');
       const google = createGoogleGenerativeAI({ apiKey: googleKey });
       return google('gemini-1.5-flash');
-    
-    case 'groq':
-      const groqKey = Deno.env.get('GROQ_API_KEY');
-      if (!groqKey) throw new Error('Groq API key not configured');
-      // Groq uses OpenAI-compatible API
-      return openai('llama-3.1-70b-versatile', { 
-        apiKey: groqKey,
-        baseURL: 'https://api.groq.com/openai/v1'
-      });
     
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
@@ -71,7 +62,7 @@ export async function generateAIResponse(
     }
   }
   
-  // Try Google first with fallback to Groq if all Google models fail
+  // Use Google Gemini models only
   if (provider === 'google') {
     const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY');
     if (!apiKey) throw new Error('Google AI API key not configured');
@@ -99,16 +90,19 @@ export async function generateAIResponse(
     const requestBody = {
       contents,
       generationConfig: {
-        temperature: 0.6, // Slightly lower for faster, more deterministic responses
-        maxOutputTokens: 300, // Further reduced to 300 for faster responses
-        topP: 0.9, // Add topP for faster generation
+        temperature: 0.5, // Lower for faster, more deterministic responses
+        maxOutputTokens: 800, // Higher limit - AI will use what it needs based on context
+        topP: 0.8, // Lower for faster generation
+        topK: 15, // Limit choices for faster generation
       }
     };
     
-    // ONLY USE FASTEST GEMINI MODEL - Maximum speed optimization
-    // Single model only for fastest response
+    // Use multiple models with fallback for better availability
+    // Only use models that actually exist and are available
     const models = [
-      'gemini-1.5-flash',           // Fastest and most reliable - ONLY MODEL
+      'gemini-1.5-flash',      // Try first (fastest, most reliable)
+      'gemini-2.0-flash-exp',  // Fallback 1 (experimental)
+      'gemini-2.5-flash',      // Fallback 2 (if available)
     ];
     
     let lastError = null;
@@ -116,14 +110,24 @@ export async function generateAIResponse(
     // Try v1 API only (faster, more stable) - skip v1beta to save time
     const apiVersions = ['v1'];
     
+    // Maximum total timeout: 30 seconds (3 models × 10s each)
+    const maxTotalTimeout = 30000;
+    const startTime = Date.now();
+    
     for (const apiVersion of apiVersions) {
       for (const modelName of models) {
-        // Create new timeout for each model attempt - maximum speed optimization
+        // Check if we've exceeded maximum total timeout
+        if (Date.now() - startTime > maxTotalTimeout) {
+          console.log(`⏱️  Maximum total timeout (${maxTotalTimeout}ms) exceeded, stopping...`);
+          throw new Error('Request timeout. All Gemini models are currently at capacity. Please wait a moment and try again.');
+        }
+        
+        // Create new timeout for each model attempt - increased for better reliability
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.log(`⏱️  Timeout (2s) for ${modelName}, aborting...`);
+          console.log(`⏱️  Timeout (10s) for ${modelName}, aborting...`);
           controller.abort();
-        }, 2000); // 2 second timeout - maximum speed
+        }, 10000); // 10 second timeout - allows models time to respond even under load
         
         try {
           console.log(`🔄 Trying model: ${modelName} (API: ${apiVersion})`);
@@ -143,103 +147,133 @@ export async function generateAIResponse(
           
           const response = await fetchPromise;
           
+          // FAST FAILURE: Check status immediately, don't wait for timeout
+          clearTimeout(timeoutId); // Clear timeout as soon as we get response
+          
+          if (!response.ok) {
+            // Read error text quickly
+            const errorText = await response.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { error: { message: errorText } };
+            }
+            
+            // Check for quota errors or model not found - FAIL FAST
+            const isQuotaError = errorData.error?.message?.includes('quota') || 
+                                errorData.error?.message?.includes('Quota') ||
+                                errorData.error?.message?.includes('capacity') ||
+                                errorData.error?.message?.includes('Capacity') ||
+                                errorData.error?.message?.includes('RESOURCE_EXHAUSTED') ||
+                                errorText.includes('quota') ||
+                                errorText.includes('Quota') ||
+                                errorText.includes('capacity') ||
+                                errorText.includes('Capacity') ||
+                                errorText.includes('RESOURCE_EXHAUSTED') ||
+                                response.status === 429 || // Rate limit status
+                                response.status === 503; // Service unavailable
+            
+            const isModelNotFound = errorData.error?.message?.includes('not found') ||
+                                   errorData.error?.message?.includes('does not exist') ||
+                                   errorData.error?.message?.includes('not available') ||
+                                   errorText.includes('not found');
+            
+            // If quota exceeded, fail immediately - don't try other models
+            if (isQuotaError) {
+              console.log(`❌ Quota exceeded for ${modelName} - failing fast`);
+              throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again. This is a temporary limit on Google\'s free tier.');
+            }
+            
+            // If model not found, try next model
+            if (isModelNotFound) {
+              console.log(`⚠️  Model not found for ${modelName} (${apiVersion}), trying next...`);
+              lastError = new Error(`Model not found for ${modelName}`);
+              continue;
+            }
+            
+            // If it's a 400 error but not quota/model not found, might be API version issue - try next version
+            if (response.status === 400 && apiVersion === 'v1beta') {
+              console.log(`⚠️  API version issue for ${modelName}, will try v1 next`);
+              continue;
+            }
+            
+            // Other errors, throw immediately
+            throw new Error(`Google AI API error (${modelName}, ${apiVersion}): ${errorText}`);
+          }
+          
           clearTimeout(timeoutId); // Clear timeout on success
           
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`✅ Success with model: ${modelName} (API: ${apiVersion})`);
-            
-            // Validate response structure before accessing nested properties
-            if (!data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0) {
-              console.error('❌ Invalid response: no candidates array');
-              throw new Error(`Invalid response from ${modelName}: no candidates found`);
-            }
-            
-            const candidate = data.candidates[0];
-            if (!candidate || !candidate.content || !candidate.content.parts) {
-              console.error('❌ Invalid response: missing content or parts');
-              throw new Error(`Invalid response from ${modelName}: missing content/parts`);
-            }
-            
-            if (!Array.isArray(candidate.content.parts) || candidate.content.parts.length === 0) {
-              console.error('❌ Invalid response: empty parts array');
-              throw new Error(`Invalid response from ${modelName}: empty parts array`);
-            }
-            
-            const text = candidate.content.parts[0].text;
-            if (!text || typeof text !== 'string') {
-              console.error('❌ Invalid response: no text in parts[0]');
-              throw new Error(`Invalid response from ${modelName}: no text found`);
-            }
-            
-            return text;
+          // Response is OK, parse it
+          const data = await response.json();
+          console.log(`✅ Success with model: ${modelName} (API: ${apiVersion})`);
+          
+          // Validate response structure before accessing nested properties
+          if (!data.candidates || !Array.isArray(data.candidates) || data.candidates.length === 0) {
+            console.error('❌ Invalid response: no candidates array');
+            throw new Error(`Invalid response from ${modelName}: no candidates found`);
           }
           
-          const errorText = await response.text();
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch {
-            errorData = { error: { message: errorText } };
+          const candidate = data.candidates[0];
+          if (!candidate || !candidate.content || !candidate.content.parts) {
+            console.error('❌ Invalid response: missing content or parts');
+            throw new Error(`Invalid response from ${modelName}: missing content/parts`);
           }
           
-          // Check for quota errors or model not found
-          const isQuotaError = errorData.error?.message?.includes('quota') || 
-                              errorData.error?.message?.includes('Quota') ||
-                              errorText.includes('quota') ||
-                              errorText.includes('Quota');
-          
-          const isModelNotFound = errorData.error?.message?.includes('not found') ||
-                                 errorData.error?.message?.includes('does not exist') ||
-                                 errorData.error?.message?.includes('not available') ||
-                                 errorText.includes('not found');
-          
-          // If quota exceeded or model not found, try next model
-          if (isQuotaError || isModelNotFound) {
-            console.log(`⚠️  ${isQuotaError ? 'Quota exceeded' : 'Model not found'} for ${modelName} (${apiVersion}), trying next...`);
-            lastError = new Error(`${isQuotaError ? 'Quota exceeded' : 'Model not found'} for ${modelName}`);
-            continue;
+          if (!Array.isArray(candidate.content.parts) || candidate.content.parts.length === 0) {
+            console.error('❌ Invalid response: empty parts array');
+            throw new Error(`Invalid response from ${modelName}: empty parts array`);
           }
           
-          // If it's a 400 error but not quota/model not found, might be API version issue - try next version
-          if (response.status === 400 && apiVersion === 'v1beta') {
-            console.log(`⚠️  API version issue for ${modelName}, will try v1 next`);
-            continue;
+          const text = candidate.content.parts[0].text;
+          if (!text || typeof text !== 'string') {
+            console.error('❌ Invalid response: no text in parts[0]');
+            throw new Error(`Invalid response from ${modelName}: no text found`);
           }
           
-          // Other errors, throw immediately
-          throw new Error(`Google AI API error (${modelName}, ${apiVersion}): ${errorText}`);
+          return text;
         } catch (error) {
           clearTimeout(timeoutId);
           
-          // If timeout, try next model quickly
+          // If timeout, try next model (don't fail immediately)
           if (error.name === 'AbortError' || error.message?.includes('aborted')) {
             console.log(`⏱️  Timeout for ${modelName}, trying next model...`);
             lastError = new Error(`Request timeout for ${modelName}`);
-            continue;
+            continue; // Try next model instead of failing immediately
           }
           
-          // If it's a quota error, continue to next model
-          if (error.message?.includes('quota') || error.message?.includes('Quota')) {
-            lastError = error;
-            continue;
+          // If it's a quota error, throw immediately - don't try other models
+          if (error.message?.includes('quota') || 
+              error.message?.includes('Quota') || 
+              error.message?.includes('capacity') ||
+              error.message?.includes('Capacity')) {
+            throw error; // Re-throw quota errors immediately
           }
-          // If it's a model not found, continue
+          
+          // If it's a model not found, continue to next model
           if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
             lastError = error;
             continue;
           }
+          
           // Other errors, throw immediately
           throw error;
         }
       }
     }
     
-    // All Gemini models failed - ONLY GEMINI SUPPORTED
+    // All Gemini models failed - provide helpful error message
     console.log('❌ All Gemini models failed');
     console.error('Last error:', lastError);
     
-    throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again. This is a temporary limit on Google\'s free tier.');
+    // Provide more specific error message based on last error
+    if (lastError?.message?.includes('timeout') || lastError?.message?.includes('Request timeout')) {
+      throw new Error('Request timeout. All Gemini models are currently at capacity. Please wait a moment and try again.');
+    } else if (lastError?.message?.includes('quota') || lastError?.message?.includes('capacity')) {
+      throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again. This is a temporary limit on Google\'s free tier.');
+    } else {
+      throw new Error('Request timeout. All Gemini models are currently at capacity. Please wait a moment and try again.');
+    }
   }
   
   // ONLY SUPPORT GEMINI - No other providers

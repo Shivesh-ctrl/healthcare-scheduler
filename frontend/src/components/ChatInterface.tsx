@@ -63,8 +63,9 @@ export default function ChatInterface() {
           .eq('user_id', session.user.id)
           .single()
 
-        // If user doesn't exist, create it
-        if (fetchError && fetchError.code === 'PGRST116') {
+        // If user doesn't exist (404 or PGRST116), create it
+        if (fetchError && (fetchError.code === 'PGRST116' || fetchError.code === '42P01' || fetchError.message?.includes('404'))) {
+          console.log('ℹ️  Patient record not found, creating...')
           const { error: insertError } = await supabase
             .from('patients')
             .insert({
@@ -75,16 +76,19 @@ export default function ChatInterface() {
 
           if (insertError) {
             console.error('Error creating user record:', insertError)
+            // Don't throw - this is not critical, user can still use the app
           } else {
             console.log('✅ User record created in database')
           }
         } else if (fetchError) {
-          console.error('Error checking user record:', fetchError)
+          // Log but don't block - RLS might be preventing access, but user can still use app
+          console.warn('⚠️  Could not check user record (this is OK if RLS is enabled):', fetchError.message)
         } else {
           console.log('✅ User record already exists')
         }
       } catch (err) {
-        console.error('Error ensuring user record:', err)
+        // Don't throw - this is not critical
+        console.warn('⚠️  Error ensuring user record (non-critical):', err)
       }
     }
 
