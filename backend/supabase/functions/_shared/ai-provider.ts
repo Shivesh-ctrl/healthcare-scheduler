@@ -90,19 +90,16 @@ export async function generateAIResponse(
     const requestBody = {
       contents,
       generationConfig: {
-        temperature: 0.5, // Lower for faster, more deterministic responses
-        maxOutputTokens: 800, // Higher limit - AI will use what it needs based on context
-        topP: 0.8, // Lower for faster generation
-        topK: 15, // Limit choices for faster generation
+        temperature: 0.3, // Lower for faster, more deterministic responses
+        maxOutputTokens: 600, // Reduced for faster generation
+        topP: 0.7, // Lower for faster generation
+        topK: 10, // Limit choices for faster generation
       }
     };
     
-    // Use multiple models with fallback for better availability
-    // Only use models that actually exist and are available
+    // Use fastest model first, fallback only if needed
     const models = [
       'gemini-1.5-flash',      // Try first (fastest, most reliable)
-      'gemini-2.0-flash-exp',  // Fallback 1 (experimental)
-      'gemini-2.5-flash',      // Fallback 2 (if available)
     ];
     
     let lastError = null;
@@ -110,8 +107,8 @@ export async function generateAIResponse(
     // Try v1 API only (faster, more stable) - skip v1beta to save time
     const apiVersions = ['v1'];
     
-    // Maximum total timeout: 30 seconds (3 models × 10s each)
-    const maxTotalTimeout = 30000;
+    // Maximum total timeout: 20 seconds (reduced for faster failure)
+    const maxTotalTimeout = 20000;
     const startTime = Date.now();
     
     for (const apiVersion of apiVersions) {
@@ -122,12 +119,12 @@ export async function generateAIResponse(
           throw new Error('Request timeout. All Gemini models are currently at capacity. Please wait a moment and try again.');
         }
         
-        // Create new timeout for each model attempt - increased for better reliability
+        // Create new timeout for each model attempt - optimized for speed
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.log(`⏱️  Timeout (10s) for ${modelName}, aborting...`);
+          console.log(`⏱️  Timeout (8s) for ${modelName}, aborting...`);
           controller.abort();
-        }, 10000); // 10 second timeout - allows models time to respond even under load
+        }, 8000); // 8 second timeout - faster failure for better UX
         
         try {
           console.log(`🔄 Trying model: ${modelName} (API: ${apiVersion})`);

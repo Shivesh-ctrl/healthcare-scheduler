@@ -182,49 +182,18 @@ serve(async (req: Request) => {
       // Create exact name list for validation
       const exactNames = allActiveTherapists.map((t: any) => t.name).join(', ');
       
-      therapistListForAI = `\n\n╔══════════════════════════════════════════════════════════════╗
-║  🚨🚨🚨 CRITICAL: ONLY THESE 14 THERAPISTS EXIST 🚨🚨🚨        ║
-╚══════════════════════════════════════════════════════════════╝
-
-**EXACT VALID THERAPIST NAMES (COPY THESE EXACTLY - NO CHANGES):**
+      therapistListForAI = `\n\n**CRITICAL: ONLY THESE THERAPISTS EXIST - USE EXACT NAMES:**
 ${exactNames}
 
-**YOU ARE ABSOLUTELY FORBIDDEN FROM MENTIONING ANY OTHER THERAPIST NAMES.**
+**RULES:**
+- ONLY use names from list above - NO "Dr." prefix, NO invented names
+- If name not in list, say "I can help you find a therapist who specializes in [their need]"
+- Copy EXACT name with credentials (LCPC, LCSW, LSW, CADC, LPC)
 
-**VALID THERAPIST NAMES WITH DETAILS:**\n`;
+**THERAPIST DETAILS:**\n`;
       allActiveTherapists.forEach((t: any, index: number) => {
-        therapistListForAI += `${index + 1}. **${t.name}** - Specialties: ${Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General'}\n`;
+        therapistListForAI += `${index + 1}. **${t.name}** - ${Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General'}\n`;
       });
-      therapistListForAI += `\n╔══════════════════════════════════════════════════════════════╗
-║  🚨 ABSOLUTE RULE - READ THIS CAREFULLY 🚨                    ║
-╚══════════════════════════════════════════════════════════════╝
-
-**VALIDATION CHECKLIST - BEFORE MENTIONING ANY THERAPIST NAME:**
-1. ✅ Check if the name is EXACTLY in this list: ${exactNames}
-2. ✅ If it is NOT in the list, DO NOT mention it
-3. ✅ Copy the EXACT name from the list above (including credentials)
-4. ✅ NEVER add "Dr." prefix - NONE of our therapists use "Dr."
-5. ✅ NEVER invent variations like "Dr. Alex Chen" or "Mr. Alex Chen"
-
-**FORBIDDEN NAMES - DO NOT INVENT THESE:**
-- ❌ "Dr. Alex Chen" - DOES NOT EXIST (correct name is "Chris Dubois, LPC")
-- ❌ "Mr. Alex Chen, LCSW" - DOES NOT EXIST
-- ❌ "Dr. Evelyn Reed" - DOES NOT EXIST
-- ❌ "Dr. Sarah Johnson" - DOES NOT EXIST
-- ❌ Any name with "Dr." prefix (NONE of our 14 therapists use "Dr.")
-- ❌ Any name NOT in this exact list: ${exactNames}
-
-**IF USER ASKS FOR A THERAPIST NOT ON THE LIST:**
-Say: "I'm sorry, that therapist is not available in our system. However, I can help you find a therapist from our available team who specializes in [their need]."
-
-**WHEN SUGGESTING THERAPISTS:**
-- ONLY use names from this exact list: ${exactNames}
-- Copy the EXACT name including credentials (LCPC, LCSW, LSW, CADC, LPC)
-- NEVER add "Dr." prefix - our therapists don't use it
-- NEVER invent variations or similar names
-- If you're not sure, DON'T mention the name - suggest they choose from the list
-
-**REMEMBER: If a name is not in this list "${exactNames}", it DOES NOT EXIST. Do not mention it.\n`;
     }
 
     // Find matched therapists if we have both specialty and insurance
