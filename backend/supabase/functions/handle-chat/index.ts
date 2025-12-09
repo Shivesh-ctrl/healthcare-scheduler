@@ -302,23 +302,29 @@ Say: "I'm sorry, that therapist is not available in our system. However, I can h
 **CRITICAL RULE - THERAPIST NAMES (ABSOLUTE FORBIDDEN - READ CAREFULLY):**
 - 🚨🚨🚨 NEVER mention a therapist name UNTIL the system has found matches AND user has provided their problem/insurance
 - 🚨🚨🚨 NEVER say "I'm here to help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "I'm here to support you in finding [Therapist Name]" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "I can help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "I can support you in finding [Therapist Name]" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "[Therapist Name] who can provide that support" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "[Therapist Name] who can provide the right care" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "[Therapist Name] would be [date]" or "[Therapist Name] Friday's date"
 - 🚨🚨🚨 NEVER use therapist names in date examples like "Friday, [Jasmine Goins, LCSW's Date]"
 - 🚨🚨🚨 NEVER say "I'll search for [therapist name]" or mention a therapist before matching
 - 🚨🚨🚨 FORBIDDEN EXAMPLES: 
   - "I'm here to help you find Jasmine Goins, LCSW who can provide that support" - FORBIDDEN
+  - "I'm here to support you in finding Jasmine Goins, LCSW who can provide the right care" - FORBIDDEN
+  - "I understand that you're feeling depressed, and it takes a lot of strength to reach out for help. I'm here to support you in finding Jasmine Goins, LCSW who can provide the right care." - FORBIDDEN
   - "Jasmine Goins, LCSW would be December 13th" - FORBIDDEN
   - "Friday, [Jasmine Goins, LCSW's Date]" - FORBIDDEN
   - "[Jasmine Goins, LCSW Friday's date]" - FORBIDDEN
   - "I can help you find [Therapist Name]" - FORBIDDEN
+  - "I can support you in finding [Therapist Name]" - FORBIDDEN
   - ALL FORBIDDEN
 - 🚨🚨🚨 NEVER say "you're looking for [Therapist Name]" or "So, to recap, you're looking for [Therapist Name]" - these are FORBIDDEN
 - 🚨🚨🚨 NEVER ask "what you're looking for in [Therapist Name]" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 If user mentions a therapist name, DO NOT repeat it back - just say "I'll search for therapists who match your criteria"
 - 🚨🚨🚨 ONLY mention therapist names AFTER the system has found matches and you're showing results
-- 🚨🚨🚨 INSTEAD of saying "I'm here to help you find [Therapist Name]", say "I'm here to help you find the right therapist" or "I'm here to help you find support"
+- 🚨🚨🚨 INSTEAD of saying "I'm here to help you find [Therapist Name]" or "I'm here to support you in finding [Therapist Name]", say "I'm here to help you find the right therapist" or "I'm here to support you in finding the right therapist" or "I'm here to help you find support"
 - If user asks about a specific therapist, say "Let me check if that therapist is available" but DON'T mention their name in your response until you've confirmed they match
 - When discussing dates, ONLY mention the date itself (e.g., "Friday, December 12th, 2025") - NEVER combine with therapist names
 - When user says "next Friday", respond with: "If today is ${currentDateStr}, then 'next Friday' would be [calculate actual date]. I'll search for therapists..."
@@ -543,8 +549,8 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       // Check for patterns like "you're looking for [Therapist Name]" - FORBIDDEN before matching
       const lookingForPattern = /(?:you'?re\s+looking\s+for|so,?\s+to\s+recap,?\s+you'?re\s+looking\s+for)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
       
-      // Check for patterns like "I'm here to help you find [Therapist Name]" - FORBIDDEN before matching
-      const helpFindPattern = /(?:i'?m\s+here\s+to\s+help\s+you\s+find|i\s+can\s+help\s+you\s+find)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)(?:\s+who\s+can\s+provide\s+that\s+support)?/gi;
+      // Check for patterns like "I'm here to help you find [Therapist Name]" or "I'm here to support you in finding [Therapist Name]" - FORBIDDEN before matching
+      const helpFindPattern = /(?:i'?m\s+here\s+to\s+(?:help\s+you\s+find|support\s+you\s+in\s+finding)|i\s+can\s+(?:help\s+you\s+find|support\s+you\s+in\s+finding))\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)(?:\s+who\s+can\s+provide\s+(?:that\s+support|the\s+right\s+care))?/gi;
       
       // If therapist names are mentioned before matching, remove them
       if ((!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
@@ -558,10 +564,29 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         }
         
         if (helpFindPattern.test(aiResponse)) {
-          console.error('❌ AI mentioned therapist name with "I\'m here to help you find" before matching - removing');
-          // Replace with generic text
-          aiResponse = aiResponse.replace(helpFindPattern, () => {
+          console.error('❌ AI mentioned therapist name with "I\'m here to help/support you find" before matching - removing');
+          // Replace with generic text - preserve the empathy but remove therapist name
+          aiResponse = aiResponse.replace(helpFindPattern, (match, therapistName) => {
+            // Check if the sentence starts with empathy (like "I understand that you're feeling...")
+            // If so, keep the empathy part but replace the therapist name part
+            if (match.toLowerCase().includes('understand') || match.toLowerCase().includes('strength')) {
+              return "I'm here to support you in finding the right therapist";
+            }
             return "I'm here to help you find the right therapist";
+          });
+        }
+        
+        // Also check for the full pattern: "I understand... I'm here to support you in finding [Therapist Name] who can provide the right care"
+        const fullEmpathyPattern = /(?:i\s+understand[^.]*\.\s*)?i'?m\s+here\s+to\s+support\s+you\s+in\s+finding\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s+who\s+can\s+provide\s+(?:that\s+support|the\s+right\s+care)/gi;
+        if (fullEmpathyPattern.test(aiResponse) && (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
+          console.error('❌ AI mentioned therapist name in full empathy pattern before matching - removing');
+          aiResponse = aiResponse.replace(fullEmpathyPattern, (match, therapistName) => {
+            // Extract the empathy part if it exists
+            const empathyMatch = match.match(/i\s+understand[^.]*\./i);
+            if (empathyMatch) {
+              return empathyMatch[0] + " I'm here to support you in finding the right therapist who can provide the care you need.";
+            }
+            return "I'm here to support you in finding the right therapist who can provide the care you need.";
           });
         }
       }
