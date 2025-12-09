@@ -30,21 +30,62 @@ export const chatAPI = {
     const { data: { session } } = await supabase.auth.getSession()
     const authToken = session?.access_token || supabaseAnonKey
     
-    const response = await fetch(`${supabaseUrl}/functions/v1/handle-chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({ message, inquiryId, conversationHistory }),
-    })
+    // Create AbortController for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
     
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`Failed to send message: ${error}`)
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/handle-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({ message, inquiryId, conversationHistory }),
+        signal: controller.signal,
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) {
+        let errorMessage = `Failed to send message: ${response.status} ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          } else if (errorData.reply) {
+            errorMessage = errorData.reply
+          }
+        } catch {
+          try {
+            const errorText = await response.text()
+            if (errorText) {
+              errorMessage = errorText
+            }
+          } catch {
+            // Use default error message
+          }
+        }
+        throw new Error(errorMessage)
+      }
+      
+      const data = await response.json()
+      
+      // Validate response format
+      if (!data.reply) {
+        throw new Error('Invalid response format: missing reply field')
+      }
+      
+      return data
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+      
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout. The server is taking too long to respond. Please try again.')
+      }
+      
+      throw error
     }
-    
-    return response.json()
   }
 }
 

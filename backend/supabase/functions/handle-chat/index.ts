@@ -5,11 +5,27 @@ import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import type { ChatRequest, ChatResponse, ConversationMessage, ExtractedInfo } from '../_shared/types.ts';
 
 serve(async (req: Request) => {
+  // Log request start
+  console.log('🚀 handle-chat function called');
+  console.log('📋 Method:', req.method);
+  console.log('📋 URL:', req.url);
+  
+  // Handle CORS FIRST - before any other processing
+  if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight request');
+    return new Response('ok', { 
+      status: 200,
+      headers: corsHeaders 
+    });
+  }
+
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
   try {
+    console.log('📥 Parsing request body...');
     const { message, inquiryId, conversationHistory = [] }: ChatRequest = await req.json();
+    console.log('✅ Request parsed. Message length:', message?.length || 0);
 
     if (!message) {
       return new Response(
@@ -68,171 +84,160 @@ serve(async (req: Request) => {
     // Parse EXTRACTED_INFO from current message if available (will be parsed later, but we need it now)
     const tempAIMessage = message; // We'll parse this after getting AI response, but for now use current message
     
-    // Build conversation history
+    // Find matched therapists BEFORE AI response so AI can include them automatically
+    // Use inquiry data if available, or try to extract from message
+    let matchedTherapistsForAI = undefined;
+    
+    // Helper function to normalize insurance names (handle variations and spelling mistakes)
+    const normalizeInsurance = (insurance: string): string => {
+      const normalized = insurance.toLowerCase().trim()
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .replace(/[^a-z0-9\s]/g, ''); // Remove special characters
+      
+      // Map common variations to standard names
+      const insuranceMap: Record<string, string> = {
+        'blue cross': 'blue cross blue shield',
+        'bluecross': 'blue cross blue shield',
+        'bcbs': 'blue cross blue shield',
+        'blue shield': 'blue cross blue shield',
+        'blue cross blue shield': 'blue cross blue shield',
+        'aetna': 'aetna',
+        'etna': 'aetna',
+        'cigna': 'cigna',
+        'signa': 'cigna',
+        'united': 'united',
+        'united healthcare': 'united',
+        'uhc': 'united',
+        'medicare': 'medicare',
+        'medicair': 'medicare',
+        'medicaid': 'medicaid',
+        'medicade': 'medicaid',
+        'humana': 'humana',
+        'human': 'humana',
+      };
+      
+      for (const [key, value] of Object.entries(insuranceMap)) {
+        if (normalized.includes(key) || key.includes(normalized)) {
+          return value;
+        }
+      }
+      
+      return normalized;
+    };
+    
+    // Try to get specialty and insurance from inquiry or message
+    let specialtyForMatching: string | undefined;
+    let insuranceForMatching: string | undefined;
+    
+    if (inquiry && inquiry.extracted_specialty && inquiry.insurance_info) {
+      specialtyForMatching = inquiry.extracted_specialty;
+      insuranceForMatching = inquiry.insurance_info;
+    } else {
+      // Try to extract from message (simple keyword matching)
+      const messageLower = message.toLowerCase();
+      const specialtyKeywords: Record<string, string> = {
+        'alcohol': 'addiction', 'addiction': 'addiction', 'substance': 'addiction', 'drinking': 'addiction',
+        'depression': 'depression', 'depressed': 'depression', 'sad': 'depression',
+        'anxiety': 'anxiety', 'anxious': 'anxiety', 'worry': 'anxiety',
+        'trauma': 'trauma', 'ptsd': 'trauma',
+        'bipolar': 'bipolar', 'mood': 'bipolar',
+        'couples': 'couples', 'relationship': 'couples', 'marriage': 'couples',
+        'child': 'child', 'adhd': 'adhd', 'autism': 'autism',
+        'career': 'career', 'stress': 'stress', 'work': 'career',
+        'eating': 'eating disorders', 'eating disorder': 'eating disorders',
+        'geriatric': 'geriatric', 'dementia': 'dementia', 'elderly': 'geriatric',
+      };
+      
+      for (const [keyword, specialty] of Object.entries(specialtyKeywords)) {
+        if (messageLower.includes(keyword)) {
+          specialtyForMatching = specialty;
+          break;
+        }
+      }
+      
+      const insuranceKeywords = ['blue cross', 'bcbs', 'aetna', 'cigna', 'united', 'medicare', 'medicaid', 'humana'];
+      for (const keyword of insuranceKeywords) {
+        if (messageLower.includes(keyword)) {
+          insuranceForMatching = keyword;
+          break;
+        }
+      }
+    }
+    
+    // Find matched therapists if we have both specialty and insurance
+    if (specialtyForMatching && insuranceForMatching) {
+      const specialtyLower = specialtyForMatching.toLowerCase().trim();
+      const insuranceNormalized = normalizeInsurance(insuranceForMatching);
+      
+      const { data: allTherapists } = await supabase.from('therapists').select('*').eq('is_active', true);
+      if (allTherapists) {
+        matchedTherapistsForAI = allTherapists.filter((t: any) => {
+          const hasSpecialty = t.specialties && Array.isArray(t.specialties) &&
+            t.specialties.some((s: string) => s.toLowerCase().includes(specialtyLower) || specialtyLower.includes(s.toLowerCase()));
+          const hasInsurance = t.accepted_insurance && Array.isArray(t.accepted_insurance) &&
+            t.accepted_insurance.some((ins: string) => {
+              const insNorm = normalizeInsurance(ins);
+              return insNorm.includes(insuranceNormalized) || insuranceNormalized.includes(insNorm);
+            });
+          return hasSpecialty && hasInsurance;
+        });
+      }
+    }
+
+    // Build conversation history - OPTIMIZED SHORT PROMPT for faster responses
+    let systemPrompt = `Empathetic healthcare scheduling assistant. Be warm, supportive, validate feelings. Extract ALL info from messages (insurance, schedule, date, time, name, email). Handle spelling mistakes.
+
+**EMERGENCY:** If user mentions suicide/self-harm, immediately provide: 988 (call/text), Crisis Text Line 741741, 1-800-273-8255. Show empathy, encourage immediate help.
+
+**THERAPISTS (ONLY 8 - USE EXACT NAMES):**
+Dr. Sarah Johnson (anxiety, depression, trauma) | aetna, bluecross, cigna, united
+Dr. Michael Chen (bipolar, depression) | aetna, medicare, medicaid
+Dr. Emily Rodriguez (couples, relationships) | bluecross, cigna, humana
+Dr. James Williams (addiction, trauma) | aetna, bluecross, united, cigna
+Dr. Lisa Thompson (child, adhd, autism) | medicare, medicaid, bluecross
+Dr. Robert Martinez (career, stress) | aetna, cigna, united
+Dr. Amanda Davis (eating disorders) | aetna, bluecross, humana
+Dr. David Lee (geriatric, dementia) | medicare, medicaid, aetna
+
+**RULES:**
+- ONLY use these 8 names. NEVER invent names.
+- Extract multiple info from one message (insurance+date+time together).
+- Insurance: "blue cross"/"bcbs"→"blue cross blue shield", "aetna", "cigna", "united", "medicare", "medicaid", "humana".
+- Dates: Accept any format, convert to YYYY-MM-DD. ONLY future dates.
+- Times: "10am"→"10:00", "2pm"→"14:00", "morning"→"09:00".
+
+**RESPONSE LENGTH (BE SMART - ADAPT TO CONTEXT):**
+- **Therapist bios/details**: FULL responses (15-25 lines) - include specialties, insurance, experience, approach. NEVER cut off mid-sentence.
+- **Emergency situations**: 8-12 lines - show deep empathy, provide helplines
+- **Emotional situations**: 8-12 lines - validate feelings, show support
+- **Information collection**: 6-8 lines - acknowledge, ask for next piece
+- **Routine tasks** (booking, confirming): 5-7 lines - warm but concise
+- **Simple questions**: 3-5 lines - direct answer
+
+**FORMATS:**
+EXTRACTED_INFO: {"problem":"depression","specialty":"depression","insurance":"blue cross blue shield","schedule":"weekdays"}
+BOOKING_INFO: {"therapist_name":"Dr. Sarah Johnson","patient_name":"John Doe","patient_email":"john@example.com","appointment_date":"2025-12-10","appointment_time":"10:00"}
+
+**COLLECT:** Therapist (from list), date (future only), time, name, email (required), phone (optional).
+**NEVER show EXTRACTED_INFO/BOOKING_INFO to user - internal only.**`;
+
+    // Add matched therapists to system prompt if available
+    if (matchedTherapistsForAI && matchedTherapistsForAI.length > 0) {
+      systemPrompt += `\n\n**🎯 MATCHED THERAPISTS FOR USER (SHOW THESE IMMEDIATELY WITH FULL BIOS):**\n`;
+      matchedTherapistsForAI.forEach((t: any) => {
+        systemPrompt += `\n**${t.name}**\n`;
+        systemPrompt += `- Specialties: ${Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General'}\n`;
+        systemPrompt += `- Insurance: ${Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various'}\n`;
+        if (t.bio) systemPrompt += `- Bio: ${t.bio}\n`;
+        systemPrompt += `\n**IMMEDIATELY show this therapist's full bio (15-25 lines) when user asks about their specialty. Include all details about their experience, approach, and how they can help.**\n`;
+      });
+      systemPrompt += `\n**CRITICAL: When user asks about therapists for their problem, IMMEDIATELY show the matched therapists above with FULL bios. Don't say "I'll help you find" - just show them directly!**\n`;
+    }
+
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       {
         role: 'system',
-        content: `You are a deeply empathetic, compassionate healthcare scheduling assistant. Always show genuine care and understanding. Provide detailed, warm, and supportive responses (6-20 lines depending on the situation). Validate feelings, acknowledge courage, and offer hope. Extract ALL information from user messages, even if provided together or with spelling mistakes.
-
-**🚨 CRITICAL - EMERGENCY PROTOCOL:**
-If the user mentions ANY of the following, you MUST immediately provide crisis helpline information in your response:
-- Suicidal thoughts: "I want to kill myself", "I want to die", "ending my life", "suicide"
-- Self-harm: "I want to hurt myself", "cutting", "self-harm"
-- Immediate danger: "I'm going to harm myself", "I have a plan", "I can't go on"
-- Severe crisis: "I can't cope", "I'm in immediate danger", "I need help right now"
-
-**When emergency is detected:**
-1. **IMMEDIATELY acknowledge** their pain with deep empathy (2-3 sentences)
-2. **Provide crisis helpline numbers prominently** (must be in your response):
-   - **988 Suicide & Crisis Lifeline**: Call or text **988** (available 24/7, free and confidential)
-   - **Crisis Text Line**: Text **HOME to 741741** (available 24/7, free and confidential)
-   - **National Suicide Prevention Lifeline**: **1-800-273-8255** (available 24/7)
-3. **Encourage immediate help** (2-3 sentences): "Please reach out to one of these helplines right now. You don't have to go through this alone. These trained counselors can help you right now."
-4. **Still offer scheduling help** (1-2 sentences): "I'm also here to help you find a therapist for ongoing support when you're ready."
-5. **Total response should be 8-15 lines** for emergency situations
-
-**🚨 CRITICAL - AVAILABLE THERAPISTS (ONLY THESE 8 EXIST - USE EXACT NAMES):**
-- **Dr. Sarah Johnson** - anxiety, depression, trauma, ptsd | aetna, bluecross, cigna, united
-- **Dr. Michael Chen** - bipolar, depression, mood disorders | aetna, medicare, medicaid
-- **Dr. Emily Rodriguez** - couples therapy, relationship issues | bluecross, cigna, humana
-- **Dr. James Williams** - addiction, substance abuse, trauma | aetna, bluecross, united, cigna
-- **Dr. Lisa Thompson** - child therapy, adhd, autism | medicare, medicaid, bluecross
-- **Dr. Robert Martinez** - career counseling, stress management | aetna, cigna, united
-- **Dr. Amanda Davis** - eating disorders, body image | aetna, bluecross, humana
-- **Dr. David Lee** - geriatric, dementia, depression | medicare, medicaid, aetna
-
-**⚠️ THERAPIST NAME RULES (MANDATORY):**
-- **ONLY use the EXACT names listed above** - Dr. Sarah Johnson, Dr. Michael Chen, Dr. Emily Rodriguez, Dr. James Williams, Dr. Lisa Thompson, Dr. Robert Martinez, Dr. Amanda Davis, Dr. David Lee
-- **NEVER invent, make up, or suggest other therapist names** like "Dr. Emily Carter", "Dr. John Smith", etc.
-- **If user mentions a name NOT in the list above, tell them that therapist is not available and show ONLY the 8 therapists from the list**
-- **When showing availability, ONLY mention therapists from the list above**
-
-**SMART INFORMATION EXTRACTION:**
-- Extract MULTIPLE pieces of info from ONE message (insurance + schedule + date + time all at once)
-- Handle spelling mistakes intelligently (e.g., "blu cross" = "blue cross", "depresion" = "depression")
-- Understand dates in ANY format: "Dec 10", "10 december", "12/10", "10th Dec", "December 10th" → convert to YYYY-MM-DD
-- Understand times in ANY format: "10am", "10 AM", "10:00", "10:00am", "morning", "afternoon" → convert to HH:MM 24-hour
-- Recognize insurance variations: "BCBS", "blue cross", "bluecross", "blue cross blue shield" = "blue cross blue shield"
-- Extract partial info and ask for missing pieces naturally
-
-**INSURANCE NAME VARIATIONS (be smart about these):**
-- "blue cross", "bluecross", "bcbs", "blue cross blue shield", "blue shield" → "blue cross blue shield"
-- "aetna", "etna" → "aetna"
-- "cigna", "signa" → "cigna"
-- "united", "united healthcare", "uhc" → "united"
-- "medicare", "medicair" → "medicare"
-- "medicaid", "medicade" → "medicaid"
-- "humana", "human" → "humana"
-
-**DATE UNDERSTANDING (be flexible, but ALWAYS FUTURE DATES):**
-- "10 december", "dec 10", "10/12", "12/10", "10th december", "december 10th" → "2025-12-10" (if in future)
-- "tomorrow", "next monday", "friday" → calculate actual FUTURE date
-- Relative dates: "next week", "in 2 weeks" → calculate from today (must be future)
-- **CRITICAL: NEVER suggest or mention past dates. If user mentions a past date, ask them to choose a future date**
-- **When showing availability, ONLY mention future dates (tomorrow or later)**
-- **If calculating dates, ensure they are in the future relative to today**
-
-**TIME UNDERSTANDING (be flexible):**
-- "10am", "10 AM", "10:00", "10:00am", "10:00 AM" → "10:00"
-- "2pm", "2 PM", "14:00", "2:00pm" → "14:00"
-- "morning" → "09:00", "afternoon" → "14:00", "evening" → "17:00"
-- "any time", "anytime", "flexible" → keep as "any time"
-
-**RESPONSE LENGTH GUIDELINES (6-15 lines, optimized for speed):**
-- **Emergency situations** (suicidal thoughts, self-harm, immediate danger): 8-12 lines. IMMEDIATELY provide helpline numbers (988, Crisis Text Line 741741, 1-800-273-8255). Show deep empathy, validate their pain, encourage immediate help, then offer scheduling support.
-- **Emotional situations** (sadness, depression, anxiety): 8-12 lines. Provide empathetic responses. Show genuine care, validate feelings, acknowledge their courage, offer hope and support. Use warm, understanding language.
-- **Information collection** (when user provides multiple pieces): 6-8 lines. Acknowledge empathetically what they shared, validate briefly, then ask for the next required piece. Be concise but warm.
-- **Routine tasks** (booking, scheduling, confirming): 5-7 lines. Provide warm, supportive responses. Show appreciation, acknowledge importance, offer encouragement.
-- **Therapist matching** (showing available therapists): 6-10 lines. Provide encouraging responses with therapist list. Validate their decision, show support.
-
-**RULES:**
-- **ONLY use the 8 therapists listed above. NEVER invent names like "Dr. Emily Carter" or any other name not in the list.**
-- **If you mention a therapist, it MUST be one of: Dr. Sarah Johnson, Dr. Michael Chen, Dr. Emily Rodriguez, Dr. James Williams, Dr. Lisa Thompson, Dr. Robert Martinez, Dr. Amanda Davis, or Dr. David Lee.**
-- **When showing availability, ONLY mention future dates (tomorrow or later), NEVER past dates.**
-- **ALWAYS be deeply empathetic, warm, and supportive. Show genuine care in every response.**
-- **Validate feelings, acknowledge courage, offer hope and encouragement.**
-- Extract ALL available info from each message, don't wait for separate messages.
-- For crisis situations, provide: 988 Suicide & Crisis Lifeline (call/text 988), Crisis Text Line (text HOME to 741741).
-
-**COLLECT FOR BOOKING:**
-- Therapist name (from list above)
-- Date (YYYY-MM-DD format, but accept any input format)
-- Time (HH:MM 24-hour format, but accept any input format)
-- Patient full name
-- Patient email (MANDATORY)
-- Patient phone (optional)
-
-**BOOKING_INFO Format (when all info collected):**
-BOOKING_INFO: {
-  "therapist_name": "Dr. Sarah Johnson",
-  "patient_name": "John Doe",
-  "patient_email": "john@example.com",
-  "patient_phone": "123-456-7890",
-  "appointment_date": "2025-12-10",
-  "appointment_time": "10:00",
-  "timezone": "America/Chicago"
-}
-
-**EXTRACTED_INFO Format (extract whenever you have ANY info):**
-EXTRACTED_INFO: {
-  "problem": "depression",
-  "specialty": "depression",
-  "schedule": "weekdays any time",
-  "insurance": "blue cross blue shield"
-}
-
-**EXAMPLES OF SMART EXTRACTION:**
-
-User: "I have blue cross and want appointment on 10 december at 10am"
-→ Extract: insurance="blue cross blue shield", date="2025-12-10", time="10:00"
-
-User: "depresion, blu cross, weekdays morning"
-→ Extract: problem="depression", specialty="depression", insurance="blue cross blue shield", schedule="weekdays morning"
-
-User: "I'm Ram Singh, email ram@example.com, book with Dr. Sarah Johnson on Dec 10 at 2pm"
-→ Extract: patient_name="Ram Singh", patient_email="ram@example.com", therapist_name="Dr. Sarah Johnson" (EXACT name from list), date="2025-12-10" (if future), time="14:00"
-
-**CRITICAL EXAMPLES - WHAT NOT TO DO:**
-- ❌ NEVER say "Dr. Emily Carter" - that therapist doesn't exist. Use "Dr. Emily Rodriguez" instead.
-- ❌ NEVER mention past dates like "last Wednesday" or dates that have already passed.
-- ✅ ALWAYS use exact names: "Dr. Emily Rodriguez", "Dr. Sarah Johnson", etc.
-- ✅ ALWAYS suggest future dates: "next Wednesday", "tomorrow", "next week"
-
-**EXAMPLES OF DETAILED EMPATHETIC RESPONSES (6-20 lines):**
-
-**Emotional situation (LONGER, deeply empathetic response):**
-User: "I am feeling sad"
-→ "I'm really sorry to hear that you're feeling sad. It takes a lot of strength and courage to acknowledge those feelings and reach out for help, and I want you to know that you're not alone in this. Many people experience sadness and find that therapy can be incredibly helpful in working through these difficult emotions. You're taking an important step by reaching out, and I'm here to support you through this process. Would you like to tell me a bit more about what you're experiencing, or would you like me to help you find a therapist who can support you right away?"
-
-**Information collection (6-8 lines, empathetic and fast):**
-User: "i am feeling sad i have blue cross insurance and free on weekday any time next week"
-→ "I'm really sorry to hear that you're feeling sad, and I want you to know that reaching out for help is a brave and important step. I understand you have Blue Cross insurance and you're available on weekdays at any time next week. That's great information - I can help you find a therapist who accepts your insurance and fits your schedule.
-
-To complete your booking, I'll need your full name and email address. What's your name?"
-
-User: "depression, blue cross, wednesday 10 am"
-→ "I understand you're dealing with depression and have Blue Cross insurance, and you'd like to schedule an appointment for Wednesday at 10am. Seeking help for depression is a brave step, and I'm here to support you through this process.
-
-To help you complete your booking, may I have your full name and email address?"
-
-User: "John Doe"
-→ "Thank you, John. I appreciate you sharing that with me. To complete your booking and send you a confirmation, I'll need your email address. What email would you like to use?"
-
-User: "john@example.com"
-→ "Perfect, thank you. I have all your information. Now, let me help you find the right therapist for you. Based on your needs, I can show you therapists who specialize in depression and accept Blue Cross. Would you like me to show you the available options?"
-
-**CRITICAL: Always show empathy, validate feelings, and acknowledge the courage it takes to seek help. Make responses warm, supportive, and encouraging.**
-
-**Routine task (WARM, supportive response):**
-User: "I want to book an appointment"
-→ "I'd be happy to help you book an appointment. Taking this step to care for your mental health is really important, and I'm here to make the process as smooth as possible for you. To help match you with the right therapist, which insurance provider do you have?"
-
-**IMPORTANT:** 
-- NEVER show EXTRACTED_INFO or BOOKING_INFO to patient (internal only)
-- Extract as much info as possible from each message
-- Be smart about spelling mistakes and variations
-- Always show empathy, validate feelings, and acknowledge the courage it takes to seek help. Make responses warm, supportive, and encouraging.
-- Only book when you have ALL required info (therapist, date, time, name, email)`
+        content: systemPrompt
       },
       ...conversationHistory,
       { role: 'user', content: message }
@@ -465,44 +470,6 @@ User: "I want to book an appointment"
       });
       therapistListForAI += '\n**YOU MUST ONLY USE THESE 8 THERAPISTS. NEVER MAKE UP OR SUGGEST OTHER THERAPISTS.**\n';
     }
-
-    // Helper function to normalize insurance names (handle variations and spelling mistakes)
-    const normalizeInsurance = (insurance: string): string => {
-      const normalized = insurance.toLowerCase().trim()
-        .replace(/\s+/g, ' ') // Normalize whitespace
-        .replace(/[^a-z0-9\s]/g, ''); // Remove special characters
-      
-      // Map common variations to standard names
-      const insuranceMap: Record<string, string> = {
-        'blue cross': 'blue cross blue shield',
-        'bluecross': 'blue cross blue shield',
-        'bcbs': 'blue cross blue shield',
-        'blue shield': 'blue cross blue shield',
-        'blue cross blue shield': 'blue cross blue shield',
-        'aetna': 'aetna',
-        'etna': 'aetna',
-        'cigna': 'cigna',
-        'signa': 'cigna',
-        'united': 'united',
-        'united healthcare': 'united',
-        'uhc': 'united',
-        'medicare': 'medicare',
-        'medicair': 'medicare',
-        'medicaid': 'medicaid',
-        'medicade': 'medicaid',
-        'humana': 'humana',
-        'human': 'humana',
-      };
-      
-      // Check for partial matches
-      for (const [key, value] of Object.entries(insuranceMap)) {
-        if (normalized.includes(key) || key.includes(normalized)) {
-          return value;
-        }
-      }
-      
-      return normalized;
-    };
 
     // If we have enough info, find matching therapists
     let matchedTherapists = undefined;
@@ -900,28 +867,49 @@ User: "I want to book an appointment"
       }
     );
 
-  } catch (error) {
-    console.error('Error in handle-chat:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
+  } catch (error: any) {
+    console.error('❌ Error in handle-chat:', error);
+    console.error('❌ Error name:', error?.name);
+    console.error('❌ Error message:', error?.message);
+    console.error('❌ Error stack:', error?.stack);
     
-    // Provide more helpful error messages
-    let errorMessage = error.message || 'An error occurred';
-    
-    // Check for common errors - provide helpful messages
-    if (errorMessage.includes('quota') || errorMessage.includes('Quota') || errorMessage.includes('capacity')) {
-      errorMessage = 'Google Gemini free tier is at capacity. This is a temporary limit. Please wait 1-2 minutes and try again.';
-    } else if (errorMessage.includes('API key')) {
-      errorMessage = 'AI service configuration error. Please contact support.';
-    } else if (errorMessage.includes('model') || errorMessage.includes('not found')) {
-      errorMessage = 'AI model temporarily unavailable. Please try again in a moment.';
+    // Safely extract error message
+    let errorMessage = 'An error occurred';
+    try {
+      if (error?.message) {
+        errorMessage = String(error.message);
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else {
+        errorMessage = JSON.stringify(error);
+      }
+    } catch (e) {
+      errorMessage = 'An unexpected error occurred';
     }
     
+    // Check for common errors - provide helpful messages
+    if (errorMessage.includes('quota') || errorMessage.includes('Quota') || errorMessage.includes('capacity') || errorMessage.includes('at capacity')) {
+      errorMessage = 'Google Gemini free tier is at capacity. This is a temporary limit. Please wait 1-2 minutes and try again.';
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('Timeout') || errorMessage.includes('Request timeout')) {
+      errorMessage = 'Request timeout. All Gemini models are currently at capacity. Please wait a moment and try again.';
+    } else if (errorMessage.includes('API key') || errorMessage.includes('not configured')) {
+      errorMessage = 'AI service configuration error. Please contact support.';
+    } else if (errorMessage.includes('model') || errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
+      errorMessage = 'AI model temporarily unavailable. Please try again in a moment.';
+    } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+      errorMessage = 'Network error. Please check your connection and try again.';
+    }
+    
+    // Return user-friendly error response
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
         reply: 'I apologize, but I encountered a technical issue. Please try again in a moment, or contact support if the problem persists.'
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   }
 });
