@@ -31,8 +31,9 @@ export const chatAPI = {
     const authToken = session?.access_token || supabaseAnonKey
     
     // Create AbortController for timeout
+    // Increased timeout to 60 seconds to allow for AI processing time
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
     
     try {
       const response = await fetch(`${supabaseUrl}/functions/v1/handle-chat`, {
