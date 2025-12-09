@@ -438,9 +438,9 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       let userFriendlyMessage = 'I apologize, but I encountered a technical issue. Please try again in a moment.';
       
       if (errorMessage.includes('timeout') || errorMessage.includes('at capacity')) {
-        userFriendlyMessage = 'I\'m sorry, but all AI models are currently at capacity or timing out. This is a temporary issue with Google\'s free tier. Please wait 1-2 minutes and try again.';
+        userFriendlyMessage = 'I\'m sorry, but the AI service is taking longer than expected. Please wait a moment and try again.';
       } else if (errorMessage.includes('quota') || errorMessage.includes('capacity')) {
-        userFriendlyMessage = 'I\'m sorry, but the AI service is currently at capacity. Please wait 1-2 minutes and try again.';
+        userFriendlyMessage = 'I\'m sorry, but the AI service is currently at capacity. Please wait a moment and try again.';
       } else if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
         userFriendlyMessage = 'I\'m sorry, but there was a configuration issue with the AI service. Please try again in a moment.';
       }

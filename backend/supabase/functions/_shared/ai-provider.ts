@@ -97,9 +97,10 @@ export async function generateAIResponse(
       }
     };
     
-    // Use fastest model first, fallback only if needed
+    // Use best models for paid tier - more reliable and faster
     const models = [
       'gemini-1.5-flash',      // Try first (fastest, most reliable)
+      'gemini-2.0-flash-exp',  // Fallback (newer, more stable)
     ];
     
     let lastError = null;
@@ -107,8 +108,8 @@ export async function generateAIResponse(
     // Try v1 API only (faster, more stable) - skip v1beta to save time
     const apiVersions = ['v1'];
     
-    // Maximum total timeout: 20 seconds (reduced for faster failure)
-    const maxTotalTimeout = 20000;
+    // Maximum total timeout: 45 seconds (increased for paid tier reliability)
+    const maxTotalTimeout = 45000;
     const startTime = Date.now();
     
     for (const apiVersion of apiVersions) {
@@ -119,12 +120,12 @@ export async function generateAIResponse(
           throw new Error('Request timeout. All Gemini models are currently at capacity. Please wait a moment and try again.');
         }
         
-        // Create new timeout for each model attempt - optimized for speed
+        // Create new timeout for each model attempt - increased for paid tier
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
-          console.log(`⏱️  Timeout (8s) for ${modelName}, aborting...`);
+          console.log(`⏱️  Timeout (20s) for ${modelName}, aborting...`);
           controller.abort();
-        }, 8000); // 8 second timeout - faster failure for better UX
+        }, 20000); // 20 second timeout - paid tier can handle longer requests
         
         try {
           console.log(`🔄 Trying model: ${modelName} (API: ${apiVersion})`);
@@ -179,7 +180,7 @@ export async function generateAIResponse(
             // If quota exceeded, fail immediately - don't try other models
             if (isQuotaError) {
               console.log(`❌ Quota exceeded for ${modelName} - failing fast`);
-              throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again. This is a temporary limit on Google\'s free tier.');
+              throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again.');
             }
             
             // If model not found, try next model
@@ -265,11 +266,11 @@ export async function generateAIResponse(
     
     // Provide more specific error message based on last error
     if (lastError?.message?.includes('timeout') || lastError?.message?.includes('Request timeout')) {
-      throw new Error('Request timeout. All Gemini models are currently at capacity. Please wait a moment and try again.');
+      throw new Error('Request timeout. The AI service is taking longer than expected. Please try again in a moment.');
     } else if (lastError?.message?.includes('quota') || lastError?.message?.includes('capacity')) {
-      throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again. This is a temporary limit on Google\'s free tier.');
+      throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again.');
     } else {
-      throw new Error('Request timeout. All Gemini models are currently at capacity. Please wait a moment and try again.');
+      throw new Error('The AI service encountered an issue. Please try again in a moment.');
     }
   }
   
