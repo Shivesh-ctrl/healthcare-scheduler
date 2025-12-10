@@ -1143,10 +1143,18 @@ ${therapistListForAI}
         }
       }
       
-      // PASS 3: Remove location questions
+      // PASS 3: Remove location questions - ULTRA AGGRESSIVE
       cleanResponse = cleanResponse.replace(/Are you looking for (virtual|in-person) or (in-person|virtual) (appointments|sessions)\?/gi, '');
       cleanResponse = cleanResponse.replace(/Are you looking for in-person or (virtual|telehealth) (appointments|sessions)\?/gi, '');
       cleanResponse = cleanResponse.replace(/Are you looking for (virtual|telehealth) or in-person (appointments|sessions)\?/gi, '');
+      cleanResponse = cleanResponse.replace(/therapy\s+sessions\?/gi, ''); // Remove empty "therapy sessions?"
+      cleanResponse = cleanResponse.replace(/\?\s*therapy\s+sessions\?/gi, '?'); // Fix double question marks
+      cleanResponse = cleanResponse.replace(/What state are you located in\?/gi, '');
+      cleanResponse = cleanResponse.replace(/What state are you in\?/gi, '');
+      cleanResponse = cleanResponse.replace(/What (state|city) are you (located in|in)\?/gi, '');
+      cleanResponse = cleanResponse.replace(/This is important for insurance coverage/gi, '');
+      cleanResponse = cleanResponse.replace(/\(This is important for insurance coverage\)/gi, '');
+      cleanResponse = cleanResponse.replace(/The more information you can provide, the better I can narrow down the options and find a good fit for you\./gi, '');
       
       // PASS 4: Fix grammar and empty placeholders
       cleanResponse = cleanResponse.replace(/therapist's\s+,/gi, 'therapist\'s gender,');
@@ -1163,6 +1171,9 @@ ${therapistListForAI}
       cleanResponse = cleanResponse.replace(/looking for\s+with a specific/gi, 'looking for a therapist with a specific');
       cleanResponse = cleanResponse.replace(/\(e\.g\.,\s*-\s*specializes/gi, '(e.g., CBT, mindfulness-based therapy');
       cleanResponse = cleanResponse.replace(/\(e\.g\.,\s*-\s*specializes in/gi, '(e.g., CBT, mindfulness-based therapy');
+      cleanResponse = cleanResponse.replace(/\(e\.g\.,\s+CBT,\s+mindfulness-based therapy in CBT/gi, '(e.g., CBT, mindfulness-based therapy');
+      cleanResponse = cleanResponse.replace(/Do you have a preference for\s+'s\s+gender/gi, 'Do you have a preference for a therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/preference for\s+'s\s+gender/gi, 'preference for a therapist\'s gender');
       
       // Remove "(online) therapy?" question - all sessions are virtual
       cleanResponse = cleanResponse.replace(/\(online\)\s+therapy\?/gi, '');
