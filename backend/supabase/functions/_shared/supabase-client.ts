@@ -1,3 +1,4 @@
+// @ts-ignore - ESM.sh HTTP imports are valid in Supabase Edge Functions runtime
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 export const createSupabaseClient = () => {
