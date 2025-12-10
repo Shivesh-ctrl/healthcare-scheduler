@@ -38,3 +38,4 @@ lerna-debug.log*
 # Supabase
 .branches
 .temp
+backend/supabase/migrations/00006_update_therapists_exact_list.sql
