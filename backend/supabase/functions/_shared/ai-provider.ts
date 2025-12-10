@@ -79,7 +79,7 @@ export async function generateAIResponse(
     if (!apiKey) throw new Error('Google AI API key not configured');
     
     // Convert messages to Gemini format
-    const contents = [];
+    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
     let systemMessage = '';
     
     for (const msg of messages) {
