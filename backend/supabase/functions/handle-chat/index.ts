@@ -1074,9 +1074,9 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
               /evening/i,
             ];
             
-            let foundDay = null;
-            let foundDate = null;
-            let foundTime = null;
+            let foundDay: string | null = null;
+            let foundDate: string | null = null;
+            let foundTime: string | null = null;
             
             // Helper function to parse explicit dates (defined once, reused)
             // Note: This function is also defined later in the code - consider extracting to a shared helper
