@@ -1280,7 +1280,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       console.log('🔍 No bookingInfo yet - checking conversation for booking details...');
       
       // Check if user mentioned a therapist in conversation
-      let mentionedTherapist = null;
+      let mentionedTherapist: any = null;
       for (const msg of [...conversationHistory, { role: 'user' as const, content: message }]) {
         if (msg.role === 'user' && allActiveTherapists) {
           for (const therapist of allActiveTherapists) {
