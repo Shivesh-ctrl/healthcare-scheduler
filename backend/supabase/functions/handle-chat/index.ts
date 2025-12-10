@@ -568,44 +568,83 @@ ${therapistListForAI}
       // Look for patterns like "Dr. Name", "Name, LCPC", or "[Therapist Name] would be [date]"
       const therapistMentionPattern = /(?:dr\.|mr\.|ms\.|mrs\.)?\s*([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/g;
       
-      // ==================== ULTRA-NUCLEAR PATTERNS - ABSOLUTE TOP PRIORITY ====================
-      // These run FIRST and catch EVERY variation of therapist names
+      // ==================== GUARANTEED CLEANUP - NO REGEX BUGS ====================
+      // Simple string replacement approach - NO regex state issues
       
       if (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0) {
-        console.log('🚨 NUCLEAR CLEANUP: Removing ALL therapist names from response');
+        console.log('🚨 GUARANTEED CLEANUP: Removing ALL therapist names');
         
-        // STEP 1: Remove therapist names from specific contexts FIRST (before general cleanup)
+        // STEP 1: Remove specific phrases that contain therapist names
+        const phrasesToRemove = [
+          "what you're looking for in Jasmine Goins, LCSW",
+          "what you're looking for in Jasmine Goins",
+          "specific qualities you'd like in Jasmine Goins, LCSW",
+          "specific qualities you'd like in Jasmine Goins",
+          "Are you looking for Jasmine Goins, LCSW with",
+          "Are you looking for Jasmine Goins with",
+          "preferences regarding Jasmine Goins, LCSW's",
+          "preferences regarding Jasmine Goins's",
+          "preferences for Jasmine Goins, LCSW's",
+          "preferences for Jasmine Goins's",
+        ];
         
-        // 1a. "Are you looking for [Name] with any specific expertise"
-        aiResponse = aiResponse.replace(/are\s+you\s+looking\s+for\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s+with/gi, 'are you looking for a therapist with');
-        
-        // 1b. "[Name] - specializes in" (in bullet points, WITHOUT parentheses)
-        aiResponse = aiResponse.replace(/([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s*-\s*specializes\s+in\s+/gi, '');
-        
-        // 1c. "preferences regarding [Name]'s gender"
-        aiResponse = aiResponse.replace(/preferences\s+regarding\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+gender/gi, 'preferences for a therapist\'s gender');
-        
-        // 1d. "preferences for [Name]'s gender"
-        aiResponse = aiResponse.replace(/preferences\s+for\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+gender/gi, 'preferences for a therapist\'s gender');
-        
-        // STEP 2: Remove "Jasmine Goins, LCSW" EVERYWHERE (most common offender)
-        let jasmineCount = 0;
-        while (/Jasmine\s+Goins(?:\s*,\s*LCSW)?/gi.test(aiResponse) && jasmineCount < 10) {
-          aiResponse = aiResponse.replace(/Jasmine\s+Goins(?:\s*,\s*LCSW)?/gi, 'a therapist');
-          jasmineCount++;
+        for (const phrase of phrasesToRemove) {
+          const lowerPhrase = phrase.toLowerCase();
+          let tempResponse = aiResponse.toLowerCase();
+          let index = tempResponse.indexOf(lowerPhrase);
+          
+          while (index !== -1) {
+            // Replace in original response preserving case
+            const before = aiResponse.substring(0, index);
+            const after = aiResponse.substring(index + phrase.length);
+            
+            // Determine replacement based on phrase
+            let replacement = '';
+            if (phrase.includes("what you're looking for in")) {
+              replacement = "what you're looking for in a therapist";
+            } else if (phrase.includes("specific qualities you'd like in")) {
+              replacement = "specific qualities you'd like in a therapist";
+            } else if (phrase.includes("Are you looking for") && phrase.includes("with")) {
+              replacement = "Are you looking for a therapist with";
+            } else if (phrase.includes("preferences")) {
+              replacement = "preferences for a therapist's";
+            }
+            
+            aiResponse = before + replacement + after;
+            tempResponse = aiResponse.toLowerCase();
+            index = tempResponse.indexOf(lowerPhrase, index + 1);
+            console.log(`🧹 Removed phrase: "${phrase}"`);
+          }
         }
-        if (jasmineCount > 0) {
-          console.log(`🧹 Removed "Jasmine Goins" ${jasmineCount} times`);
+        
+        // STEP 2: Remove ALL instances of "Jasmine Goins, LCSW" and "Jasmine Goins"
+        const jasmineVariations = [
+          "Jasmine Goins, LCSW",
+          "Jasmine Goins,LCSW",
+          "Jasmine Goins , LCSW",
+          "Jasmine Goins LCSW",
+          "Jasmine Goins",
+        ];
+        
+        for (const variation of jasmineVariations) {
+          let count = 0;
+          while (aiResponse.toLowerCase().includes(variation.toLowerCase()) && count < 20) {
+            const regex = new RegExp(variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            aiResponse = aiResponse.replace(regex, 'a therapist');
+            count++;
+          }
+          if (count > 0) {
+            console.log(`🧹 Removed "${variation}" ${count} times`);
+          }
         }
         
-        // STEP 3: Remove ALL other therapist names that match our list
+        // STEP 3: Remove ALL therapist names from our database
         if (allActiveTherapists && allActiveTherapists.length > 0) {
           for (const therapist of allActiveTherapists) {
-            const escapedName = therapist.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const namePattern = new RegExp(escapedName, 'gi');
             let count = 0;
-            while (namePattern.test(aiResponse) && count < 5) {
-              aiResponse = aiResponse.replace(namePattern, 'a therapist');
+            while (aiResponse.toLowerCase().includes(therapist.name.toLowerCase()) && count < 10) {
+              const regex = new RegExp(therapist.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+              aiResponse = aiResponse.replace(regex, 'a therapist');
               count++;
             }
             if (count > 0) {
@@ -614,7 +653,25 @@ ${therapistListForAI}
           }
         }
         
-        console.log('✅ NUCLEAR CLEANUP COMPLETE');
+        // STEP 4: Final pass - remove any "[FirstName] [LastName], [CREDENTIAL]" pattern
+        const credentialPattern = /\b([A-Z][a-z]+)\s+([A-Z][a-z]+)\s*,\s*(LCSW|LCPC|LSW|CADC|LPC)\b/g;
+        aiResponse = aiResponse.replace(credentialPattern, 'a therapist');
+        
+        // STEP 5: Remove location questions
+        const locationPhrases = [
+          "Are you looking for in-person or virtual sessions?",
+          "Are you looking for in-person or telehealth sessions?",
+          "What is your zip code?",
+          "What state are you in?",
+          "What is your location?",
+        ];
+        
+        for (const phrase of locationPhrases) {
+          aiResponse = aiResponse.replace(new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
+          console.log(`🧹 Removed location question: "${phrase}"`);
+        }
+        
+        console.log('✅ GUARANTEED CLEANUP COMPLETE');
       }
       
       // Pattern B: "Are you looking for in-person or telehealth" - ABSOLUTE FORBIDDEN
