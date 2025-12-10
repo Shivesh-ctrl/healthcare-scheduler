@@ -1705,37 +1705,42 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             }
           }
           
-          // If AI didn't show therapists properly, add them with full details
-          if (!showsTherapists || cleanResponse.includes('therapist, LCSW') || cleanResponse.includes('therapist, LCPC')) {
-            console.log('⚠️ AI did not show matched therapists properly - adding formatted list');
+          // Check if AI response contains placeholder text or broken formatting
+          const hasPlaceholderText = cleanResponse.includes('Jasmine Goins, LCSW:') || 
+                                     cleanResponse.includes('Option 1:') ||
+                                     cleanResponse.includes('Option 2:') ||
+                                     cleanResponse.includes('Option 3:') ||
+                                     (cleanResponse.includes('Name:') && !cleanResponse.match(/\*\*[A-Z][a-z]+ [A-Z][a-z]+(?:, (?:LCPC|LCSW|LSW|CADC|LPC))?\*\*/)) ||
+                                     cleanResponse.includes('therapist, LCSW') ||
+                                     cleanResponse.includes('therapist, LCPC') ||
+                                     cleanResponse.match(/Jasmine Goins, LCSW[:\s]/g)?.length || 0 > 2;
+          
+          // If AI didn't show therapists properly or has placeholder text, replace with formatted list
+          if (!showsTherapists || hasPlaceholderText) {
+            console.log('⚠️ AI did not show matched therapists properly or used placeholder text - replacing with formatted list');
+            
+            // Limit to max 3 therapists
+            const therapistsToShow = matchedTherapists.slice(0, 3);
             
             let therapistList = '\n\n**Here are the therapists I found for you:**\n\n';
-            matchedTherapists.forEach((t: any, index: number) => {
+            therapistsToShow.forEach((t: any, index: number) => {
               const specialties = Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General';
               const insurance = Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various';
               const bio = t.bio || 'Experienced therapist specializing in your needs.';
               const availability = (extractedInfo?.schedule || extractedInfoForMatching?.schedule) ? `Available: ${extractedInfo?.schedule || extractedInfoForMatching?.schedule}` : 'Available: Flexible scheduling';
               
-              therapistList += `**${index + 1}. ${t.name}**\n\n`;
-              therapistList += `**Bio:**\n${bio}\n\n`;
-              therapistList += `**Specialties:**\n${specialties}\n\n`;
-              therapistList += `**Insurance Accepted:**\n${insurance}\n\n`;
-              therapistList += `**Availability:**\n${availability}\n\n`;
+              therapistList += `**${t.name}**\n\n`;
+              therapistList += `${bio}\n\n`;
+              therapistList += `**Specialties:** ${specialties}\n`;
+              therapistList += `**Insurance Accepted:** ${insurance}\n`;
+              therapistList += `**Availability:** ${availability}\n\n`;
               therapistList += `---\n\n`;
             });
             
-            therapistList += `Would you like to book an appointment with one of these therapists? Please let me know which therapist you'd like to see, and I'll help you schedule an appointment.`;
+            therapistList += `Would you like to book an appointment with one of these therapists?`;
             
-            // Replace the AI response with properly formatted therapist list
-            cleanResponse = cleanResponse.replace(/therapist,?\s*(?:LCSW|LCPC|LSW|CADC|LPC)/gi, 'a therapist');
-            cleanResponse = cleanResponse.replace(/([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s+Therapy\s*\(/gi, '$1 - specializes in ');
-            
-            // If AI response doesn't already show therapists, append the formatted list
-            if (!showsTherapists) {
-              // Remove any placeholder text about therapists
-              cleanResponse = cleanResponse.replace(/Here are the \*\*therapists\*\* I found for you:[\s\S]*?Please select one of these therapists/gi, '');
-              cleanResponse += therapistList;
-            }
+            // Replace the entire AI response with properly formatted therapist list
+            cleanResponse = therapistList;
           }
           
           // Update conversation history with therapist list
