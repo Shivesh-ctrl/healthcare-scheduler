@@ -276,17 +276,19 @@ ${exactNames}
 - 🚨🚨🚨 FORBIDDEN: Any question that includes a therapist name when user hasn't mentioned one
 
 **CRITICAL RULE - THERAPIST NAMES (ABSOLUTE FORBIDDEN - READ CAREFULLY):**
-- 🚨🚨🚨 NEVER mention a therapist name UNTIL the system has found matches AND user has provided their problem/insurance
-- 🚨🚨🚨 NEVER say "I'm here to help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER say "I'm here to support you in finding [Therapist Name]" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER say "I can help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER say "I can support you in finding [Therapist Name]" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER say "[Therapist Name] who can provide that support" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER say "[Therapist Name] who can provide the right care" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER say "[Therapist Name] who can provide support" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER say "I want to help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER say "preferences for [Therapist Name]'s gender" - ABSOLUTELY FORBIDDEN
-- 🚨🚨🚨 NEVER mention ANY therapist name (including "Jasmine Goins, LCSW") before showing matched therapists - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER EVER mention ANY therapist name UNTIL the system has found matches AND user has provided their problem/insurance
+- 🚨🚨🚨 NEVER say "I'm here to help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN - say "I'm here to help you find the right therapist"
+- 🚨🚨🚨 NEVER say "I'm here to support you in finding [Therapist Name]" - ABSOLUTELY FORBIDDEN - say "I'm here to support you"
+- 🚨🚨🚨 NEVER say "I can help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN - say "I can help you find the right therapist"
+- 🚨🚨🚨 NEVER say "I can support you in finding [Therapist Name]" - ABSOLUTELY FORBIDDEN - say "I can support you"
+- 🚨🚨🚨 NEVER say "[Therapist Name] who can provide that support" - ABSOLUTELY FORBIDDEN - say "a therapist who can provide support"
+- 🚨🚨🚨 NEVER say "[Therapist Name] who can provide the right care" - ABSOLUTELY FORBIDDEN - say "a therapist who can provide care"
+- 🚨🚨🚨 NEVER say "[Therapist Name] who can provide support" - ABSOLUTELY FORBIDDEN - say "a therapist who can provide support"
+- 🚨🚨🚨 NEVER say "I want to help you find [Therapist Name]" - ABSOLUTELY FORBIDDEN - say "I want to help you find the right therapist"
+- 🚨🚨🚨 NEVER say "preferences for [Therapist Name]'s gender" - ABSOLUTELY FORBIDDEN - say "preferences for a therapist's gender"
+- 🚨🚨🚨 NEVER say "specific qualities you're looking for in [Therapist Name]" - ABSOLUTELY FORBIDDEN - say "specific qualities you're looking for in a therapist"
+- 🚨🚨🚨 NEVER say "Are there any specific qualities you're looking for in [Therapist Name]?" - ABSOLUTELY FORBIDDEN - say "Are there any specific qualities you're looking for in a therapist?"
+- 🚨🚨🚨 NEVER mention "Jasmine Goins, LCSW" or ANY other therapist name before showing matched therapists - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "*[Therapist Name] insurance" or "•[Therapist Name] insurance" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "[Therapist Name]?" or "Goins, LCSW?" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER include therapist names in bullet points or questions before matching - ABSOLUTELY FORBIDDEN
@@ -335,15 +337,19 @@ When user first says they're looking for therapy or need help:
 13. ❌ DO NOT: Ask about location preferences - ALL appointments are virtual/telehealth only, so location is NOT relevant
 14. ❌ DO NOT: Ask "Do you have any location preferences, or are you open to telehealth?" - this is FORBIDDEN since all appointments are virtual
 
-**LOCATION RULES:**
-- 🚨🚨🚨 ALL appointments are VIRTUAL/TELEHEALTH ONLY - never mention in-person
-- 🚨🚨🚨 NEVER ask about location (city, state, area) - location is NOT relevant since all appointments are virtual
-- 🚨🚨🚨 NEVER ask "What is your location?" - this is FORBIDDEN
-- 🚨🚨🚨 NEVER ask "Do you have any location preferences, or are you open to telehealth?" - this is FORBIDDEN
-- 🚨🚨🚨 NEVER ask "Are you looking for in-person or telehealth?" - this is FORBIDDEN
-- 🚨🚨🚨 NEVER say "I need to know your location (city, state) to ensure therapist can practice in your state" - this is FORBIDDEN
-- 🚨🚨🚨 NEVER ask about finding "therapists in your area" - all appointments are virtual
-- 🚨🚨🚨 If user says "online" or "virtual" or "telehealth", DO NOT ask for location
+**LOCATION RULES - ABSOLUTELY FORBIDDEN TO ASK:**
+- 🚨🚨🚨 ALL appointments are VIRTUAL/TELEHEALTH ONLY - NEVER EVER ask about in-person sessions
+- 🚨🚨🚨 NEVER ask "What is your location?" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER ask "What is your location? (City, State)" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER ask about city, state, area, or any geographic location - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER ask "Do you have any location preferences?" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER ask "Are you looking for in-person or telehealth?" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER ask "Are you looking for in-person or virtual therapy sessions?" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "I need to know your location (city, state)" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "This will help me find therapists in your area" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER ask about finding "therapists in your area" or "therapists in your network" related to location - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 Location questions are BANNED, FORBIDDEN, PROHIBITED - DO NOT ASK THEM
+- 🚨🚨🚨 If user says "online" or "virtual" or "telehealth", just acknowledge it and move on - DO NOT ask for location
 - 🚨🚨🚨 If user asks about location, say "All appointments are virtual/telehealth, so location is not a concern"
 
 **ONLY AFTER you have their problem AND insurance, THEN show matched therapists with names.**
@@ -606,8 +612,9 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       // Check for patterns like "you're looking for [Therapist Name]" - FORBIDDEN before matching
       const lookingForPattern = /(?:you'?re\s+looking\s+for|so,?\s+to\s+recap,?\s+you'?re\s+looking\s+for)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
       
-      // Check for patterns like "I'm here to help you find [Therapist Name]" or "I want to help you find [Therapist Name]" - FORBIDDEN before matching
-      const helpFindPattern = /(?:i'?m\s+here\s+to\s+(?:help\s+you\s+find|support\s+you\s+in\s+finding)|i\s+can\s+(?:help\s+you\s+find|support\s+you\s+in\s+finding)|i\s+want\s+to\s+help\s+you\s+find)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)(?:\s+who\s+can\s+provide\s+(?:that\s+support|the\s+right\s+care|support))?/gi;
+      // ULTRA-AGGRESSIVE PATTERNS - Catch ANY mention of therapist names before matching
+      // Pattern: "I want to help you find [Therapist Name]" with ANY variation
+      const helpFindPattern = /(?:i'?m\s+here\s+to\s+(?:help\s+you\s+find|support\s+you\s+in\s+finding)|i\s+can\s+(?:help\s+you\s+find|support\s+you\s+in\s+finding)|i\s+want\s+to\s+help\s+you\s+find|i\s+want\s+to\s+assure\s+you|(?:to\s+)?help\s+you\s+find)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)(?:\s+who\s+can\s+provide\s+(?:that\s+support|the\s+right\s+care|support|the\s+care\s+you\s+need)?)?/gi;
       
       // If therapist names are mentioned before matching, remove them
       if ((!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
@@ -811,8 +818,8 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           aiResponse = aiResponse.replace(/([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+(?:gender|age|background|preferences|qualities)/gi, 'therapist\'s preferences');
         }
         
-        // Pattern 3b: Catch "what you're looking for in [Therapist Name]"
-        const lookingForInPattern = /(?:what\s+you'?re\s+looking\s+for\s+in|what.*looking\s+for\s+in|tell\s+me.*what\s+you'?re\s+looking\s+for\s+in)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
+        // Pattern 3b: Catch "what you're looking for in [Therapist Name]" and "specific qualities you're looking for in [Therapist Name]"
+        const lookingForInPattern = /(?:what\s+you'?re\s+looking\s+for\s+in|what.*looking\s+for\s+in|tell\s+me.*what\s+you'?re\s+looking\s+for\s+in|specific\s+qualities\s+you'?re\s+looking\s+for\s+in|any\s+specific\s+qualities\s+you'?re\s+looking\s+for\s+in|are\s+there\s+any\s+specific\s+qualities\s+you'?re\s+looking\s+for\s+in)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
         if (lookingForInPattern.test(aiResponse)) {
           console.error('❌ AI asked "what you\'re looking for in [Therapist Name]" before matching - removing');
           aiResponse = aiResponse.replace(lookingForInPattern, 'what you\'re looking for in a therapist');
@@ -853,17 +860,22 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           aiResponse = aiResponse.replace(jasmineGoinsPattern, 'a therapist');
         }
         
-        // Pattern 5b: Remove location preference questions since all appointments are virtual
-        const locationPattern = /(?:what\s+is\s+your\s+location|your\s+location\s*\(city,?\s*state\)|do\s+you\s+have\s+any\s+location\s+preferences|are\s+you\s+looking\s+for\s+in-person\s+or\s+telehealth|location\s+preferences|preferences\s+regarding\s+location|in\s+your\s+area|therapists?\s+in\s+your\s+(?:area|state)|find\s+therapists?\s+in|to\s+ensure\s+.*can\s+practice\s+in\s+your\s+state)/gi;
+        // Pattern 5b: Remove location preference questions since all appointments are virtual - ULTRA AGGRESSIVE
+        const locationPattern = /(?:what\s+is\s+your\s+location|your\s+location\s*\(?\s*city,?\s*state\s*\)?|do\s+you\s+have\s+any\s+location\s+preferences|are\s+you\s+looking\s+for\s+in-person\s+or\s+(?:telehealth|virtual)|location\s+preferences|preferences\s+regarding\s+location|in\s+your\s+area|therapists?\s+in\s+your\s+(?:area|state|network)|find\s+therapists?\s+in|to\s+ensure\s+.*can\s+practice\s+in\s+your\s+state|\(city,?\s*state\))/gi;
         if (locationPattern.test(aiResponse)) {
           console.error('❌ AI asked about location - removing since all appointments are virtual');
-          // Remove entire sentences/bullet points about location
-          aiResponse = aiResponse.replace(/[•\-*]\s*What\s+is\s+your\s+location[^\n]*\n/gi, '');
-          aiResponse = aiResponse.replace(/[•\-*]\s*[^\n]*location\s*\([^\)]*\)[^\n]*\n/gi, '');
-          aiResponse = aiResponse.replace(/[•\-*]\s*[^\n]*(?:in-person|telehealth)[^\n]*\n/gi, '');
+          // Remove entire sentences/questions/bullet points about location - ULTRA AGGRESSIVE
+          aiResponse = aiResponse.replace(/\d+\.\s*What\s+is\s+your\s+location[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/[•\-*\d]+\.?\s*What\s+is\s+your\s+location[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/[•\-*\d]+\.?\s*[^\n]*location\s*\([^\)]*\)[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/[•\-*\d]+\.?\s*[^\n]*(?:in-person|telehealth|virtual)[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/[•\-*\d]+\.?\s*[^\n]*(?:city|state|area)[^\n]*location[^\n]*\n/gi, '');
           aiResponse = aiResponse.replace(/I\s+(?:still\s+)?need\s+to\s+know\s+your\s+location[^\n]*\n/gi, '');
           aiResponse = aiResponse.replace(/This\s+(?:is\s+crucial|will\s+help\s+me)\s+for\s+finding\s+therapists\s+in\s+your\s+area[^\n]*\n/gi, '');
           aiResponse = aiResponse.replace(/to\s+ensure\s+[^\n]*can\s+practice\s+in\s+your\s+state[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/What\s+is\s+your\s+location\?\s*\(City,\s*State\)/gi, '');
+          // Remove any remaining numbered list items that mention location
+          aiResponse = aiResponse.replace(/^\d+\.\s*[^\n]*(?:location|city|state|area|in-person)[^\n]*$/gim, '');
         }
         
         // Pattern 5c: Fix "Jasmine Goins, LCSW - specializes in CBT" in examples - replace with generic "CBT"
@@ -887,7 +899,8 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           aiResponse = aiResponse.replace(incompleteSentencePattern, 'What kind of therapy are you interested in? (e.g.');
         }
         
-        // Pattern 6: Catch any other therapist name mentions
+        // Pattern 6: NUCLEAR OPTION - Catch ANY and ALL therapist name mentions before matching
+        // This is the final catch-all that removes ANY therapist names when we don't have matches yet
         const anyTherapistNamePattern = /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/g;
         const therapistMentions = aiResponse.match(anyTherapistNamePattern);
         if (therapistMentions && allActiveTherapists) {
@@ -899,17 +912,38 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             );
             
             if (isValidTherapist) {
-              console.error(`❌ AI mentioned therapist name "${mention}" before matching - replacing with generic term`);
-              // Replace in contexts where it shouldn't appear
+              console.error(`❌ NUCLEAR PATTERN: AI mentioned therapist name "${mention}" before matching - removing ALL instances`);
+              // ULTRA AGGRESSIVE: Replace ALL instances of this therapist name with generic text
               // Don't replace if it's in a valid context (like showing matched therapists)
               if (!aiResponse.includes('Here are the therapists') && 
                   !aiResponse.includes('matched therapists') &&
                   !aiResponse.includes('therapist I found')) {
-                aiResponse = aiResponse.replace(new RegExp(mention.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), 'a therapist');
+                const escapedMention = mention.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const namePattern = new RegExp(escapedMention, 'gi');
+                aiResponse = aiResponse.replace(namePattern, 'a therapist');
               }
             }
           }
         }
+        
+        // Pattern 7: Final cleanup - remove any remaining lines with therapist names before matching
+        // Remove lines that contain therapist name patterns
+        const lines = aiResponse.split('\n');
+        aiResponse = lines.filter(line => {
+          // Check if line contains a therapist name pattern and we don't have matches yet
+          const hasTherapistPattern = /[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?/.test(line);
+          if (hasTherapistPattern && allActiveTherapists) {
+            // Check if it matches an actual therapist name
+            const isTherapistMention = allActiveTherapists.some((t: any) => 
+              line.toLowerCase().includes(t.name.toLowerCase())
+            );
+            if (isTherapistMention) {
+              console.error(`❌ FINAL CLEANUP: Removing line with therapist name: ${line.substring(0, 50)}...`);
+              return false; // Remove this line
+            }
+          }
+          return true; // Keep this line
+        }).join('\n');
       }
       
       const matches = aiResponse.match(therapistMentionPattern);
