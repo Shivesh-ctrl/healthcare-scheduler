@@ -73,6 +73,8 @@ serve(async (req: Request) => {
     // Get matched therapists first (if we have enough info) to include in system prompt
     let matchedTherapistsForPrompt = undefined;
     let extractedInfoForMatching: Partial<ExtractedInfo> | undefined;
+    let extractedInfo: Partial<ExtractedInfo> | undefined; // Declare early to avoid initialization error
+    let extractedInfo: Partial<ExtractedInfo> | undefined; // Declare early to avoid initialization error
     
     // Check if we have enough info to match therapists
     if (inquiry) {
@@ -412,7 +414,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         const specialties = Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General';
         const insurance = Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various';
         const bio = t.bio || 'Experienced therapist specializing in your needs.';
-        const availability = extractedInfo?.schedule ? `Available: ${extractedInfo.schedule}` : 'Available: Flexible scheduling';
+        const availability = (extractedInfo?.schedule || extractedInfoForMatching?.schedule) ? `Available: ${extractedInfo?.schedule || extractedInfoForMatching?.schedule}` : 'Available: Flexible scheduling';
         
         systemPrompt += `**${index + 1}. ${t.name}**\n\n`;
         systemPrompt += `**Bio:**\n${bio}\n\n`;
@@ -668,7 +670,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
                 const specialties = Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General';
                 const insurance = Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various';
                 const bio = t.bio || 'Experienced therapist specializing in your needs.';
-                const availability = extractedInfo?.schedule ? `Available: ${extractedInfo.schedule}` : 'Available: Flexible scheduling';
+                const availability = (extractedInfo?.schedule || extractedInfoForMatching?.schedule) ? `Available: ${extractedInfo?.schedule || extractedInfoForMatching?.schedule}` : 'Available: Flexible scheduling';
                 
                 therapistList += `**${index + 1}. ${t.name}**\n\n`;
                 therapistList += `**Bio:**\n${bio}\n\n`;
@@ -1704,7 +1706,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
               const specialties = Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General';
               const insurance = Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various';
               const bio = t.bio || 'Experienced therapist specializing in your needs.';
-              const availability = extractedInfo?.schedule ? `Available: ${extractedInfo.schedule}` : 'Available: Flexible scheduling';
+              const availability = (extractedInfo?.schedule || extractedInfoForMatching?.schedule) ? `Available: ${extractedInfo?.schedule || extractedInfoForMatching?.schedule}` : 'Available: Flexible scheduling';
               
               therapistList += `**${index + 1}. ${t.name}**\n\n`;
               therapistList += `**Bio:**\n${bio}\n\n`;
