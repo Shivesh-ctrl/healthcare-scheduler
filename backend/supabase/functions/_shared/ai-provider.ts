@@ -97,10 +97,9 @@ export async function generateAIResponse(
       }
     };
     
-    // Use best models for paid tier - more reliable and faster
+    // Use only models that actually exist and are available
     const models = [
-      'gemini-1.5-flash',      // Try first (fastest, most reliable)
-      'gemini-2.0-flash-exp',  // Fallback (newer, more stable)
+      'gemini-1.5-flash',      // Primary model (fastest, most reliable, always available)
     ];
     
     let lastError = null;
@@ -284,14 +283,13 @@ export async function generateAIResponse(
             throw error; // Re-throw quota errors immediately
           }
           
-          // If it's a model not found, continue to next model
-          if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
-            console.log(`⚠️  Model not found: ${modelName}, trying next...`);
-            lastError = error;
-            continue;
+          // If it's a model not found, fail immediately (no point trying other models if model doesn't exist)
+          if (error.message?.includes('not found') || error.message?.includes('does not exist') || error.message?.includes('Model not found')) {
+            console.error(`🚨 Model ${modelName} does not exist - failing immediately`);
+            throw new Error(`Model ${modelName} is not available. Please use a valid model name.`);
           }
           
-          // Other errors, log and continue to next model
+          // Other errors, log and continue to next model (if any)
           console.error(`⚠️  Unexpected error with ${modelName}, trying next model:`, error.message);
           lastError = error;
           continue;
