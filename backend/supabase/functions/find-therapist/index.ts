@@ -66,18 +66,20 @@ serve(async (req: Request) => {
       const hasSpecialty = !searchSpecialty || (
         therapist.specialties && 
         Array.isArray(therapist.specialties) &&
+        specialtyLower &&
         therapist.specialties.some((s: string) => 
-          s.toLowerCase().includes(specialtyLower) || 
-          specialtyLower.includes(s.toLowerCase())
+          s.toLowerCase().includes(specialtyLower!) || 
+          specialtyLower!.includes(s.toLowerCase())
         )
       );
 
       const hasInsurance = !searchInsurance || (
         therapist.accepted_insurance && 
         Array.isArray(therapist.accepted_insurance) &&
+        insuranceLower &&
         therapist.accepted_insurance.some((ins: string) => 
-          ins.toLowerCase().includes(insuranceLower) || 
-          insuranceLower.includes(ins.toLowerCase())
+          ins.toLowerCase().includes(insuranceLower!) || 
+          insuranceLower!.includes(ins.toLowerCase())
         )
       );
 
@@ -89,7 +91,7 @@ serve(async (req: Request) => {
       let score = 0;
       
       // Exact specialty match gets highest score
-      if (searchSpecialty && therapist.specialties) {
+      if (searchSpecialty && therapist.specialties && specialtyLower) {
         const exactMatch = therapist.specialties.some((s: string) => 
           s.toLowerCase() === specialtyLower
         );
@@ -106,7 +108,7 @@ serve(async (req: Request) => {
       }
       
       // Exact insurance match
-      if (searchInsurance && therapist.accepted_insurance) {
+      if (searchInsurance && therapist.accepted_insurance && insuranceLower) {
         const exactMatch = therapist.accepted_insurance.some((ins: string) => 
           ins.toLowerCase() === insuranceLower
         );
@@ -123,7 +125,7 @@ serve(async (req: Request) => {
       }
 
       // Bonus for having multiple matching specialties
-      if (searchSpecialty && therapist.specialties) {
+      if (searchSpecialty && therapist.specialties && specialtyLower) {
         const relatedMatches = therapist.specialties.filter((s: string) => 
           s.toLowerCase().includes(specialtyLower) || 
           specialtyLower.includes(s.toLowerCase())
