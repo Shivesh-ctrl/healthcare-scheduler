@@ -1,5 +1,12 @@
 import { GoogleCalendarEvent } from './types.ts';
 
+// @ts-ignore - Deno global is available in Supabase Edge Functions runtime
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
+
 interface TokenResponse {
   access_token: string;
   expires_in: number;
