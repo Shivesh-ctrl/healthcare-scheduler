@@ -1156,9 +1156,27 @@ ${therapistListForAI}
       cleanResponse = cleanResponse.replace(/What state are you located in\?/gi, '');
       cleanResponse = cleanResponse.replace(/What state are you in\?/gi, '');
       cleanResponse = cleanResponse.replace(/What (state|city) are you (located in|in)\?/gi, '');
+      cleanResponse = cleanResponse.replace(/Your location:\s*\(City,\s*State\)/gi, '');
+      cleanResponse = cleanResponse.replace(/Your location\s*\(City,\s*State\)/gi, '');
+      cleanResponse = cleanResponse.replace(/This is crucial for finding therapists in your (BCBS|network)/gi, '');
       cleanResponse = cleanResponse.replace(/This is important for insurance coverage/gi, '');
       cleanResponse = cleanResponse.replace(/\(This is important for insurance coverage\)/gi, '');
       cleanResponse = cleanResponse.replace(/The more information you can provide, the better I can narrow down the options and find a good fit for you\./gi, '');
+      cleanResponse = cleanResponse.replace(/Before I start searching for therapists, could you confirm the following:/gi, '');
+      cleanResponse = cleanResponse.replace(/Before I start searching, could you confirm:/gi, '');
+      
+      // Remove entire bullet points about location
+      cleanResponse = cleanResponse.replace(/\*\s*Your location[^\n]*\n/gi, '');
+      cleanResponse = cleanResponse.replace(/•\s*Your location[^\n]*\n/gi, '');
+      cleanResponse = cleanResponse.replace(/-\s*Your location[^\n]*\n/gi, '');
+      
+      // Fix formatting - clean up incomplete sentences and bullet points
+      cleanResponse = cleanResponse.replace(/\*\s*Issue:\s*,/gi, '• Issue:');
+      cleanResponse = cleanResponse.replace(/\*\s*Insurance:\s*/gi, '• Insurance:');
+      cleanResponse = cleanResponse.replace(/\*\s*:\s*Female/gi, '• Gender preference: Female');
+      cleanResponse = cleanResponse.replace(/\*\s*Availability:\s*/gi, '• Availability:');
+      cleanResponse = cleanResponse.replace(/\n\s*\*\s*\n/g, '\n'); // Remove empty bullet points
+      cleanResponse = cleanResponse.replace(/\n\s*•\s*\n/g, '\n'); // Remove empty bullet points
       
       // PASS 4: Fix grammar and empty placeholders
       cleanResponse = cleanResponse.replace(/therapist's\s+,/gi, 'therapist\'s gender,');
@@ -2656,9 +2674,27 @@ ${therapistListForAI}
       cleanResponse = cleanResponse.replace(/What state are you located in\?/gi, '');
       cleanResponse = cleanResponse.replace(/What state are you in\?/gi, '');
       cleanResponse = cleanResponse.replace(/What (state|city) are you (located in|in)\?/gi, '');
+      cleanResponse = cleanResponse.replace(/Your location:\s*\(City,\s*State\)/gi, '');
+      cleanResponse = cleanResponse.replace(/Your location\s*\(City,\s*State\)/gi, '');
+      cleanResponse = cleanResponse.replace(/This is crucial for finding therapists in your (BCBS|network)/gi, '');
       cleanResponse = cleanResponse.replace(/This is important for insurance coverage/gi, '');
       cleanResponse = cleanResponse.replace(/\(This is important for insurance coverage\)/gi, '');
       cleanResponse = cleanResponse.replace(/The more information you can provide, the better I can narrow down the options and find a good fit for you\./gi, '');
+      cleanResponse = cleanResponse.replace(/Before I start searching for therapists, could you confirm the following:/gi, '');
+      cleanResponse = cleanResponse.replace(/Before I start searching, could you confirm:/gi, '');
+      
+      // Remove entire bullet points about location
+      cleanResponse = cleanResponse.replace(/\*\s*Your location[^\n]*\n/gi, '');
+      cleanResponse = cleanResponse.replace(/•\s*Your location[^\n]*\n/gi, '');
+      cleanResponse = cleanResponse.replace(/-\s*Your location[^\n]*\n/gi, '');
+      
+      // Fix formatting - clean up incomplete sentences and bullet points
+      cleanResponse = cleanResponse.replace(/\*\s*Issue:\s*,/gi, '• Issue:');
+      cleanResponse = cleanResponse.replace(/\*\s*Insurance:\s*/gi, '• Insurance:');
+      cleanResponse = cleanResponse.replace(/\*\s*:\s*Female/gi, '• Gender preference: Female');
+      cleanResponse = cleanResponse.replace(/\*\s*Availability:\s*/gi, '• Availability:');
+      cleanResponse = cleanResponse.replace(/\n\s*\*\s*\n/g, '\n'); // Remove empty bullet points
+      cleanResponse = cleanResponse.replace(/\n\s*•\s*\n/g, '\n'); // Remove empty bullet points
       
       // Fix broken grammar and empty placeholders
       cleanResponse = cleanResponse.replace(/therapist's\s+Jasmine\s+Goins/gi, 'therapist\'s gender');
