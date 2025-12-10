@@ -1,6 +1,10 @@
+// @ts-ignore - ESM.sh HTTP imports are valid in Supabase Edge Functions runtime
 import { streamText, generateText } from 'https://esm.sh/ai@3.4.0';
+// @ts-ignore - ESM.sh HTTP imports are valid in Supabase Edge Functions runtime
 import { openai } from 'https://esm.sh/@ai-sdk/openai@1.0.0';
+// @ts-ignore - ESM.sh HTTP imports are valid in Supabase Edge Functions runtime
 import { anthropic } from 'https://esm.sh/@ai-sdk/anthropic@1.0.0';
+// @ts-ignore - ESM.sh HTTP imports are valid in Supabase Edge Functions runtime
 import { createGoogleGenerativeAI } from 'https://esm.sh/@ai-sdk/google@1.0.2';
 
 export type AIProvider = 'openai' | 'anthropic' | 'google';
