@@ -1,47 +1,68 @@
 #!/bin/bash
 
-# CodeRabbit Review Script - Run before deploying
-# This script reviews your code before deployment
+# Local Code Review Script - Run before deploying
+# This script runs local code checks before deployment
 
 set -e  # Exit on error
 
-echo "🔍 Running CodeRabbit review before deployment..."
+echo "🔍 Running code review before deployment..."
 echo ""
 
-# Check if API key is set
-if [ -z "$CODERABBIT_API_KEY" ]; then
-    echo "⚠️  Warning: CODERABBIT_API_KEY not set"
-    echo "   Set it with: export CODERABBIT_API_KEY='your-key'"
-    echo "   Or skip review with: SKIP_REVIEW=true ./review-before-deploy.sh"
-    echo ""
-    if [ "$SKIP_REVIEW" != "true" ]; then
-        read -p "Continue without review? (y/n) " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
-    fi
-fi
-
-# Review backend functions
-echo "📋 Reviewing backend functions..."
-if npx @coderabbitai/cli review backend/supabase/functions/ 2>/dev/null; then
-    echo "✅ Backend review passed"
+# Check TypeScript in frontend
+echo "📋 Checking TypeScript in frontend..."
+cd frontend
+if npx tsc --noEmit 2>&1; then
+    echo "✅ Frontend TypeScript check passed"
 else
-    echo "⚠️  Backend review completed (some issues may have been found)"
+    echo "❌ Frontend TypeScript errors found!"
+    echo "   Please fix errors before deploying."
+    exit 1
 fi
-echo ""
+cd ..
 
-# Review frontend source
-echo "📋 Reviewing frontend source..."
-if npx @coderabbitai/cli review frontend/src/ 2>/dev/null; then
-    echo "✅ Frontend review passed"
+# Check ESLint in frontend
+echo "📋 Running ESLint in frontend..."
+cd frontend
+if npm run lint 2>&1; then
+    echo "✅ Frontend ESLint check passed"
 else
-    echo "⚠️  Frontend review completed (some issues may have been found)"
+    echo "⚠️  Frontend ESLint warnings found (non-blocking)"
 fi
-echo ""
+cd ..
 
-echo "✅ Code review complete! You can now deploy."
+# Check backend TypeScript (Deno)
+echo "📋 Checking backend TypeScript..."
+cd backend
+if deno check supabase/functions/handle-chat/index.ts 2>&1; then
+    echo "✅ Backend TypeScript check passed"
+else
+    echo "❌ Backend TypeScript errors found!"
+    echo "   Please fix errors before deploying."
+    exit 1
+fi
+cd ..
+
+# Check for common issues
+echo "📋 Checking for common issues..."
+
+# Check for console.log in production code
+if grep -r "console\.log" backend/supabase/functions/ --include="*.ts" | grep -v "//" | grep -v "console.log('✅" | grep -v "console.error" | grep -v "console.warn"; then
+    echo "⚠️  Warning: Found console.log statements (consider removing for production)"
+else
+    echo "✅ No problematic console.log statements found"
+fi
+
+# Check for hardcoded secrets
+if grep -r "AIzaSy\|sk-\|pk_" backend/supabase/functions/ --include="*.ts" 2>/dev/null; then
+    echo "❌ ERROR: Potential hardcoded API keys found!"
+    echo "   Please remove and use environment variables."
+    exit 1
+else
+    echo "✅ No hardcoded secrets found"
+fi
+
+echo ""
+echo "✅ Code review complete! Safe to deploy."
 echo ""
 echo "To deploy backend:"
 echo "  cd backend && supabase functions deploy handle-chat --project-ref ljxugwfzkbjlrjwpglnx"
