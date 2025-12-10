@@ -263,9 +263,13 @@ ${exactNames}
 **🚨 ABSOLUTE RULES - NEVER BREAK THESE 🚨**
 
 **1. NEVER MENTION ANY THERAPIST NAME UNTIL AFTER YOU HAVE MATCHED THERAPISTS**
-   - DON'T say: "Jasmine Goins, LCSW"
-   - DON'T say: any therapist name at all
+   - DON'T say: "Jasmine Goins, LCSW" - ABSOLUTELY FORBIDDEN
+   - DON'T say: "haveJasmine Goins" or any concatenated name - ABSOLUTELY FORBIDDEN
+   - DON'T say: "Jasmine Goins, LCSWJasmine Goins, LCSW" - ABSOLUTELY FORBIDDEN
+   - DON'T say: any therapist name at all - ABSOLUTELY FORBIDDEN
    - DO say: "a therapist" or "the right therapist"
+   - DO say: "have BCBS insurance" NOT "haveJasmine Goins, LCSW (BCBS)"
+   - DO say: "looking for in a therapist" NOT "looking for in Jasmine Goins, LCSW"
    
 **2. NEVER ASK ABOUT LOCATION - ALL SESSIONS ARE VIRTUAL/ONLINE ONLY**
    - DON'T ask: "What is your zip code?"
@@ -568,17 +572,20 @@ ${therapistListForAI}
       // Look for patterns like "Dr. Name", "Name, LCPC", or "[Therapist Name] would be [date]"
       const therapistMentionPattern = /(?:dr\.|mr\.|ms\.|mrs\.)?\s*([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/g;
       
-      // ==================== ABSOLUTE FINAL CLEANUP - BULLETPROOF ====================
+      // ==================== FINAL BULLETPROOF CLEANUP - MULTIPLE PASSES ====================
       // This runs if we haven't matched therapists yet
       
       if (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0) {
-        console.log('🚨 ABSOLUTE CLEANUP: Removing ALL therapist names - BULLETPROOF MODE');
+        console.log('🚨 FINAL CLEANUP: MULTIPLE PASSES - BULLETPROOF MODE');
         
-        // ULTRA-SIMPLE APPROACH: Just remove ALL occurrences of every therapist name
-        // No complex logic, no regex tricks, just brute force removal
+        // PASS 1: Remove concatenated names (e.g., "haveJasmine Goins, LCSW")
+        aiResponse = aiResponse.replace(/([a-z])(Jasmine\s+Goins(?:\s*,\s*LCSW)?)/gi, '$1');
+        aiResponse = aiResponse.replace(/(Jasmine\s+Goins(?:\s*,\s*LCSW)?)([A-Z])/gi, '$2');
+        aiResponse = aiResponse.replace(/(Jasmine\s+Goins(?:\s*,\s*LCSW)?)(Jasmine\s+Goins(?:\s*,\s*LCSW)?)/gi, '');
         
+        // PASS 2: Remove ALL therapist names (all variations)
         const allNames = [
-          "Jasmine Goins, LCSW", "Jasmine Goins,LCSW", "Jasmine Goins , LCSW", "Jasmine Goins",
+          "Jasmine Goins, LCSW", "Jasmine Goins,LCSW", "Jasmine Goins , LCSW", "Jasmine Goins LCSW", "Jasmine Goins",
           "Rachel Kurt, LCPC", "Rachel Kurt",
           "Tykisha Bays, LSW, CADC", "Tykisha Bays",
           "Adriane Wilk, LCPC", "Adriane Wilk",
@@ -594,36 +601,44 @@ ${therapistListForAI}
           "Alexia Sula, LCSW", "Alexia Sula",
         ];
         
-        // Remove each name (case insensitive)
-        for (const name of allNames) {
-          const pattern = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-          const before = aiResponse;
-          aiResponse = aiResponse.replace(pattern, '');
-          if (before !== aiResponse) {
-            console.log(`🧹 Removed: "${name}"`);
+        // Run 3 times to catch everything
+        for (let pass = 1; pass <= 3; pass++) {
+          for (const name of allNames) {
+            const pattern = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            aiResponse = aiResponse.replace(pattern, '');
           }
         }
         
-        // Remove location questions
-        aiResponse = aiResponse.replace(/Are you looking for in-person or (virtual|telehealth) sessions\?/gi, '');
+        // PASS 3: Remove specific broken phrases
+        aiResponse = aiResponse.replace(/have\s*\(BCBS\)/gi, 'have BCBS');
+        aiResponse = aiResponse.replace(/have\s*\(([A-Z]+)\)/gi, 'have $1');
+        aiResponse = aiResponse.replace(/looking for in\s+\(e\.g\./gi, 'looking for in a therapist (e.g.');
+        aiResponse = aiResponse.replace(/qualities you're looking for in\s+\(e\.g\./gi, 'qualities you\'re looking for in a therapist (e.g.');
+        aiResponse = aiResponse.replace(/qualities you'd like in\s+\(e\.g\./gi, 'qualities you\'d like in a therapist (e.g.');
+        
+        // PASS 4: Remove location questions
+        aiResponse = aiResponse.replace(/Are you looking for (virtual|in-person) or (in-person|virtual) (appointments|sessions)\?/gi, '');
+        aiResponse = aiResponse.replace(/Are you looking for in-person or (virtual|telehealth) (appointments|sessions)\?/gi, '');
+        aiResponse = aiResponse.replace(/Are you looking for (virtual|telehealth) or in-person (appointments|sessions)\?/gi, '');
         aiResponse = aiResponse.replace(/What is your zip code\?/gi, '');
         aiResponse = aiResponse.replace(/What (state|city) are you (in|located in)\?/gi, '');
         aiResponse = aiResponse.replace(/What is your location\?/gi, '');
         
-        // Fix grammar issues from removals
+        // PASS 5: Fix grammar after removals
         aiResponse = aiResponse.replace(/therapist's\s+,/gi, 'therapist\'s gender,');
         aiResponse = aiResponse.replace(/therapist's\s+age/gi, 'therapist\'s gender, age');
         aiResponse = aiResponse.replace(/\s*,\s*,/g, ','); // Double commas
         aiResponse = aiResponse.replace(/\s{2,}/g, ' '); // Multiple spaces
         aiResponse = aiResponse.replace(/\n{3,}/g, '\n\n'); // Multiple newlines
+        aiResponse = aiResponse.replace(/Thanks for sharing that\.\s+To help/gi, 'Thanks for sharing that.\n\nTo help');
         
-        // Fix specific broken patterns
-        aiResponse = aiResponse.replace(/preferences for a therapist's\s+,\s*age/gi, 'preferences for a therapist\'s gender, age');
-        aiResponse = aiResponse.replace(/qualities you'd like in\s+with/gi, 'qualities you\'d like in a therapist with');
-        aiResponse = aiResponse.replace(/what you're looking for in\s+\?/gi, 'what you\'re looking for in a therapist?');
+        // PASS 6: Final pass - remove any remaining name patterns
+        aiResponse = aiResponse.replace(/\b([A-Z][a-z]+\s+[A-Z][a-z]+)\s*,\s*(LCSW|LCPC|LSW|CADC|LPC)\b/gi, '');
+        aiResponse = aiResponse.replace(/\bJasmine\s+Goins\b/gi, '');
+        aiResponse = aiResponse.replace(/\bGoins\b/gi, '');
         
         aiResponse = aiResponse.trim();
-        console.log('✅ ABSOLUTE CLEANUP COMPLETE - Response cleaned');
+        console.log('✅ FINAL CLEANUP COMPLETE - 6 PASSES DONE');
       }
       
       // Pattern B: "Are you looking for in-person or telehealth" - ABSOLUTE FORBIDDEN
