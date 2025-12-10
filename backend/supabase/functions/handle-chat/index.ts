@@ -2582,6 +2582,67 @@ ${therapistListForAI}
       // Don't add duplicate error message - let AI continue conversation naturally
     }
 
+    // ==================== ABSOLUTE FINAL CLEANUP - RIGHT BEFORE RETURN ====================
+    // This is the LAST chance to remove therapist names - runs on cleanResponse before returning
+    if (!matchedTherapists || matchedTherapists.length === 0) {
+      console.log('🚨 ABSOLUTE FINAL CLEANUP: Last pass before returning response');
+      
+      // Remove ALL therapist names - brute force
+      const allNames = [
+        "Jasmine Goins, LCSW", "Jasmine Goins,LCSW", "Jasmine Goins , LCSW", "Jasmine Goins LCSW", "Jasmine Goins",
+        "Rachel Kurt, LCPC", "Rachel Kurt", "Tykisha Bays, LSW, CADC", "Tykisha Bays",
+        "Adriane Wilk, LCPC", "Adriane Wilk", "Joy Banks, LCPC", "Joy Banks",
+        "Ebony Norwood, LCSW", "Ebony Norwood", "Porsche McGee, LSW", "Porsche McGee",
+        "Aakruti Patel, LCPC", "Aakruti Patel", "Erica Rodriguez, LCSW", "Erica Rodriguez",
+        "Brianna Smith, LCPC", "Brianna Smith", "Adrienne Farmer, LCSW", "Adrienne Farmer",
+        "Alicia Muhammad, LCSW", "Alicia Muhammad", "Porsche White, LCSW", "Porsche White",
+        "Alexia Sula, LCSW", "Alexia Sula",
+      ];
+      
+      // Run 5 times to catch everything
+      for (let i = 0; i < 5; i++) {
+        for (const name of allNames) {
+          const pattern = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          cleanResponse = cleanResponse.replace(pattern, '');
+        }
+      }
+      
+      // Remove concatenated patterns
+      cleanResponse = cleanResponse.replace(/([a-z])(Jasmine\s+Goins)/gi, '$1');
+      cleanResponse = cleanResponse.replace(/(Jasmine\s+Goins)([A-Z])/gi, '$2');
+      cleanResponse = cleanResponse.replace(/(Jasmine\s+Goins)(Jasmine\s+Goins)/gi, '');
+      
+      // Remove location questions
+      cleanResponse = cleanResponse.replace(/Are you looking for (virtual|in-person) or (in-person|virtual) (appointments|sessions)\?/gi, '');
+      cleanResponse = cleanResponse.replace(/Are you looking for in-person or (virtual|telehealth)/gi, '');
+      
+      // Fix broken grammar
+      cleanResponse = cleanResponse.replace(/therapist's\s+Jasmine\s+Goins/gi, 'therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/therapist's\s+[A-Z][a-z]+\s+[A-Z][a-z]+/gi, 'therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/preferences for a therapist's\s+[A-Z][a-z]+\s+[A-Z][a-z]+/gi, 'preferences for a therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/therapist's\s+,/gi, 'therapist\'s gender,');
+      cleanResponse = cleanResponse.replace(/therapist's\s+age/gi, 'therapist\'s gender, age');
+      cleanResponse = cleanResponse.replace(/have\s*\(BCBS\)/gi, 'have BCBS');
+      cleanResponse = cleanResponse.replace(/,\s*,/g, ',');
+      cleanResponse = cleanResponse.replace(/\s{2,}/g, ' ');
+      
+      // Final verification - if STILL has Jasmine Goins, replace entire sentence
+      if (/Jasmine\s+Goins/i.test(cleanResponse)) {
+        console.error('❌❌❌ CRITICAL: Jasmine Goins STILL EXISTS - Replacing entire sentences');
+        // Replace any sentence containing Jasmine Goins
+        cleanResponse = cleanResponse.split('\n').map(line => {
+          if (/Jasmine\s+Goins/i.test(line)) {
+            // Replace the line with a clean version
+            return line.replace(/.*Jasmine\s+Goins.*/gi, '').replace(/Do you have any preferences for a therapist's\s*,/gi, 'Do you have any preferences for a therapist\'s gender,');
+          }
+          return line;
+        }).filter(line => line.trim().length > 0).join('\n');
+      }
+      
+      cleanResponse = cleanResponse.trim();
+      console.log('✅ ABSOLUTE FINAL CLEANUP COMPLETE');
+    }
+    
     // Build response object
     const response: ChatResponse = {
       reply: cleanResponse,
