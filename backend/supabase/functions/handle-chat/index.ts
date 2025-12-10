@@ -408,34 +408,39 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       systemPrompt += `- ❌❌❌ NEVER say "Jasmine Goins, LCSW Therapy (CBT)" - say "Jasmine Goins, LCSW - specializes in CBT"\n`;
       systemPrompt += `- ❌❌❌ NEVER ask about demographics or preferences AFTER showing matches - show matches FIRST\n`;
       
-      systemPrompt += `\n**✅✅✅ CORRECT FORMAT - USE THE ACTUAL THERAPIST DATA BELOW:**\n`;
-      systemPrompt += `\n**Here are the therapists I found for you:**\n\n`;
+      // Limit to maximum 3 therapists for better user experience
+      const therapistsToShow = matchedTherapistsForAI.slice(0, 3);
       
-      matchedTherapistsForAI.forEach((t: any, index: number) => {
+      systemPrompt += `\n**✅✅✅ CORRECT FORMAT - SHOW MAXIMUM 3 THERAPISTS WITH FULL DETAILS:**\n`;
+      systemPrompt += `\n**You MUST display therapists in this EXACT format (copy the data below exactly):**\n\n`;
+      systemPrompt += `**Here are the therapists I found for you:**\n\n`;
+      
+      therapistsToShow.forEach((t: any, index: number) => {
         const specialties = Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General';
         const insurance = Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various';
         const bio = t.bio || 'Experienced therapist specializing in your needs.';
         const availability = (extractedInfo?.schedule || extractedInfoForMatching?.schedule) ? `Available: ${extractedInfo?.schedule || extractedInfoForMatching?.schedule}` : 'Available: Flexible scheduling';
         
-        systemPrompt += `**${index + 1}. ${t.name}**\n\n`;
-        systemPrompt += `**Bio:**\n${bio}\n\n`;
-        systemPrompt += `**Specialties:**\n${specialties}\n\n`;
-        systemPrompt += `**Insurance Accepted:**\n${insurance}\n\n`;
-        systemPrompt += `**Availability:**\n${availability}\n\n`;
+        systemPrompt += `**${t.name}**\n\n`;
+        systemPrompt += `${bio}\n\n`;
+        systemPrompt += `**Specialties:** ${specialties}\n`;
+        systemPrompt += `**Insurance Accepted:** ${insurance}\n`;
+        systemPrompt += `**Availability:** ${availability}\n\n`;
         systemPrompt += `---\n\n`;
       });
       
       systemPrompt += `\n**🚨🚨🚨 CRITICAL RULES - YOU MUST FOLLOW THESE EXACTLY:**\n`;
-      systemPrompt += `1. ✅ Copy the EXACT therapist names, bios, specialties, and insurance from the list above\n`;
-      systemPrompt += `2. ✅ Show ALL ${matchedTherapistsForAI.length} therapist(s) from the list above - do NOT invent or repeat names\n`;
-      systemPrompt += `3. ✅ Use the EXACT names: ${matchedTherapistsForAI.map((t: any) => t.name).join(', ')}\n`;
-      systemPrompt += `4. ✅ Show the FULL bio for each therapist - copy it exactly from above\n`;
-      systemPrompt += `5. ✅ Show specialties and insurance exactly as listed above\n`;
-      systemPrompt += `6. ✅ After showing all therapists, ask: "Would you like to book an appointment with one of these therapists?"\n`;
-      systemPrompt += `7. ❌ DO NOT use placeholder text, brackets [], or repeated names\n`;
-      systemPrompt += `8. ❌ DO NOT say "[Jasmine Goins, LCSW 1]" or "[Therapist Name]" - use the ACTUAL names from the list\n`;
-      systemPrompt += `9. ❌ DO NOT ask about preferences or demographics - just show the therapists\n`;
-      systemPrompt += `10. ✅ Each therapist in the list above is UNIQUE - do NOT repeat the same name multiple times\n`;
+      systemPrompt += `1. ✅ Show ONLY the ${therapistsToShow.length} therapist(s) listed above - MAXIMUM 3\n`;
+      systemPrompt += `2. ✅ Use EXACT therapist names: ${therapistsToShow.map((t: any) => t.name).join(', ')}\n`;
+      systemPrompt += `3. ✅ Copy the EXACT bio text for each therapist from above - do NOT summarize or truncate\n`;
+      systemPrompt += `4. ✅ Show specialties and insurance exactly as listed above\n`;
+      systemPrompt += `5. ✅ Use this EXACT format: **Therapist Name** followed by bio, then specialties, insurance, availability\n`;
+      systemPrompt += `6. ✅ After showing therapists, ask: "Would you like to book an appointment with one of these therapists?"\n`;
+      systemPrompt += `7. ❌ DO NOT use "Option 1", "Option 2" format - just show therapist names directly\n`;
+      systemPrompt += `8. ❌ DO NOT use placeholder text like "[Jasmine Goins, LCSW]", "[Therapist Name]", or brackets []\n`;
+      systemPrompt += `9. ❌ DO NOT repeat "Jasmine Goins, LCSW" multiple times - each therapist has a UNIQUE name\n`;
+      systemPrompt += `10. ❌ DO NOT show empty fields like "Name:", "Gender:" - only show what's provided above\n`;
+      systemPrompt += `11. ❌ DO NOT ask about demographics, preferences, or reviews - just show the therapists and ask if they want to book\n`;
     }
 
     // Add current date context to system prompt
@@ -666,18 +671,20 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             // If the response is now empty or mostly placeholders, replace with actual therapist list
             if (aiResponse.trim().length < 100 || aiResponse.match(/\[.*\]/g)?.length || 0 > 2) {
               console.log('⚠️ AI response contains too many placeholders - replacing with actual therapist data');
+              // Limit to max 3 therapists
+              const therapistsToShow = matchedTherapistsForAI.slice(0, 3);
               let therapistList = '\n\n**Here are the therapists I found for you:**\n\n';
-              matchedTherapistsForAI.forEach((t: any, index: number) => {
+              therapistsToShow.forEach((t: any, index: number) => {
                 const specialties = Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General';
                 const insurance = Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various';
                 const bio = t.bio || 'Experienced therapist specializing in your needs.';
                 const availability = (extractedInfo?.schedule || extractedInfoForMatching?.schedule) ? `Available: ${extractedInfo?.schedule || extractedInfoForMatching?.schedule}` : 'Available: Flexible scheduling';
                 
-                therapistList += `**${index + 1}. ${t.name}**\n\n`;
-                therapistList += `**Bio:**\n${bio}\n\n`;
-                therapistList += `**Specialties:**\n${specialties}\n\n`;
-                therapistList += `**Insurance Accepted:**\n${insurance}\n\n`;
-                therapistList += `**Availability:**\n${availability}\n\n`;
+                therapistList += `**${t.name}**\n\n`;
+                therapistList += `${bio}\n\n`;
+                therapistList += `**Specialties:** ${specialties}\n`;
+                therapistList += `**Insurance Accepted:** ${insurance}\n`;
+                therapistList += `**Availability:** ${availability}\n\n`;
                 therapistList += `---\n\n`;
               });
               therapistList += `Would you like to book an appointment with one of these therapists?`;
