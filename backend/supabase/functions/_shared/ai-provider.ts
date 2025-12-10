@@ -230,8 +230,17 @@ export async function generateAIResponse(
           }
           
           return text;
-        } catch (error) {
+        } catch (error: any) {
           clearTimeout(timeoutId);
+          
+          // Log the actual error for debugging
+          console.error(`❌ Error with model ${modelName} (${apiVersion}):`, {
+            name: error?.name,
+            message: error?.message,
+            stack: error?.stack,
+            status: error?.status,
+            response: error?.response
+          });
           
           // If timeout, try next model (don't fail immediately)
           if (error.name === 'AbortError' || error.message?.includes('aborted')) {
@@ -245,32 +254,54 @@ export async function generateAIResponse(
               error.message?.includes('Quota') || 
               error.message?.includes('capacity') ||
               error.message?.includes('Capacity')) {
+            console.error(`❌ Quota error for ${modelName}, throwing immediately`);
             throw error; // Re-throw quota errors immediately
           }
           
           // If it's a model not found, continue to next model
           if (error.message?.includes('not found') || error.message?.includes('does not exist')) {
+            console.log(`⚠️  Model not found: ${modelName}, trying next...`);
             lastError = error;
             continue;
           }
           
-          // Other errors, throw immediately
-          throw error;
+          // Other errors, log and continue to next model
+          console.error(`⚠️  Unexpected error with ${modelName}, trying next model:`, error.message);
+          lastError = error;
+          continue;
         }
       }
     }
     
     // All Gemini models failed - provide helpful error message
-    console.log('❌ All Gemini models failed');
-    console.error('Last error:', lastError);
+    console.error('❌ All Gemini models failed');
+    console.error('Last error details:', {
+      name: lastError?.name,
+      message: lastError?.message,
+      stack: lastError?.stack,
+      cause: lastError?.cause
+    });
     
     // Provide more specific error message based on last error
-    if (lastError?.message?.includes('timeout') || lastError?.message?.includes('Request timeout')) {
+    const errorMessage = lastError?.message || '';
+    const errorName = lastError?.name || '';
+    
+    if (errorMessage.includes('timeout') || errorMessage.includes('Request timeout') || errorName === 'AbortError') {
+      console.error('❌ Error type: Timeout');
       throw new Error('Request timeout. The AI service is taking longer than expected. Please try again in a moment.');
-    } else if (lastError?.message?.includes('quota') || lastError?.message?.includes('capacity')) {
+    } else if (errorMessage.includes('quota') || errorMessage.includes('capacity') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+      console.error('❌ Error type: Quota/Capacity');
       throw new Error('All Gemini models are currently at capacity. Please wait a moment and try again.');
+    } else if (errorMessage.includes('API key') || errorMessage.includes('authentication') || errorMessage.includes('401') || errorMessage.includes('403')) {
+      console.error('❌ Error type: Authentication/API Key');
+      throw new Error('AI service authentication error. Please check API key configuration.');
+    } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+      console.error('❌ Error type: Network');
+      throw new Error('Network error connecting to AI service. Please try again.');
     } else {
-      throw new Error('The AI service encountered an issue. Please try again in a moment.');
+      console.error('❌ Error type: Unknown - Original error:', errorMessage);
+      // Include original error message in the thrown error for better debugging
+      throw new Error(`The AI service encountered an issue: ${errorMessage || 'Unknown error'}. Please try again in a moment.`);
     }
   }
   

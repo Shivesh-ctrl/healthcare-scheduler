@@ -431,18 +431,33 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         throw new Error('AI response is empty or invalid');
       }
     } catch (error: any) {
-      console.error('❌ Error generating AI response:', error);
+      // Log detailed error information for debugging
+      console.error('❌ Error generating AI response:', {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack,
+        cause: error?.cause,
+        status: error?.status,
+        response: error?.response
+      });
+      
       const errorMessage = error?.message || 'Failed to generate response';
+      const errorName = error?.name || '';
       
       // Create user-friendly error message
       let userFriendlyMessage = 'I apologize, but I encountered a technical issue. Please try again in a moment.';
       
-      if (errorMessage.includes('timeout') || errorMessage.includes('at capacity')) {
+      if (errorMessage.includes('timeout') || errorMessage.includes('at capacity') || errorName === 'AbortError') {
         userFriendlyMessage = 'I\'m sorry, but the AI service is taking longer than expected. Please wait a moment and try again.';
-      } else if (errorMessage.includes('quota') || errorMessage.includes('capacity')) {
+      } else if (errorMessage.includes('quota') || errorMessage.includes('capacity') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
         userFriendlyMessage = 'I\'m sorry, but the AI service is currently at capacity. Please wait a moment and try again.';
+      } else if (errorMessage.includes('API key') || errorMessage.includes('authentication') || errorMessage.includes('401') || errorMessage.includes('403')) {
+        userFriendlyMessage = 'I\'m sorry, but there was an authentication issue with the AI service. Please contact support.';
+        console.error('🚨 CRITICAL: API key authentication error - check GOOGLE_AI_API_KEY secret');
       } else if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
         userFriendlyMessage = 'I\'m sorry, but there was a configuration issue with the AI service. Please try again in a moment.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        userFriendlyMessage = 'I\'m sorry, but there was a network error. Please check your connection and try again.';
       }
       
       // Return error response that frontend can display
