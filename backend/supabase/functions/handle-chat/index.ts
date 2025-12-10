@@ -336,10 +336,14 @@ When user first says they're looking for therapy or need help:
 14. ❌ DO NOT: Ask "Do you have any location preferences, or are you open to telehealth?" - this is FORBIDDEN since all appointments are virtual
 
 **LOCATION RULES:**
-- 🚨🚨🚨 ALL appointments are VIRTUAL/TELEHEALTH ONLY
-- 🚨🚨🚨 NEVER ask about location preferences - location is NOT relevant since all appointments are virtual
+- 🚨🚨🚨 ALL appointments are VIRTUAL/TELEHEALTH ONLY - never mention in-person
+- 🚨🚨🚨 NEVER ask about location (city, state, area) - location is NOT relevant since all appointments are virtual
+- 🚨🚨🚨 NEVER ask "What is your location?" - this is FORBIDDEN
 - 🚨🚨🚨 NEVER ask "Do you have any location preferences, or are you open to telehealth?" - this is FORBIDDEN
 - 🚨🚨🚨 NEVER ask "Are you looking for in-person or telehealth?" - this is FORBIDDEN
+- 🚨🚨🚨 NEVER say "I need to know your location (city, state) to ensure therapist can practice in your state" - this is FORBIDDEN
+- 🚨🚨🚨 NEVER ask about finding "therapists in your area" - all appointments are virtual
+- 🚨🚨🚨 If user says "online" or "virtual" or "telehealth", DO NOT ask for location
 - 🚨🚨🚨 If user asks about location, say "All appointments are virtual/telehealth, so location is not a concern"
 
 **ONLY AFTER you have their problem AND insurance, THEN show matched therapists with names.**
@@ -850,13 +854,37 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         }
         
         // Pattern 5b: Remove location preference questions since all appointments are virtual
-        const locationPattern = /(?:do\s+you\s+have\s+any\s+location\s+preferences|are\s+you\s+looking\s+for\s+in-person\s+or\s+telehealth|location\s+preferences|preferences\s+regarding\s+location)/gi;
+        const locationPattern = /(?:what\s+is\s+your\s+location|your\s+location\s*\(city,?\s*state\)|do\s+you\s+have\s+any\s+location\s+preferences|are\s+you\s+looking\s+for\s+in-person\s+or\s+telehealth|location\s+preferences|preferences\s+regarding\s+location|in\s+your\s+area|therapists?\s+in\s+your\s+(?:area|state)|find\s+therapists?\s+in|to\s+ensure\s+.*can\s+practice\s+in\s+your\s+state)/gi;
         if (locationPattern.test(aiResponse)) {
-          console.error('❌ AI asked about location preferences - removing since all appointments are virtual');
-          // Remove the entire sentence/question about location
-          aiResponse = aiResponse.replace(/\?[^?]*location[^?]*\?/gi, '');
-          aiResponse = aiResponse.replace(/•\s*[^\n]*location[^\n]*\n/gi, '');
-          aiResponse = aiResponse.replace(/\n\s*[^\n]*location\s+preferences[^\n]*\n/gi, '\n');
+          console.error('❌ AI asked about location - removing since all appointments are virtual');
+          // Remove entire sentences/bullet points about location
+          aiResponse = aiResponse.replace(/[•\-*]\s*What\s+is\s+your\s+location[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/[•\-*]\s*[^\n]*location\s*\([^\)]*\)[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/[•\-*]\s*[^\n]*(?:in-person|telehealth)[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/I\s+(?:still\s+)?need\s+to\s+know\s+your\s+location[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/This\s+(?:is\s+crucial|will\s+help\s+me)\s+for\s+finding\s+therapists\s+in\s+your\s+area[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/to\s+ensure\s+[^\n]*can\s+practice\s+in\s+your\s+state[^\n]*\n/gi, '');
+        }
+        
+        // Pattern 5c: Fix "Jasmine Goins, LCSW - specializes in CBT" in examples - replace with generic "CBT"
+        const therapistSpecializesPattern = /Jasmine\s+Goins,?\s*LCSW\s*-\s*specializes\s+in\s+([A-Z]+)/gi;
+        if (therapistSpecializesPattern.test(aiResponse)) {
+          console.error('❌ AI used "Jasmine Goins, LCSW - specializes in" in examples - removing');
+          aiResponse = aiResponse.replace(therapistSpecializesPattern, '$1');
+        }
+        
+        // Pattern 5d: Fix garbled text like "therapist's preferences, age," or "Do you have a therapist's preferences"
+        const garbledPreferencesPattern = /(?:do\s+you\s+have\s+a\s+)?therapist'?s\s+preferences,?\s*(?:age|gender|background)?[,\s]*/gi;
+        if (garbledPreferencesPattern.test(aiResponse)) {
+          console.error('❌ AI generated garbled text with "therapist\'s preferences" - fixing');
+          aiResponse = aiResponse.replace(garbledPreferencesPattern, 'preference for a therapist\'s gender or background');
+        }
+        
+        // Pattern 5e: Fix incomplete sentences like "What kind of therapy are you" - should be "What kind of therapy are you interested in?"
+        const incompleteSentencePattern = /What\s+kind\s+of\s+therapy\s+are\s+you\s+\(e\.g\./gi;
+        if (incompleteSentencePattern.test(aiResponse)) {
+          console.error('❌ AI generated incomplete sentence - fixing');
+          aiResponse = aiResponse.replace(incompleteSentencePattern, 'What kind of therapy are you interested in? (e.g.');
         }
         
         // Pattern 6: Catch any other therapist name mentions
