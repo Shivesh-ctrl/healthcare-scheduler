@@ -787,7 +787,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
     }
 
     // Check if AI extracted information
-    let extractedInfo: Partial<ExtractedInfo> | undefined;
+    // extractedInfo already declared above (line 76) to avoid initialization error
     let bookingInfo: any = undefined;
     let cleanResponse = aiResponse;
     
