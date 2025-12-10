@@ -94,7 +94,6 @@ export default function AdminDashboard() {
     // Check for OAuth callback results
     const oauthSuccess = searchParams.get('oauth_success')
     const oauthError = searchParams.get('oauth_error')
-    const therapistId = searchParams.get('therapist_id')
 
     if (oauthSuccess === 'true') {
       setNotification({ 
