@@ -633,8 +633,8 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         aiResponse = aiResponse.replace(therapistDatePattern, '');
       }
       
-      // Check for placeholder patterns like "[Jasmine Goins, LCSW 1]", "[Therapist Name]", etc.
-      const placeholderPatterns = [
+      // Check for bracket-style placeholder patterns like "[Jasmine Goins, LCSW 1]", "[Therapist Name]", etc.
+      const bracketPlaceholderPatterns = [
         /\[Jasmine Goins, LCSW \d+\]/gi,
         /\[Therapist Name\]/gi,
         /\[Full bio text here\]/gi,
@@ -645,7 +645,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         /\[[^\]]*therapist[^\]]*\]/gi,
       ];
       
-      for (const pattern of placeholderPatterns) {
+      for (const pattern of bracketPlaceholderPatterns) {
         if (pattern.test(aiResponse)) {
           console.error('❌ AI used placeholder text - removing and replacing with actual therapist data');
           // If we have matched therapists, replace placeholders with actual data
