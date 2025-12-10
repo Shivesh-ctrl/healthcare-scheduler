@@ -409,21 +409,22 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
     // Add current date context to system prompt
     // Note: currentDateStr, currentDateISO, and currentTimeIST are already calculated above (lines 253-282)
     systemPrompt += `\n\n**CURRENT DATE CONTEXT (INDIAN STANDARD TIME - IST) - REAL CALENDAR DATE:**
-- Today is: ${currentDateStr}
-- Current date (YYYY-MM-DD): ${currentDateISO}
-- Current time (IST): ${currentTimeIST}
-- Timezone: Indian Standard Time (IST, UTC+5:30, Asia/Kolkata)
-- IMPORTANT: This is the REAL current date from the system calendar - it updates automatically every day.
-- When calculating "next Friday" or similar dates, use this REAL current date in IST.
-- Example: If today is ${currentDateStr}, then "next Friday" = Calculate the actual next Friday date from today (e.g., "Friday, December 12th, 2025").
-- ALWAYS use REAL calendar dates (e.g., "Friday, December 12th, 2025") - NEVER use placeholder dates like "November 10th" or "[date]" or "[Jasmine Goins, LCSW's Date]".
-- NEVER mention therapist names when discussing dates - only mention the date itself (e.g., "Friday, December 12th, 2025").
-- FORBIDDEN: "[Therapist Name] would be [date]", "[Therapist Name] Friday's date", "Friday, [Therapist Name's Date]" - these are ABSOLUTELY FORBIDDEN.
-- CRITICAL DATE HANDLING: Today is ${currentDateStr} (${currentDateISO}). You MUST accept future dates like "December 12, 2025" - do NOT say "I cannot provide information about dates so far into the future".
-- If user says "next Friday" and today is Wednesday, December 10, 2025, then "next Friday" = Friday, December 12, 2025 - calculate and use this date.
-- NEVER reject future dates - always accept and work with them.
-- When user provides a date like "December 12, 2025" or "12 december 2025", use it EXACTLY as provided - do NOT change it or reject it.
-- Date format in BOOKING_INFO must be YYYY-MM-DD (e.g., "2025-12-12" for December 12, 2025).`;
+- 🚨🚨🚨 CRITICAL: Today is EXACTLY: ${currentDateStr}
+- 🚨🚨🚨 Current date (YYYY-MM-DD): ${currentDateISO}
+- 🚨🚨🚨 Current time (IST): ${currentTimeIST}
+- 🚨🚨🚨 Timezone: Indian Standard Time (IST, UTC+5:30, Asia/Kolkata)
+- 🚨🚨🚨 IMPORTANT: This is the REAL current date from the system calendar - it updates automatically every day.
+- 🚨🚨🚨 When calculating "next Friday" or similar dates, use this EXACT current date: ${currentDateISO} (${currentDateStr}).
+- 🚨🚨🚨 Example: If today is ${currentDateStr} (${currentDateISO}), then "next Friday" = Calculate the actual next Friday date from ${currentDateISO}.
+- 🚨🚨🚨 ALWAYS use REAL calendar dates (e.g., "Friday, December 12th, 2025") - NEVER use placeholder dates like "October 11th" or "November 10th" or "[date]".
+- 🚨🚨🚨 NEVER mention therapist names when discussing dates - only mention the date itself (e.g., "Friday, December 12th, 2025").
+- 🚨🚨🚨 FORBIDDEN: "[Therapist Name] would be [date]", "[Therapist Name] Friday's date", "Friday, [Therapist Name's Date]" - these are ABSOLUTELY FORBIDDEN.
+- 🚨🚨🚨 CRITICAL DATE HANDLING: Today is ${currentDateStr} (${currentDateISO}). You MUST accept future dates like "December 12, 2025" - do NOT say "I cannot provide information about dates so far into the future".
+- 🚨🚨🚨 If user says "next Friday" and today is ${currentDateStr} (${currentDateISO}), then "next Friday" = Calculate the actual next Friday date from ${currentDateISO} (e.g., if today is Wednesday, December 10, 2025, then "next Friday" = Friday, December 12, 2025).
+- 🚨🚨🚨 NEVER reject future dates - always accept and work with them.
+- 🚨🚨🚨 When user provides a date like "December 12, 2025" or "12 december 2025", use it EXACTLY as provided - do NOT change it or reject it.
+- 🚨🚨🚨 Date format in BOOKING_INFO must be YYYY-MM-DD (e.g., "2025-12-12" for December 12, 2025).
+- 🚨🚨🚨 NEVER use old dates like "October 11th" - always use the correct date based on ${currentDateISO}.`;
 
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       {
