@@ -421,7 +421,9 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
 - FORBIDDEN: "[Therapist Name] would be [date]", "[Therapist Name] Friday's date", "Friday, [Therapist Name's Date]" - these are ABSOLUTELY FORBIDDEN.
 - CRITICAL DATE HANDLING: Today is ${currentDateStr} (${currentDateISO}). You MUST accept future dates like "December 12, 2025" - do NOT say "I cannot provide information about dates so far into the future".
 - If user says "next Friday" and today is Wednesday, December 10, 2025, then "next Friday" = Friday, December 12, 2025 - calculate and use this date.
-- NEVER reject future dates - always accept and work with them.`;
+- NEVER reject future dates - always accept and work with them.
+- When user provides a date like "December 12, 2025" or "12 december 2025", use it EXACTLY as provided - do NOT change it or reject it.
+- Date format in BOOKING_INFO must be YYYY-MM-DD (e.g., "2025-12-12" for December 12, 2025).`;
 
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       {
@@ -836,7 +838,15 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
               userMessageLower.includes(therapistNameLower.split(' ')[1]?.toLowerCase() || '')) {
             console.log(`✅ Found therapist name in user message: ${therapist.name}`);
             
-            // Try to extract day and time
+            // Try to extract day, date, and time
+            // First, try to extract explicit dates (e.g., "December 12, 2025" or "12 december 2025")
+            const explicitDatePatterns = [
+              /(?:december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov)\s+(\d{1,2}),?\s+(\d{4})/i,
+              /(\d{1,2})\s+(?:december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov),?\s+(\d{4})/i,
+              /(\d{4}-\d{2}-\d{2})/, // YYYY-MM-DD
+              /(\d{1,2}\/\d{1,2}\/\d{4})/, // MM/DD/YYYY or DD/MM/YYYY
+            ];
+            
             const dayPatterns = [
               /(?:on\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)/i,
               /(?:this\s+)?(next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i,
@@ -845,11 +855,63 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             const timePatterns = [
               /(\d{1,2})\s*(am|pm|:00\s*(am|pm)?)/i,
               /(\d{1,2}):(\d{2})\s*(am|pm)?/i,
+              /morning/i,
+              /afternoon/i,
+              /evening/i,
             ];
             
             let foundDay = null;
             let foundDate = null;
             let foundTime = null;
+            
+            // Helper function to parse explicit dates
+            const parseExplicitDate = (dateStr: string): string | null => {
+              // Try YYYY-MM-DD format
+              const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+              if (isoMatch) {
+                return dateStr; // Already in correct format
+              }
+              
+              // Try "December 12, 2025" format
+              const monthNames: Record<string, number> = {
+                'january': 1, 'jan': 1, 'february': 2, 'feb': 2, 'march': 3, 'mar': 3,
+                'april': 4, 'apr': 4, 'may': 5, 'june': 6, 'jun': 6,
+                'july': 7, 'jul': 7, 'august': 8, 'aug': 8, 'september': 9, 'sep': 9,
+                'october': 10, 'oct': 10, 'november': 11, 'nov': 11, 'december': 12, 'dec': 12
+              };
+              
+              const monthDayYearMatch = dateStr.match(/(december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov)\s+(\d{1,2}),?\s+(\d{4})/i);
+              if (monthDayYearMatch) {
+                const month = monthNames[monthDayYearMatch[1].toLowerCase()];
+                const day = parseInt(monthDayYearMatch[2]);
+                const year = parseInt(monthDayYearMatch[3]);
+                return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              }
+              
+              // Try "12 december 2025" format
+              const dayMonthYearMatch = dateStr.match(/(\d{1,2})\s+(december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov),?\s+(\d{4})/i);
+              if (dayMonthYearMatch) {
+                const day = parseInt(dayMonthYearMatch[1]);
+                const month = monthNames[dayMonthYearMatch[2].toLowerCase()];
+                const year = parseInt(dayMonthYearMatch[3]);
+                return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              }
+              
+              return null;
+            };
+            
+            // First, try to extract explicit dates
+            for (const pattern of explicitDatePatterns) {
+              const match = message.match(pattern);
+              if (match) {
+                const dateStr = match[0] || match[1];
+                foundDate = parseExplicitDate(dateStr);
+                if (foundDate) {
+                  console.log(`✅ Found explicit date in message: ${dateStr} → ${foundDate}`);
+                  break;
+                }
+              }
+            }
             
             // Helper function to convert day name to date (using IST)
             // IMPORTANT: Uses REAL current date from system - updates automatically every day
@@ -909,19 +971,37 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
               return result;
             };
             
-            for (const pattern of dayPatterns) {
-              const match = message.match(pattern);
-              if (match) {
-                foundDay = match[1] || match[2];
-                foundDate = convertDayToDate(foundDay);
-                console.log(`✅ Found day in message: ${foundDay} → ${foundDate}`);
-                break;
+            // Only try day patterns if we didn't find an explicit date
+            if (!foundDate) {
+              for (const pattern of dayPatterns) {
+                const match = message.match(pattern);
+                if (match) {
+                  foundDay = match[1] || match[2];
+                  foundDate = convertDayToDate(foundDay);
+                  console.log(`✅ Found day in message: ${foundDay} → ${foundDate}`);
+                  break;
+                }
               }
             }
             
             for (const pattern of timePatterns) {
               const match = message.match(pattern);
               if (match) {
+                // Handle "morning", "afternoon", "evening"
+                if (match[0].toLowerCase().includes('morning')) {
+                  foundTime = '09:00';
+                  console.log(`✅ Found time in message: morning → ${foundTime}`);
+                  break;
+                } else if (match[0].toLowerCase().includes('afternoon')) {
+                  foundTime = '14:00';
+                  console.log(`✅ Found time in message: afternoon → ${foundTime}`);
+                  break;
+                } else if (match[0].toLowerCase().includes('evening')) {
+                  foundTime = '18:00';
+                  console.log(`✅ Found time in message: evening → ${foundTime}`);
+                  break;
+                }
+                
                 // Pattern 1: /(\d{1,2})\s*(am|pm|:00\s*(am|pm)?)/i - matches "10am" or "10:00am"
                 // Pattern 2: /(\d{1,2}):(\d{2})\s*(am|pm)?/i - matches "10:30am"
                 const hour = parseInt(match[1]);
@@ -979,15 +1059,62 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
     
     // IMPORTANT: Merge booking info from conversation history BEFORE parsing BOOKING_INFO
     // This ensures we have complete info even if AI didn't create BOOKING_INFO
+    // Also check if we can extract booking info from conversation even if bookingInfo doesn't exist yet
+    if (!bookingInfo) {
+      // Try to extract booking info from conversation history if we have therapist + date/time mentioned
+      console.log('🔍 No bookingInfo yet - checking conversation for booking details...');
+      
+      // Check if user mentioned a therapist in conversation
+      let mentionedTherapist = null;
+      for (const msg of [...conversationHistory, { role: 'user' as const, content: message }]) {
+        if (msg.role === 'user' && allActiveTherapists) {
+          for (const therapist of allActiveTherapists) {
+            const therapistNameLower = therapist.name.toLowerCase();
+            if (msg.content.toLowerCase().includes(therapistNameLower.split(',')[0].toLowerCase()) ||
+                msg.content.toLowerCase().includes(therapistNameLower.split(' ')[0].toLowerCase())) {
+              mentionedTherapist = therapist;
+              console.log(`✅ Found therapist mentioned in conversation: ${therapist.name}`);
+              break;
+            }
+          }
+          if (mentionedTherapist) break;
+        }
+      }
+      
+      // If therapist mentioned, try to extract other booking details
+      if (mentionedTherapist) {
+        bookingInfo = {
+          therapist_name: mentionedTherapist.name,
+          appointment_date: null,
+          appointment_time: null,
+          patient_name: null,
+          patient_email: authenticatedUserEmail || null,
+        };
+      }
+    }
+    
     // Merge booking info from conversation history if we have partial booking info
     // This handles cases where user provides details across multiple messages
-    if (bookingInfo && (!bookingInfo.patient_name || !bookingInfo.patient_email || !bookingInfo.appointment_date || !bookingInfo.appointment_time)) {
+    if (bookingInfo && (!bookingInfo.patient_name || !bookingInfo.patient_email || !bookingInfo.appointment_date || !bookingInfo.appointment_time || !bookingInfo.therapist_name)) {
       console.log('🔍 Checking conversation history for additional booking info...');
       
       // Look through conversation history for booking-related information
       for (const msg of conversationHistory) {
         if (msg.role === 'user') {
           const userMsg = msg.content.toLowerCase();
+          
+          // Try to extract therapist name if not already set
+          if (!bookingInfo.therapist_name && allActiveTherapists) {
+            for (const therapist of allActiveTherapists) {
+              const therapistNameLower = therapist.name.toLowerCase();
+              if (msg.content.toLowerCase().includes(therapistNameLower.split(',')[0].toLowerCase()) ||
+                  msg.content.toLowerCase().includes(therapistNameLower.split(' ')[0].toLowerCase())) {
+                bookingInfo.therapist_name = therapist.name;
+                console.log(`✅ Extracted therapist name from history: ${bookingInfo.therapist_name}`);
+                break;
+              }
+            }
+          }
           
           // Try to extract patient name (look for patterns like "I'm John", "My name is John", "John Doe")
           if (!bookingInfo.patient_name) {
@@ -1016,17 +1143,63 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             }
           }
           
-          // Try to extract date if we have day but not date
-          if (!bookingInfo.appointment_date && bookingInfo.appointment_time) {
-            const datePatterns = [
+          // Try to extract date if we have time but not date
+          if (!bookingInfo.appointment_date) {
+            // First try explicit dates
+            const explicitDatePatterns = [
+              /(?:december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov)\s+(\d{1,2}),?\s+(\d{4})/i,
+              /(\d{1,2})\s+(?:december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov),?\s+(\d{4})/i,
               /(\d{4}-\d{2}-\d{2})/, // YYYY-MM-DD
               /(\d{1,2}\/\d{1,2}\/\d{4})/, // MM/DD/YYYY
+            ];
+            
+            const datePatterns = [
+              ...explicitDatePatterns,
               /(?:on|for)\s+(\w+day)/i, // "on Sunday"
             ];
+            
+            // Helper to parse explicit dates
+            const parseExplicitDate = (dateStr: string): string | null => {
+              const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+              if (isoMatch) return dateStr;
+              
+              const monthNames: Record<string, number> = {
+                'january': 1, 'jan': 1, 'february': 2, 'feb': 2, 'march': 3, 'mar': 3,
+                'april': 4, 'apr': 4, 'may': 5, 'june': 6, 'jun': 6,
+                'july': 7, 'jul': 7, 'august': 8, 'aug': 8, 'september': 9, 'sep': 9,
+                'october': 10, 'oct': 10, 'november': 11, 'nov': 11, 'december': 12, 'dec': 12
+              };
+              
+              const monthDayYearMatch = dateStr.match(/(december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov)\s+(\d{1,2}),?\s+(\d{4})/i);
+              if (monthDayYearMatch) {
+                const month = monthNames[monthDayYearMatch[1].toLowerCase()];
+                const day = parseInt(monthDayYearMatch[2]);
+                const year = parseInt(monthDayYearMatch[3]);
+                return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              }
+              
+              const dayMonthYearMatch = dateStr.match(/(\d{1,2})\s+(december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov),?\s+(\d{4})/i);
+              if (dayMonthYearMatch) {
+                const day = parseInt(dayMonthYearMatch[1]);
+                const month = monthNames[dayMonthYearMatch[2].toLowerCase()];
+                const year = parseInt(dayMonthYearMatch[3]);
+                return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              }
+              
+              return null;
+            };
             
             for (const pattern of datePatterns) {
               const match = msg.content.match(pattern);
               if (match && match[1]) {
+                // First try to parse as explicit date
+                const explicitDate = parseExplicitDate(match[0] || match[1]);
+                if (explicitDate) {
+                  bookingInfo.appointment_date = explicitDate;
+                  console.log(`✅ Extracted explicit date from history: ${explicitDate}`);
+                  break;
+                }
+                
                 // If it's a day name, convert it
                 if (match[1].match(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i)) {
                   // Use the same conversion function we have above
@@ -1092,7 +1265,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       }
       
       // Also check current message for missing fields
-      if (!bookingInfo.patient_name || !bookingInfo.patient_email) {
+      if (!bookingInfo.patient_name || !bookingInfo.patient_email || !bookingInfo.appointment_date) {
         // Extract name from current message
         if (!bookingInfo.patient_name) {
           const namePatterns = [
@@ -1116,6 +1289,59 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           if (match && match[1]) {
             bookingInfo.patient_email = match[1].trim();
             console.log(`✅ Extracted patient email from current message: ${bookingInfo.patient_email}`);
+          }
+        }
+        
+        // Extract explicit date from current message (e.g., "12 december 2025")
+        if (!bookingInfo.appointment_date) {
+          const explicitDatePatterns = [
+            /(?:december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov)\s+(\d{1,2}),?\s+(\d{4})/i,
+            /(\d{1,2})\s+(?:december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov),?\s+(\d{4})/i,
+            /(\d{4}-\d{2}-\d{2})/, // YYYY-MM-DD
+          ];
+          
+          const monthNames: Record<string, number> = {
+            'january': 1, 'jan': 1, 'february': 2, 'feb': 2, 'march': 3, 'mar': 3,
+            'april': 4, 'apr': 4, 'may': 5, 'june': 6, 'jun': 6,
+            'july': 7, 'jul': 7, 'august': 8, 'aug': 8, 'september': 9, 'sep': 9,
+            'october': 10, 'oct': 10, 'november': 11, 'nov': 11, 'december': 12, 'dec': 12
+          };
+          
+          for (const pattern of explicitDatePatterns) {
+            const match = message.match(pattern);
+            if (match) {
+              const dateStr = match[0];
+              
+              // Try YYYY-MM-DD format
+              const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+              if (isoMatch) {
+                bookingInfo.appointment_date = dateStr;
+                console.log(`✅ Extracted date from current message: ${dateStr}`);
+                break;
+              }
+              
+              // Try "December 12, 2025" format
+              const monthDayYearMatch = dateStr.match(/(december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov)\s+(\d{1,2}),?\s+(\d{4})/i);
+              if (monthDayYearMatch) {
+                const month = monthNames[monthDayYearMatch[1].toLowerCase()];
+                const day = parseInt(monthDayYearMatch[2]);
+                const year = parseInt(monthDayYearMatch[3]);
+                bookingInfo.appointment_date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                console.log(`✅ Extracted date from current message: ${dateStr} → ${bookingInfo.appointment_date}`);
+                break;
+              }
+              
+              // Try "12 december 2025" format
+              const dayMonthYearMatch = dateStr.match(/(\d{1,2})\s+(december|january|february|march|april|may|june|july|august|september|october|november|dec|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov),?\s+(\d{4})/i);
+              if (dayMonthYearMatch) {
+                const day = parseInt(dayMonthYearMatch[1]);
+                const month = monthNames[dayMonthYearMatch[2].toLowerCase()];
+                const year = parseInt(dayMonthYearMatch[3]);
+                bookingInfo.appointment_date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                console.log(`✅ Extracted date from current message: ${dateStr} → ${bookingInfo.appointment_date}`);
+                break;
+              }
+            }
           }
         }
       }
@@ -1151,6 +1377,27 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           appointment_date: !!bookingInfo.appointment_date,
           appointment_time: !!bookingInfo.appointment_time,
         });
+      }
+    }
+    
+    // CRITICAL: Re-parse BOOKING_INFO if we just injected it
+    // This ensures the booking is processed even if AI didn't create it
+    if (aiResponse.includes('BOOKING_INFO') && !bookingInfo) {
+      console.log('🔍 Re-parsing BOOKING_INFO after injection...');
+      const bookingMatch = aiResponse.match(/BOOKING_INFO:\s*\{[\s\S]*?\}/);
+      if (bookingMatch && bookingMatch[0]) {
+        try {
+          const jsonString = bookingMatch[0].replace(/BOOKING_INFO\s*:\s*/i, '').trim();
+          const firstBrace = jsonString.indexOf('{');
+          const lastBrace = jsonString.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1) {
+            const extractedJson = jsonString.substring(firstBrace, lastBrace + 1);
+            bookingInfo = JSON.parse(extractedJson);
+            console.log('✅ Re-parsed BOOKING_INFO after injection:', JSON.stringify(bookingInfo, null, 2));
+          }
+        } catch (e) {
+          console.error('❌ Failed to re-parse injected BOOKING_INFO:', e);
+        }
       }
     }
     
