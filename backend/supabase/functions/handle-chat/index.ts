@@ -1720,7 +1720,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
     let matchedTherapists = undefined;
     const needsMoreInfo = !extractedInfo || !extractedInfo.specialty || !extractedInfo.insurance;
 
-    if (!needsMoreInfo && extractedInfo) {
+    if (!needsMoreInfo && extractedInfo && extractedInfo.specialty && extractedInfo.insurance) {
       const specialtyLower = extractedInfo.specialty.toLowerCase().trim();
       const insuranceNormalized = normalizeInsurance(extractedInfo.insurance);
 
