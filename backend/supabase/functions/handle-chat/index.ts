@@ -290,11 +290,25 @@ ${exactNames}
 4. Any preferences? (therapist's gender, therapy type like CBT)
 
 **QUESTIONS TO ASK (USE THESE EXACT FORMATS):**
-- "What brings you in today? What would you like help with?"
+- "What brings you in today?"
 - "What insurance do you have?"
 - "What are your scheduling preferences?"
 - "Are there any specific approaches to therapy you're interested in? (e.g., CBT, mindfulness-based therapy, psychodynamic therapy)"
 - "Do you have any preferences for a therapist's gender, age, or background?"
+
+**🚨 EXAMPLES OF WHAT *NOT* TO SAY (FORBIDDEN):**
+- ❌ "Are you looking for Jasmine Goins, LCSW with any specific expertise?"
+- ❌ "Jasmine Goins, LCSW - specializes in CBT"
+- ❌ "preferences regarding Jasmine Goins, LCSW's gender"
+- ❌ "Are you looking for in-person or telehealth?"
+- ❌ "What is your zip code?"
+- ❌ ANY therapist name before matching
+
+**✅ CORRECT EXAMPLES:**
+- ✅ "Are you looking for a therapist with any specific expertise?"
+- ✅ "CBT, mindfulness-based therapy, psychodynamic therapy"
+- ✅ "preferences for a therapist's gender, age, or background"
+- ✅ "What are your scheduling preferences?"
 
 **EMERGENCY:** If user mentions suicide/self-harm, immediately provide: 988 (call/text), Crisis Text Line 741741, 1-800-273-8255.
 
@@ -554,25 +568,53 @@ ${therapistListForAI}
       // Look for patterns like "Dr. Name", "Name, LCPC", or "[Therapist Name] would be [date]"
       const therapistMentionPattern = /(?:dr\.|mr\.|ms\.|mrs\.)?\s*([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/g;
       
-      // ==================== ULTRA-SPECIFIC PATTERNS - TOP PRIORITY ====================
-      // These catch the EXACT phrases the user keeps seeing
+      // ==================== ULTRA-NUCLEAR PATTERNS - ABSOLUTE TOP PRIORITY ====================
+      // These run FIRST and catch EVERY variation of therapist names
       
-      // Pattern A: Remove ALL therapist names from the ENTIRE response if we haven't matched yet
       if (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0) {
-        // Remove "Jasmine Goins, LCSW" and "Jasmine Goins" - the most common offender
-        aiResponse = aiResponse.replace(/Jasmine\s+Goins(?:\s*,\s*LCSW)?/gi, 'a therapist');
-        console.log('🧹 Cleaned "Jasmine Goins" from response');
+        console.log('🚨 NUCLEAR CLEANUP: Removing ALL therapist names from response');
         
-        // Remove ALL therapist names that match our list
+        // STEP 1: Remove therapist names from specific contexts FIRST (before general cleanup)
+        
+        // 1a. "Are you looking for [Name] with any specific expertise"
+        aiResponse = aiResponse.replace(/are\s+you\s+looking\s+for\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s+with/gi, 'are you looking for a therapist with');
+        
+        // 1b. "[Name] - specializes in" (in bullet points, WITHOUT parentheses)
+        aiResponse = aiResponse.replace(/([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s*-\s*specializes\s+in\s+/gi, '');
+        
+        // 1c. "preferences regarding [Name]'s gender"
+        aiResponse = aiResponse.replace(/preferences\s+regarding\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+gender/gi, 'preferences for a therapist\'s gender');
+        
+        // 1d. "preferences for [Name]'s gender"
+        aiResponse = aiResponse.replace(/preferences\s+for\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+gender/gi, 'preferences for a therapist\'s gender');
+        
+        // STEP 2: Remove "Jasmine Goins, LCSW" EVERYWHERE (most common offender)
+        let jasmineCount = 0;
+        while (/Jasmine\s+Goins(?:\s*,\s*LCSW)?/gi.test(aiResponse) && jasmineCount < 10) {
+          aiResponse = aiResponse.replace(/Jasmine\s+Goins(?:\s*,\s*LCSW)?/gi, 'a therapist');
+          jasmineCount++;
+        }
+        if (jasmineCount > 0) {
+          console.log(`🧹 Removed "Jasmine Goins" ${jasmineCount} times`);
+        }
+        
+        // STEP 3: Remove ALL other therapist names that match our list
         if (allActiveTherapists && allActiveTherapists.length > 0) {
           for (const therapist of allActiveTherapists) {
-            const namePattern = new RegExp(therapist.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-            if (namePattern.test(aiResponse)) {
-              console.log(`🧹 Cleaning therapist name: ${therapist.name}`);
+            const escapedName = therapist.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const namePattern = new RegExp(escapedName, 'gi');
+            let count = 0;
+            while (namePattern.test(aiResponse) && count < 5) {
               aiResponse = aiResponse.replace(namePattern, 'a therapist');
+              count++;
+            }
+            if (count > 0) {
+              console.log(`🧹 Removed "${therapist.name}" ${count} times`);
             }
           }
         }
+        
+        console.log('✅ NUCLEAR CLEANUP COMPLETE');
       }
       
       // Pattern B: "Are you looking for in-person or telehealth" - ABSOLUTE FORBIDDEN
@@ -589,18 +631,24 @@ ${therapistListForAI}
         aiResponse = aiResponse.replace(zipCodePattern, '');
       }
       
-      // Pattern D: "(e.g., [Therapist Name] - specializes in CBT" in bullet points - ABSOLUTE FORBIDDEN
-      const therapyExampleWithNamePattern = /\(e\.g\.,\s*([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s*-\s*specializes\s+in\s+([^)]+)\)/gi;
-      if (therapyExampleWithNamePattern.test(aiResponse)) {
-        console.error('❌ CRITICAL: AI used therapist name in therapy example - removing name');
-        aiResponse = aiResponse.replace(therapyExampleWithNamePattern, '(e.g., $2)');
+      // Pattern D: ANY "[Name] - specializes in" (with or without parentheses) - ABSOLUTE FORBIDDEN
+      const therapyExampleWithNamePattern1 = /\(e\.g\.,\s*([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s*-\s*specializes\s+in\s+([^)]+)\)/gi;
+      const therapyExampleWithNamePattern2 = /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s*-\s*specializes\s+in\s+([^,\n.]+)/gi;
+      
+      if (therapyExampleWithNamePattern1.test(aiResponse)) {
+        console.error('❌ CRITICAL: AI used therapist name in parentheses example - removing name');
+        aiResponse = aiResponse.replace(therapyExampleWithNamePattern1, '(e.g., $2)');
+      }
+      if (therapyExampleWithNamePattern2.test(aiResponse)) {
+        console.error('❌ CRITICAL: AI used therapist name before "specializes in" - removing');
+        aiResponse = aiResponse.replace(therapyExampleWithNamePattern2, '$2');
       }
       
-      // Pattern E: "preferences for [Therapist Name]'s gender" - ABSOLUTE FORBIDDEN
-      const preferencesForTherapistPattern = /preferences\s+for\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+gender/gi;
-      if (preferencesForTherapistPattern.test(aiResponse)) {
-        console.error('❌ CRITICAL: AI said "preferences for [Therapist Name]\'s gender" - removing');
-        aiResponse = aiResponse.replace(preferencesForTherapistPattern, 'preferences for a therapist\'s gender');
+      // Pattern E: "preferences for/regarding [Therapist Name]'s" - ABSOLUTE FORBIDDEN
+      const preferencesForTherapistPattern1 = /preferences\s+(?:for|regarding)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+(?:gender|age|background)/gi;
+      if (preferencesForTherapistPattern1.test(aiResponse)) {
+        console.error('❌ CRITICAL: AI said "preferences for/regarding [Therapist Name]\'s" - removing');
+        aiResponse = aiResponse.replace(preferencesForTherapistPattern1, 'preferences for a therapist\'s $1');
       }
       
       // Pattern F: "I understand you're looking for [Therapist Name]" - ABSOLUTE TOP PRIORITY TO REMOVE
