@@ -257,10 +257,42 @@ ${exactNames}
       hour12: true
     });
     
-    // PUT THERAPIST LIST FIRST - MOST CRITICAL RULE
-    let systemPrompt = `${therapistListForAI}
+    // PUT FORBIDDEN RULES FIRST - MOST CRITICAL RULE
+    // The AI must see what NOT to do BEFORE it sees the therapist list
+    let systemPrompt = `**YOUR ROLE:** Empathetic healthcare scheduling assistant. Be warm, supportive, validate feelings. Extract ALL info from messages (insurance, schedule, date, time, name, email). Handle spelling mistakes.
 
-**YOUR ROLE:** Empathetic healthcare scheduling assistant. Be warm, supportive, validate feelings. Extract ALL info from messages (insurance, schedule, date, time, name, email). Handle spelling mistakes.
+**🚨🚨🚨 ULTRA-CRITICAL RULES - READ THESE FIRST BEFORE DOING ANYTHING 🚨🚨🚨**
+
+**RULE #1: NEVER MENTION ANY THERAPIST NAME BEFORE MATCHING**
+- ❌ FORBIDDEN: "I understand you're looking for Jasmine Goins, LCSW" - WRONG
+- ❌ FORBIDDEN: "I understand you're looking for [ANY THERAPIST NAME]" - WRONG
+- ❌ FORBIDDEN: "you have [Therapist Name] insurance" - WRONG
+- ❌ FORBIDDEN: "haveJasmine Goins, LCSW" or any concatenated therapist names - WRONG
+- ❌ FORBIDDEN: Using therapist names in examples like "(e.g., PPO, HMO, Jasmine Goins, LCSW)" - WRONG
+- ✅ CORRECT: "I understand you're looking for therapy for anxiety"
+- ✅ CORRECT: "I understand you need help with anxiety and have BCBS insurance"
+
+**RULE #2: NEVER ASK ABOUT LOCATION - ALL SESSIONS ARE VIRTUAL**
+- ❌ FORBIDDEN: "What state are you located in?" - WRONG
+- ❌ FORBIDDEN: "What is your location? (City, State)" - WRONG
+- ❌ FORBIDDEN: "This is important for finding therapists in your network" - WRONG
+- ❌ FORBIDDEN: ANY question about city, state, area, location - WRONG
+- ✅ CORRECT: "What are your scheduling preferences?"
+- ✅ CORRECT: "Do you have any preferences for a therapist's approach?"
+
+**RULE #3: NEVER USE THERAPIST NAMES IN INSURANCE EXAMPLES**
+- ❌ FORBIDDEN: "(e.g., PPO, HMO, Jasmine Goins, LCSW)" - WRONG
+- ❌ FORBIDDEN: "Do you have a specific type of BCBS plan (e.g., PPO, HMO, [Therapist Name])?" - WRONG
+- ✅ CORRECT: "(e.g., PPO, HMO, EPO)"
+- ✅ CORRECT: "Do you have a specific type of BCBS plan (e.g., PPO, HMO)?"
+
+**RULE #4: NEVER SAY "you're looking for [Therapist Name]"**
+- ❌ FORBIDDEN: "I understand you're looking for Jasmine Goins, LCSW to help with anxiety" - WRONG
+- ❌ FORBIDDEN: "you're looking for [ANY THERAPIST NAME]" - WRONG
+- ✅ CORRECT: "I understand you're looking for help with anxiety"
+- ✅ CORRECT: "I understand you need support for anxiety"
+
+**IF YOU VIOLATE THESE RULES, YOUR RESPONSE WILL BE REJECTED AND REWRITTEN**
 
 **CRITICAL RULE - INITIAL CONVERSATION FLOW (ABSOLUTE FORBIDDEN - READ CAREFULLY):**
 - 🚨🚨🚨 When user says "I'm looking for therapy" or "I need therapy" or similar - DO NOT mention any therapist names
@@ -422,7 +454,13 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
 
 **COLLECT:** Therapist (from list), date (future only), time, name, email (required), phone (optional).
 **BOOK:** When you have all 5 required fields → CREATE BOOKING_INFO immediately.
-**NEVER show EXTRACTED_INFO/BOOKING_INFO to user - internal only.**`;
+**NEVER show EXTRACTED_INFO/BOOKING_INFO to user - internal only.**
+
+**🚨🚨🚨 AVAILABLE THERAPISTS - ONLY USE THESE NAMES AFTER MATCHING 🚨🚨🚨**
+${therapistListForAI}
+
+**REMINDER: DO NOT mention any therapist names from the list above UNTIL you have found matches. Before matching, use generic terms like "a therapist" or "the right therapist".**
+`;
 
     // Add matched therapists to system prompt if available
     if (matchedTherapistsForAI && matchedTherapistsForAI.length > 0) {
@@ -608,6 +646,13 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       // Check if response mentions any therapist name not in our list OR mentions therapist names before matching
       // Look for patterns like "Dr. Name", "Name, LCPC", or "[Therapist Name] would be [date]"
       const therapistMentionPattern = /(?:dr\.|mr\.|ms\.|mrs\.)?\s*([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/g;
+      
+      // ULTRA-SPECIFIC PATTERN 1: "I understand you're looking for [Therapist Name]" - ABSOLUTE TOP PRIORITY TO REMOVE
+      const understandLookingPattern = /(?:i\s+understand|thanks\s+for\s+sharing\s+that\.\s+i\s+understand)\s+(?:that\s+)?you'?re\s+looking\s+for\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
+      if (understandLookingPattern.test(aiResponse) && (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
+        console.error('❌ CRITICAL: AI said "I understand you\'re looking for [Therapist Name]" - removing');
+        aiResponse = aiResponse.replace(understandLookingPattern, 'I understand you\'re looking for help');
+      }
       
       // Check for patterns like "you're looking for [Therapist Name]" - FORBIDDEN before matching
       const lookingForPattern = /(?:you'?re\s+looking\s+for|so,?\s+to\s+recap,?\s+you'?re\s+looking\s+for)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
@@ -860,8 +905,29 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           aiResponse = aiResponse.replace(jasmineGoinsPattern, 'a therapist');
         }
         
+        // ULTRA-SPECIFIC PATTERN 2: "haveJasmine Goins, LCSW" or any therapist name concatenated with "have" or other words
+        const concatenatedWithHavePattern = /have([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
+        if (concatenatedWithHavePattern.test(aiResponse) && (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
+          console.error('❌ CRITICAL: AI concatenated "have" with therapist name - fixing');
+          aiResponse = aiResponse.replace(concatenatedWithHavePattern, 'have');
+        }
+        
+        // ULTRA-SPECIFIC PATTERN 3: Therapist names in insurance plan examples like "(e.g., PPO, HMO, Jasmine Goins, LCSW)"
+        const insuranceExamplePattern = /\(e\.g\.,\s*(?:PPO,\s*)?(?:HMO,\s*)?([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\)/gi;
+        if (insuranceExamplePattern.test(aiResponse) && (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
+          console.error('❌ CRITICAL: AI used therapist name in insurance example - removing');
+          aiResponse = aiResponse.replace(insuranceExamplePattern, '(e.g., PPO, HMO, EPO)');
+        }
+        
+        // ULTRA-SPECIFIC PATTERN 4: "What state are you located in?" - ABSOLUTE FORBIDDEN
+        const stateLocationPattern = /what\s+state\s+are\s+you\s+located\s+in\?/gi;
+        if (stateLocationPattern.test(aiResponse)) {
+          console.error('❌ CRITICAL: AI asked "What state are you located in?" - removing');
+          aiResponse = aiResponse.replace(stateLocationPattern, '');
+        }
+        
         // Pattern 5b: Remove location preference questions since all appointments are virtual - ULTRA AGGRESSIVE
-        const locationPattern = /(?:what\s+is\s+your\s+location|your\s+location\s*\(?\s*city,?\s*state\s*\)?|do\s+you\s+have\s+any\s+location\s+preferences|are\s+you\s+looking\s+for\s+in-person\s+or\s+(?:telehealth|virtual)|location\s+preferences|preferences\s+regarding\s+location|in\s+your\s+area|therapists?\s+in\s+your\s+(?:area|state|network)|find\s+therapists?\s+in|to\s+ensure\s+.*can\s+practice\s+in\s+your\s+state|\(city,?\s*state\))/gi;
+        const locationPattern = /(?:what\s+state\s+are\s+you\s+located\s+in|what\s+is\s+your\s+location|your\s+location\s*\(?\s*city,?\s*state\s*\)?|do\s+you\s+have\s+any\s+location\s+preferences|are\s+you\s+looking\s+for\s+in-person\s+or\s+(?:telehealth|virtual)|location\s+preferences|preferences\s+regarding\s+location|in\s+your\s+area|therapists?\s+in\s+your\s+(?:area|state|network)|find\s+therapists?\s+in|to\s+ensure\s+.*can\s+practice\s+in\s+your\s+state|\(city,?\s*state\)|this\s+is\s+important\s+for\s+finding\s+therapists\s+in\s+your\s+network)/gi;
         if (locationPattern.test(aiResponse)) {
           console.error('❌ AI asked about location - removing since all appointments are virtual');
           // Remove entire sentences/questions/bullet points about location - ULTRA AGGRESSIVE
@@ -876,13 +942,22 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           aiResponse = aiResponse.replace(/What\s+is\s+your\s+location\?\s*\(City,\s*State\)/gi, '');
           // Remove any remaining numbered list items that mention location
           aiResponse = aiResponse.replace(/^\d+\.\s*[^\n]*(?:location|city|state|area|in-person)[^\n]*$/gim, '');
+          // Remove sentences that mention "This is important for finding therapists in your network"
+          aiResponse = aiResponse.replace(/[^.]*this\s+is\s+important\s+for\s+finding\s+therapists[^.]*\./gi, '');
         }
         
         // Pattern 5c: Fix "Jasmine Goins, LCSW - specializes in CBT" in examples - replace with generic "CBT"
-        const therapistSpecializesPattern = /Jasmine\s+Goins,?\s*LCSW\s*-\s*specializes\s+in\s+([A-Z]+)/gi;
-        if (therapistSpecializesPattern.test(aiResponse)) {
-          console.error('❌ AI used "Jasmine Goins, LCSW - specializes in" in examples - removing');
-          aiResponse = aiResponse.replace(therapistSpecializesPattern, '$1');
+        const therapistSpecializesPattern = /([A-Z][a-z]+\s+[A-Z][a-z]+)(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?\s*-\s*specializes\s+in\s+([A-Z]+)/gi;
+        if (therapistSpecializesPattern.test(aiResponse) && (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
+          console.error('❌ AI used "Therapist Name - specializes in" in examples - removing therapist name');
+          aiResponse = aiResponse.replace(therapistSpecializesPattern, '$2');
+        }
+        
+        // ULTRA-SPECIFIC PATTERN 5: "preferences regarding [Therapist Name]'s" - ABSOLUTE FORBIDDEN
+        const preferencesRegardingPattern = /(?:preferences\s+regarding|do\s+you\s+have\s+any\s+preferences\s+regarding)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s/gi;
+        if (preferencesRegardingPattern.test(aiResponse) && (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
+          console.error('❌ CRITICAL: AI asked about "preferences regarding [Therapist Name]\'s" - removing');
+          aiResponse = aiResponse.replace(preferencesRegardingPattern, 'preferences for a therapist\'s');
         }
         
         // Pattern 5d: Fix garbled text like "therapist's preferences, age," or "Do you have a therapist's preferences"
