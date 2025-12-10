@@ -90,7 +90,7 @@ serve(async (req: Request) => {
     
     // Find matched therapists BEFORE AI response so AI can include them automatically
     // Use inquiry data if available, or try to extract from message
-    let matchedTherapistsForAI = undefined;
+    let matchedTherapistsForAI: any[] | undefined = undefined;
     
     // Helper function to normalize insurance names (handle variations and spelling mistakes)
     const normalizeInsurance = (insurance: string): string => {
