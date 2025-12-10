@@ -61,7 +61,7 @@ serve(async (req: Request) => {
 
     // Create or load existing inquiry
     let currentInquiryId = inquiryId;
-    let inquiry = null;
+    let inquiry: any = null;
 
     if (currentInquiryId) {
       const { data } = await supabase
