@@ -743,6 +743,81 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             });
           }
         }
+        
+        // AGGRESSIVE PATTERNS: Catch therapist names concatenated with text or repeated
+        // Pattern 1: Therapist name concatenated without spaces (e.g., "haveJasmine Goins, LCSW")
+        const concatenatedPattern = /([a-z])([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
+        if (concatenatedPattern.test(aiResponse)) {
+          console.error('❌ AI concatenated therapist name with text before matching - fixing');
+          aiResponse = aiResponse.replace(concatenatedPattern, (match, before, therapistName) => {
+            // Check if it's a known therapist name
+            if (allActiveTherapists && allActiveTherapists.some((t: any) => t.name.toLowerCase().includes(therapistName.toLowerCase()))) {
+              return before + ' a therapist';
+            }
+            return match;
+          });
+        }
+        
+        // Pattern 2: Repeated therapist name (e.g., "Jasmine Goins, LCSWJasmine Goins, LCSW")
+        const repeatedPattern = /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
+        if (repeatedPattern.test(aiResponse)) {
+          console.error('❌ AI repeated therapist name before matching - removing duplicates');
+          aiResponse = aiResponse.replace(repeatedPattern, (match, name1, name2) => {
+            // If both names are the same, keep only one
+            if (name1.toLowerCase() === name2.toLowerCase()) {
+              return 'a therapist';
+            }
+            return match;
+          });
+        }
+        
+        // Pattern 3: Therapist name in possessive form (e.g., "Jasmine Goins, LCSW's gender")
+        const possessivePattern = /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+(?:gender|age|background|preferences|qualities)/gi;
+        if (possessivePattern.test(aiResponse)) {
+          console.error('❌ AI used therapist name in possessive form before matching - removing');
+          aiResponse = aiResponse.replace(possessivePattern, 'therapist\'s $1');
+          // Then remove the therapist name part
+          aiResponse = aiResponse.replace(/([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+(?:gender|age|background|preferences|qualities)/gi, 'therapist\'s preferences');
+        }
+        
+        // Pattern 4: Therapist name in "preferences for [Name]" or "help you find [Name]"
+        const preferencesPattern = /(?:preferences\s+for|help\s+you\s+find|find|support\s+you\s+in\s+finding)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
+        if (preferencesPattern.test(aiResponse)) {
+          console.error('❌ AI mentioned therapist name in preferences/find context before matching - removing');
+          aiResponse = aiResponse.replace(preferencesPattern, (match, therapistName) => {
+            if (match.includes('preferences')) {
+              return 'preferences for a therapist';
+            }
+            if (match.includes('find') || match.includes('finding')) {
+              return match.replace(therapistName, 'the right therapist');
+            }
+            return match;
+          });
+        }
+        
+        // Pattern 5: Catch any remaining therapist name mentions and replace with generic terms
+        const anyTherapistNamePattern = /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/g;
+        const therapistMentions = aiResponse.match(anyTherapistNamePattern);
+        if (therapistMentions && allActiveTherapists) {
+          for (const mention of therapistMentions) {
+            // Check if this is a valid therapist name
+            const isValidTherapist = allActiveTherapists.some((t: any) => 
+              t.name.toLowerCase().includes(mention.toLowerCase()) || 
+              mention.toLowerCase().includes(t.name.toLowerCase())
+            );
+            
+            if (isValidTherapist) {
+              console.error(`❌ AI mentioned therapist name "${mention}" before matching - replacing with generic term`);
+              // Replace in contexts where it shouldn't appear
+              // Don't replace if it's in a valid context (like showing matched therapists)
+              if (!aiResponse.includes('Here are the therapists') && 
+                  !aiResponse.includes('matched therapists') &&
+                  !aiResponse.includes('therapist I found')) {
+                aiResponse = aiResponse.replace(new RegExp(mention.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), 'a therapist');
+              }
+            }
+          }
+        }
       }
       
       const matches = aiResponse.match(therapistMentionPattern);
@@ -1989,7 +2064,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
               errorMessage += `• **${t.name}**\n`;
             });
             errorMessage += `\nPlease select one of these therapists by name, and I'll help you book your appointment.`;
-          } else if (allTherapists && allTherapists.length > 0) {
+          } else if (allActiveTherapists && allActiveTherapists.length > 0) {
             errorMessage += `\n\nHere are the **therapists available** in our system (these are the only therapists we have):\n\n`;
             allActiveTherapists.forEach((t: any) => {
               errorMessage += `• **${t.name}**\n`;
@@ -2198,6 +2273,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       // Don't add duplicate error message - let AI continue conversation naturally
     }
 
+    // Build response object
     const response: ChatResponse = {
       reply: cleanResponse,
       inquiryId: currentInquiryId || '',
