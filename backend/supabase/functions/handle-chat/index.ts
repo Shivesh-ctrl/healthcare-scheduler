@@ -618,6 +618,7 @@ ${therapistListForAI}
         }
         
         // STEP 2: Remove ALL instances of "Jasmine Goins, LCSW" and "Jasmine Goins"
+        // Use global replace (not loop) to avoid duplicate replacements
         const jasmineVariations = [
           "Jasmine Goins, LCSW",
           "Jasmine Goins,LCSW",
@@ -627,37 +628,42 @@ ${therapistListForAI}
         ];
         
         for (const variation of jasmineVariations) {
-          let count = 0;
-          while (aiResponse.toLowerCase().includes(variation.toLowerCase()) && count < 20) {
-            const regex = new RegExp(variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-            aiResponse = aiResponse.replace(regex, 'a therapist');
-            count++;
-          }
-          if (count > 0) {
-            console.log(`🧹 Removed "${variation}" ${count} times`);
+          const regex = new RegExp(variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          const oldResponse = aiResponse;
+          aiResponse = aiResponse.replace(regex, 'a therapist');
+          if (oldResponse !== aiResponse) {
+            console.log(`🧹 Removed "${variation}"`);
           }
         }
         
-        // STEP 3: Remove ALL therapist names from our database
+        // STEP 3: Remove ALL therapist names from our database (single pass only)
         if (allActiveTherapists && allActiveTherapists.length > 0) {
           for (const therapist of allActiveTherapists) {
-            let count = 0;
-            while (aiResponse.toLowerCase().includes(therapist.name.toLowerCase()) && count < 10) {
-              const regex = new RegExp(therapist.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-              aiResponse = aiResponse.replace(regex, 'a therapist');
-              count++;
-            }
-            if (count > 0) {
-              console.log(`🧹 Removed "${therapist.name}" ${count} times`);
+            const regex = new RegExp(therapist.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            const oldResponse = aiResponse;
+            aiResponse = aiResponse.replace(regex, 'a therapist');
+            if (oldResponse !== aiResponse) {
+              console.log(`🧹 Removed "${therapist.name}"`);
             }
           }
         }
         
         // STEP 4: Final pass - remove any "[FirstName] [LastName], [CREDENTIAL]" pattern
-        const credentialPattern = /\b([A-Z][a-z]+)\s+([A-Z][a-z]+)\s*,\s*(LCSW|LCPC|LSW|CADC|LPC)\b/g;
+        // Only match if it's NOT already "a therapist"
+        const credentialPattern = /\b(?!a\s+therapist)([A-Z][a-z]+)\s+([A-Z][a-z]+)\s*,\s*(LCSW|LCPC|LSW|CADC|LPC)\b/g;
         aiResponse = aiResponse.replace(credentialPattern, 'a therapist');
         
-        // STEP 5: Remove location questions
+        // STEP 5: Clean up any duplicate "therapist therapist" that might have been created
+        while (aiResponse.includes('therapist therapist')) {
+          aiResponse = aiResponse.replace(/therapist\s+therapist/gi, 'therapist');
+          console.log('🧹 Cleaned up duplicate "therapist" word');
+        }
+        while (aiResponse.includes('a a therapist')) {
+          aiResponse = aiResponse.replace(/a\s+a\s+therapist/gi, 'a therapist');
+          console.log('🧹 Cleaned up duplicate "a a therapist"');
+        }
+        
+        // STEP 6: Remove location questions
         const locationPhrases = [
           "Are you looking for in-person or virtual sessions?",
           "Are you looking for in-person or telehealth sessions?",
@@ -667,9 +673,17 @@ ${therapistListForAI}
         ];
         
         for (const phrase of locationPhrases) {
+          const oldResponse = aiResponse;
           aiResponse = aiResponse.replace(new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
-          console.log(`🧹 Removed location question: "${phrase}"`);
+          if (oldResponse !== aiResponse) {
+            console.log(`🧹 Removed location question: "${phrase}"`);
+          }
         }
+        
+        // STEP 7: Final cleanup - remove truncated text and extra whitespace
+        aiResponse = aiResponse.replace(/\n{3,}/g, '\n\n'); // Max 2 newlines
+        aiResponse = aiResponse.replace(/\s{3,}/g, ' '); // Max 2 spaces
+        aiResponse = aiResponse.trim();
         
         console.log('✅ GUARANTEED CLEANUP COMPLETE');
       }
