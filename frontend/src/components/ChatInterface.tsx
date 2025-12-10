@@ -94,29 +94,47 @@ export default function ChatInterface() {
 
     // Check for existing session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session as Session)
-      setCheckingAuth(false)
-      // Ensure user record exists
-      if (session) {
-        await ensureUserRecord(session as Session)
-      } else {
-        // Redirect to login if not authenticated
-        navigate('/login')
+      try {
+        setSession(session as Session)
+        // Ensure user record exists
+        if (session) {
+          await ensureUserRecord(session as Session)
+        } else {
+          // Redirect to login if not authenticated
+          navigate('/login')
+        }
+      } catch (err) {
+        console.error('Error in auth check:', err)
+        // Continue anyway - user can still use the app
+      } finally {
+        // Always set checkingAuth to false, even if there's an error
+        setCheckingAuth(false)
       }
+    }).catch((err) => {
+      console.error('Critical error getting session:', err)
+      // Set checkingAuth to false so user sees content
+      setCheckingAuth(false)
     })
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session as Session)
-      setCheckingAuth(false)
-      // Ensure user record exists
-      if (session) {
-        await ensureUserRecord(session as Session)
-      } else {
-        // Redirect to login if not authenticated
-        navigate('/login')
+      try {
+        setSession(session as Session)
+        // Ensure user record exists
+        if (session) {
+          await ensureUserRecord(session as Session)
+        } else {
+          // Redirect to login if not authenticated
+          navigate('/login')
+        }
+      } catch (err) {
+        console.error('Error in auth state change:', err)
+        // Continue anyway - user can still use the app
+      } finally {
+        // Always set checkingAuth to false, even if there's an error
+        setCheckingAuth(false)
       }
     })
 
