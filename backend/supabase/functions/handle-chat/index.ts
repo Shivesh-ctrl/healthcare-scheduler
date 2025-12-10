@@ -276,6 +276,8 @@ ${exactNames}
    - DON'T ask: "What state are you in?"
    - DON'T ask: "What is your location?"
    - DON'T ask: "Are you looking for in-person or telehealth?"
+   - DON'T ask: "(online) therapy?" or "Are you looking for (online) therapy?"
+   - ALL sessions are virtual/online - NEVER ask about this
    - ALL sessions are virtual, so location doesn't matter
    
 **3. WHEN GIVING EXAMPLES OF THERAPY TYPES, ONLY USE THE THERAPY TYPE NAMES**
@@ -1142,13 +1144,26 @@ ${therapistListForAI}
       cleanResponse = cleanResponse.replace(/Are you looking for in-person or (virtual|telehealth) (appointments|sessions)\?/gi, '');
       cleanResponse = cleanResponse.replace(/Are you looking for (virtual|telehealth) or in-person (appointments|sessions)\?/gi, '');
       
-      // PASS 4: Fix grammar
+      // PASS 4: Fix grammar and empty placeholders
       cleanResponse = cleanResponse.replace(/therapist's\s+,/gi, 'therapist\'s gender,');
       cleanResponse = cleanResponse.replace(/therapist's\s+age/gi, 'therapist\'s gender, age');
       cleanResponse = cleanResponse.replace(/have\s*\(BCBS\)/gi, 'have BCBS');
       cleanResponse = cleanResponse.replace(/\s*,\s*,/g, ',');
       cleanResponse = cleanResponse.replace(/\s{2,}/g, ' ');
       cleanResponse = cleanResponse.replace(/\n{3,}/g, '\n\n');
+      
+      // Fix empty placeholders where names were removed
+      cleanResponse = cleanResponse.replace(/what you're looking for in\s+\?/gi, 'what you\'re looking for in a therapist?');
+      cleanResponse = cleanResponse.replace(/looking for in\s+\?/gi, 'looking for in a therapist?');
+      cleanResponse = cleanResponse.replace(/Are you looking for\s+with/gi, 'Are you looking for a therapist with');
+      cleanResponse = cleanResponse.replace(/looking for\s+with a specific/gi, 'looking for a therapist with a specific');
+      cleanResponse = cleanResponse.replace(/\(e\.g\.,\s*-\s*specializes/gi, '(e.g., CBT, mindfulness-based therapy');
+      cleanResponse = cleanResponse.replace(/\(e\.g\.,\s*-\s*specializes in/gi, '(e.g., CBT, mindfulness-based therapy');
+      
+      // Remove "(online) therapy?" question - all sessions are virtual
+      cleanResponse = cleanResponse.replace(/\(online\)\s+therapy\?/gi, '');
+      cleanResponse = cleanResponse.replace(/Are you looking for \(online\) therapy\?/gi, '');
+      cleanResponse = cleanResponse.replace(/\?\s*\(online\)\s+therapy\?/gi, '?');
       
       // PASS 5: Final pattern removal - AGGRESSIVE
       cleanResponse = cleanResponse.replace(/\b([A-Z][a-z]+\s+[A-Z][a-z]+)\s*,\s*(LCSW|LCPC|LSW|CADC|LPC)\b/gi, '');
@@ -2615,8 +2630,10 @@ ${therapistListForAI}
       // Remove location questions
       cleanResponse = cleanResponse.replace(/Are you looking for (virtual|in-person) or (in-person|virtual) (appointments|sessions)\?/gi, '');
       cleanResponse = cleanResponse.replace(/Are you looking for in-person or (virtual|telehealth)/gi, '');
+      cleanResponse = cleanResponse.replace(/\(online\)\s+therapy\?/gi, '');
+      cleanResponse = cleanResponse.replace(/Are you looking for \(online\) therapy\?/gi, '');
       
-      // Fix broken grammar
+      // Fix broken grammar and empty placeholders
       cleanResponse = cleanResponse.replace(/therapist's\s+Jasmine\s+Goins/gi, 'therapist\'s gender');
       cleanResponse = cleanResponse.replace(/therapist's\s+[A-Z][a-z]+\s+[A-Z][a-z]+/gi, 'therapist\'s gender');
       cleanResponse = cleanResponse.replace(/preferences for a therapist's\s+[A-Z][a-z]+\s+[A-Z][a-z]+/gi, 'preferences for a therapist\'s gender');
@@ -2625,6 +2642,14 @@ ${therapistListForAI}
       cleanResponse = cleanResponse.replace(/have\s*\(BCBS\)/gi, 'have BCBS');
       cleanResponse = cleanResponse.replace(/,\s*,/g, ',');
       cleanResponse = cleanResponse.replace(/\s{2,}/g, ' ');
+      
+      // Fix empty placeholders where names were removed
+      cleanResponse = cleanResponse.replace(/what you're looking for in\s+\?/gi, 'what you\'re looking for in a therapist?');
+      cleanResponse = cleanResponse.replace(/looking for in\s+\?/gi, 'looking for in a therapist?');
+      cleanResponse = cleanResponse.replace(/Are you looking for\s+with/gi, 'Are you looking for a therapist with');
+      cleanResponse = cleanResponse.replace(/looking for\s+with a specific/gi, 'looking for a therapist with a specific');
+      cleanResponse = cleanResponse.replace(/\(e\.g\.,\s*-\s*specializes/gi, '(e.g., CBT, mindfulness-based therapy');
+      cleanResponse = cleanResponse.replace(/\(e\.g\.,\s*-\s*specializes in/gi, '(e.g., CBT, mindfulness-based therapy');
       
       // Final verification - if STILL has Jasmine Goins, replace entire sentence
       if (/Jasmine\s+Goins/i.test(cleanResponse)) {
