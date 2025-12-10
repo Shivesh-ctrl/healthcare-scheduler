@@ -1102,6 +1102,63 @@ ${therapistListForAI}
     let bookingInfo: any = undefined;
     let cleanResponse = aiResponse;
     
+    // ==================== CRITICAL: RUN CLEANUP ON cleanResponse IMMEDIATELY ====================
+    // This MUST run before any other processing to ensure therapist names are removed
+    if (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0) {
+      console.log('🚨 IMMEDIATE CLEANUP: Removing ALL therapist names from cleanResponse');
+      
+      // PASS 1: Remove concatenated names (e.g., "haveJasmine Goins, LCSW")
+      cleanResponse = cleanResponse.replace(/([a-z])(Jasmine\s+Goins(?:\s*,\s*LCSW)?)/gi, '$1');
+      cleanResponse = cleanResponse.replace(/(Jasmine\s+Goins(?:\s*,\s*LCSW)?)([A-Z])/gi, '$2');
+      cleanResponse = cleanResponse.replace(/(Jasmine\s+Goins(?:\s*,\s*LCSW)?)(Jasmine\s+Goins(?:\s*,\s*LCSW)?)/gi, '');
+      
+      // PASS 2: Remove ALL therapist names (3 iterations to catch everything)
+      const allNames = [
+        "Jasmine Goins, LCSW", "Jasmine Goins,LCSW", "Jasmine Goins , LCSW", "Jasmine Goins LCSW", "Jasmine Goins",
+        "Rachel Kurt, LCPC", "Rachel Kurt",
+        "Tykisha Bays, LSW, CADC", "Tykisha Bays",
+        "Adriane Wilk, LCPC", "Adriane Wilk",
+        "Joy Banks, LCPC", "Joy Banks",
+        "Ebony Norwood, LCSW", "Ebony Norwood",
+        "Porsche McGee, LSW", "Porsche McGee",
+        "Aakruti Patel, LCPC", "Aakruti Patel",
+        "Erica Rodriguez, LCSW", "Erica Rodriguez",
+        "Brianna Smith, LCPC", "Brianna Smith",
+        "Adrienne Farmer, LCSW", "Adrienne Farmer",
+        "Alicia Muhammad, LCSW", "Alicia Muhammad",
+        "Porsche White, LCSW", "Porsche White",
+        "Alexia Sula, LCSW", "Alexia Sula",
+      ];
+      
+      for (let pass = 1; pass <= 3; pass++) {
+        for (const name of allNames) {
+          const pattern = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          cleanResponse = cleanResponse.replace(pattern, '');
+        }
+      }
+      
+      // PASS 3: Remove location questions
+      cleanResponse = cleanResponse.replace(/Are you looking for (virtual|in-person) or (in-person|virtual) (appointments|sessions)\?/gi, '');
+      cleanResponse = cleanResponse.replace(/Are you looking for in-person or (virtual|telehealth) (appointments|sessions)\?/gi, '');
+      cleanResponse = cleanResponse.replace(/Are you looking for (virtual|telehealth) or in-person (appointments|sessions)\?/gi, '');
+      
+      // PASS 4: Fix grammar
+      cleanResponse = cleanResponse.replace(/therapist's\s+,/gi, 'therapist\'s gender,');
+      cleanResponse = cleanResponse.replace(/therapist's\s+age/gi, 'therapist\'s gender, age');
+      cleanResponse = cleanResponse.replace(/have\s*\(BCBS\)/gi, 'have BCBS');
+      cleanResponse = cleanResponse.replace(/\s*,\s*,/g, ',');
+      cleanResponse = cleanResponse.replace(/\s{2,}/g, ' ');
+      cleanResponse = cleanResponse.replace(/\n{3,}/g, '\n\n');
+      
+      // PASS 5: Final pattern removal
+      cleanResponse = cleanResponse.replace(/\b([A-Z][a-z]+\s+[A-Z][a-z]+)\s*,\s*(LCSW|LCPC|LSW|CADC|LPC)\b/gi, '');
+      cleanResponse = cleanResponse.replace(/\bJasmine\s+Goins\b/gi, '');
+      cleanResponse = cleanResponse.replace(/\bGoins\b/gi, '');
+      
+      cleanResponse = cleanResponse.trim();
+      console.log('✅ IMMEDIATE CLEANUP COMPLETE on cleanResponse');
+    }
+    
     // Parse EXTRACTED_INFO (remove from patient-facing response)
     console.log('🔍 Checking for EXTRACTED_INFO in AI response...');
     if (aiResponse.includes('EXTRACTED_INFO')) {
