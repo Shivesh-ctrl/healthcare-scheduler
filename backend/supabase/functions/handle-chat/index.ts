@@ -1856,7 +1856,6 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             })
             .eq('id', currentInquiryId);
         }
-      }
     }
 
     // Handle booking if BOOKING_INFO was provided
