@@ -158,6 +158,24 @@ export async function generateAIResponse(
               errorData = { error: { message: errorText } };
             }
             
+            // Log detailed error information
+            console.error(`❌ API Error for ${modelName} (${apiVersion}):`, {
+              status: response.status,
+              statusText: response.statusText,
+              errorText: errorText.substring(0, 500), // Limit log size
+              errorData: errorData
+            });
+            
+            // Check for authentication errors (401, 403)
+            const isAuthError = response.status === 401 || 
+                               response.status === 403 ||
+                               errorData.error?.message?.includes('API key') ||
+                               errorData.error?.message?.includes('authentication') ||
+                               errorData.error?.message?.includes('permission') ||
+                               errorText.includes('API key') ||
+                               errorText.includes('authentication') ||
+                               errorText.includes('permission');
+            
             // Check for quota errors or model not found - FAIL FAST
             const isQuotaError = errorData.error?.message?.includes('quota') || 
                                 errorData.error?.message?.includes('Quota') ||
@@ -175,7 +193,15 @@ export async function generateAIResponse(
             const isModelNotFound = errorData.error?.message?.includes('not found') ||
                                    errorData.error?.message?.includes('does not exist') ||
                                    errorData.error?.message?.includes('not available') ||
-                                   errorText.includes('not found');
+                                   errorData.error?.message?.includes('Model') && errorData.error?.message?.includes('not found') ||
+                                   errorText.includes('not found') ||
+                                   (response.status === 404);
+            
+            // If authentication error, fail immediately - API key issue
+            if (isAuthError) {
+              console.error(`🚨 CRITICAL: Authentication error for ${modelName} - API key may be invalid or missing`);
+              throw new Error(`API key authentication failed (status ${response.status}). Please check GOOGLE_AI_API_KEY configuration. Error: ${errorData.error?.message || errorText.substring(0, 200)}`);
+            }
             
             // If quota exceeded, fail immediately - don't try other models
             if (isQuotaError) {
@@ -186,7 +212,7 @@ export async function generateAIResponse(
             // If model not found, try next model
             if (isModelNotFound) {
               console.log(`⚠️  Model not found for ${modelName} (${apiVersion}), trying next...`);
-              lastError = new Error(`Model not found for ${modelName}`);
+              lastError = new Error(`Model ${modelName} not found or not available. Status: ${response.status}. Error: ${errorData.error?.message || errorText.substring(0, 200)}`);
               continue;
             }
             
@@ -196,8 +222,8 @@ export async function generateAIResponse(
               continue;
             }
             
-            // Other errors, throw immediately
-            throw new Error(`Google AI API error (${modelName}, ${apiVersion}): ${errorText}`);
+            // Other errors, throw immediately with full details
+            throw new Error(`Google AI API error (${modelName}, ${apiVersion}, status ${response.status}): ${errorData.error?.message || errorText.substring(0, 300)}`);
           }
           
           clearTimeout(timeoutId); // Clear timeout on success

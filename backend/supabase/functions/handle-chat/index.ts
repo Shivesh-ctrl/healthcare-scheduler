@@ -454,8 +454,9 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       } else if (errorMessage.includes('API key') || errorMessage.includes('authentication') || errorMessage.includes('401') || errorMessage.includes('403')) {
         userFriendlyMessage = 'I\'m sorry, but there was an authentication issue with the AI service. Please contact support.';
         console.error('🚨 CRITICAL: API key authentication error - check GOOGLE_AI_API_KEY secret');
-      } else if (errorMessage.includes('not found') || errorMessage.includes('does not exist')) {
+      } else if (errorMessage.includes('not found') || errorMessage.includes('does not exist') || errorMessage.includes('Model') && errorMessage.includes('not found')) {
         userFriendlyMessage = 'I\'m sorry, but there was a configuration issue with the AI service. Please try again in a moment.';
+        console.error('🚨 Configuration issue detected - check model name and API key:', errorMessage);
       } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
         userFriendlyMessage = 'I\'m sorry, but there was a network error. Please check your connection and try again.';
       }
