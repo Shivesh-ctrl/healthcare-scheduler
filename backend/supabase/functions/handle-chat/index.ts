@@ -276,6 +276,9 @@ ${exactNames}
 - 🚨🚨🚨 NEVER say "I can support you in finding [Therapist Name]" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "[Therapist Name] who can provide that support" - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "[Therapist Name] who can provide the right care" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "*[Therapist Name] insurance" or "•[Therapist Name] insurance" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER say "[Therapist Name]?" or "Goins, LCSW?" - ABSOLUTELY FORBIDDEN
+- 🚨🚨🚨 NEVER include therapist names in bullet points or questions before matching - ABSOLUTELY FORBIDDEN
 - 🚨🚨🚨 NEVER say "[Therapist Name] would be [date]" or "[Therapist Name] Friday's date"
 - 🚨🚨🚨 NEVER use therapist names in date examples like "Friday, [Jasmine Goins, LCSW's Date]"
 - 🚨🚨🚨 NEVER say "I'll search for [therapist name]" or mention a therapist before matching
@@ -296,7 +299,11 @@ ${exactNames}
 - 🚨🚨🚨 INSTEAD of saying "I'm here to help you find [Therapist Name]" or "I'm here to support you in finding [Therapist Name]", say "I'm here to help you find the right therapist" or "I'm here to support you in finding the right therapist" or "I'm here to help you find support"
 - If user asks about a specific therapist, say "Let me check if that therapist is available" but DON'T mention their name in your response until you've confirmed they match
 - When discussing dates, ONLY mention the date itself (e.g., "Friday, December 12th, 2025") - NEVER combine with therapist names
-- When user says "next Friday", respond with: "If today is ${currentDateStr}, then 'next Friday' would be [calculate actual date]. I'll search for therapists..."
+- When user says "next Friday", calculate the actual date from today (${currentDateStr}) and use that date
+- NEVER say "I cannot provide information about dates so far into the future" - you MUST accept and work with future dates
+- If user provides a future date like "December 12, 2025", accept it and use it - do NOT reject it
+- Today is ${currentDateStr} (${currentDateISO}) - use this to calculate "next Friday" or other relative dates
+- If today is Wednesday, December 10, 2025, then "next Friday" = Friday, December 12, 2025
 
 **EMERGENCY:** If user mentions suicide/self-harm, immediately provide: 988 (call/text), Crisis Text Line 741741, 1-800-273-8255. Show empathy, encourage immediate help.
 
@@ -411,7 +418,10 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
 - Example: If today is ${currentDateStr}, then "next Friday" = Calculate the actual next Friday date from today (e.g., "Friday, December 12th, 2025").
 - ALWAYS use REAL calendar dates (e.g., "Friday, December 12th, 2025") - NEVER use placeholder dates like "November 10th" or "[date]" or "[Jasmine Goins, LCSW's Date]".
 - NEVER mention therapist names when discussing dates - only mention the date itself (e.g., "Friday, December 12th, 2025").
-- FORBIDDEN: "[Therapist Name] would be [date]", "[Therapist Name] Friday's date", "Friday, [Therapist Name's Date]" - these are ABSOLUTELY FORBIDDEN.`;
+- FORBIDDEN: "[Therapist Name] would be [date]", "[Therapist Name] Friday's date", "Friday, [Therapist Name's Date]" - these are ABSOLUTELY FORBIDDEN.
+- CRITICAL DATE HANDLING: Today is ${currentDateStr} (${currentDateISO}). You MUST accept future dates like "December 12, 2025" - do NOT say "I cannot provide information about dates so far into the future".
+- If user says "next Friday" and today is Wednesday, December 10, 2025, then "next Friday" = Friday, December 12, 2025 - calculate and use this date.
+- NEVER reject future dates - always accept and work with them.`;
 
     const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
       {
@@ -591,6 +601,36 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         aiResponse = aiResponse.replace(therapistDatePattern, '');
       }
       
+      // Check for therapist names in inappropriate contexts BEFORE matching
+      if (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0) {
+        // Pattern to catch therapist names in bullet points or questions
+        const inappropriatePatterns = [
+          /(\*|•|-)\s*([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s+(?:insurance|qualities|preferences)/gi,
+          /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\s*\?/gi,
+          /Goins,?\s*LCSW/gi,
+          /Jasmine\s+Goins/gi,
+        ];
+        
+        for (const pattern of inappropriatePatterns) {
+          if (pattern.test(aiResponse)) {
+            console.error('❌ AI mentioned therapist name in inappropriate context before matching - removing');
+            // Remove the entire line or sentence containing the therapist name
+            aiResponse = aiResponse.replace(pattern, (match) => {
+              // If it's a bullet point, remove the whole line
+              if (match.includes('*') || match.includes('•') || match.includes('-')) {
+                return '';
+              }
+              // If it's a question, remove it
+              if (match.includes('?')) {
+                return '';
+              }
+              // Otherwise, remove the name part
+              return match.replace(/[A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?/gi, 'therapist');
+            });
+          }
+        }
+      }
+      
       const matches = aiResponse.match(therapistMentionPattern);
       if (matches) {
         for (const match of matches) {
@@ -603,6 +643,15 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             nameLower.includes(validName) || 
             validName.includes(nameLower)
           );
+          
+          // If therapist name appears before matching, remove it
+          if ((!matchedTherapistsForAI || matchedTherapistsForAI.length === 0) && isValid) {
+            console.error(`❌ AI mentioned therapist name "${match}" before matching - removing`);
+            // Remove the therapist name from inappropriate contexts
+            aiResponse = aiResponse.replace(new RegExp(match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), 
+              'therapist');
+            continue;
+          }
           
           if (!isValid && nameLower.length > 5) { // Ignore very short matches
             console.error(`❌ AI mentioned invalid therapist: "${match}" - not in our list!`);
