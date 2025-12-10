@@ -21,7 +21,7 @@ export function getAIModel(provider: AIProvider = 'openai') {
       const googleKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY');
       if (!googleKey) throw new Error('Google AI API key not configured');
       const google = createGoogleGenerativeAI({ apiKey: googleKey });
-      return google('gemini-1.5-flash');
+      return google('gemini-2.0-flash');
     
     default:
       throw new Error(`Unknown AI provider: ${provider}`);
@@ -99,7 +99,7 @@ export async function generateAIResponse(
     
     // Use only models that actually exist and are available
     const models = [
-      'gemini-1.5-flash',      // Primary model (fastest, most reliable, always available)
+      'gemini-2.0-flash',      // Primary model (available and working with paid API key)
     ];
     
     let lastError = null;
