@@ -16,10 +16,12 @@ serve(async (req: Request) => {
   console.log('🔗 Supabase URL for function calls:', supabaseUrl);
   
   // Handle CORS FIRST - before any other processing
+  // Preflight requests must return 204 No Content with no body
   if (req.method === 'OPTIONS') {
     console.log('✅ CORS preflight request');
-    return new Response('ok', { 
-      status: 200,
+    return new Response(null, { 
+      status: 204,
+      statusText: 'No Content',
       headers: corsHeaders 
     });
   }
@@ -73,7 +75,6 @@ serve(async (req: Request) => {
     // Get matched therapists first (if we have enough info) to include in system prompt
     let matchedTherapistsForPrompt = undefined;
     let extractedInfoForMatching: Partial<ExtractedInfo> | undefined;
-    let extractedInfo: Partial<ExtractedInfo> | undefined; // Declare early to avoid initialization error
     let extractedInfo: Partial<ExtractedInfo> | undefined; // Declare early to avoid initialization error
     
     // Check if we have enough info to match therapists
