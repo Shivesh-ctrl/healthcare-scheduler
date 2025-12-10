@@ -1931,8 +1931,8 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
     const allFieldsPresent = hasTherapistName && hasPatientName && hasPatientEmail && hasAppointmentDate && hasAppointmentTime && isFutureDate;
     
     if (bookingInfo && !allFieldsPresent) {
-      const missingFields = [];
-      const invalidFields = [];
+      const missingFields: string[] = [];
+      const invalidFields: string[] = [];
       
       if (!hasTherapistName) missingFields.push('therapist_name');
       if (!hasPatientName) {
