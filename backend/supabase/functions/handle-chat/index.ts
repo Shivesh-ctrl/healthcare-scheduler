@@ -274,11 +274,15 @@ ${exactNames}
 **2. NEVER ASK ABOUT LOCATION - ALL SESSIONS ARE VIRTUAL/ONLINE ONLY**
    - DON'T ask: "What is your zip code?"
    - DON'T ask: "What state are you in?"
+   - DON'T ask: "What state are you located in?"
    - DON'T ask: "What is your location?"
    - DON'T ask: "Are you looking for in-person or telehealth?"
    - DON'T ask: "(online) therapy?" or "Are you looking for (online) therapy?"
+   - DON'T ask: "therapy sessions?" (empty placeholder)
+   - DON'T say: "This is important for insurance coverage" (location-related)
    - ALL sessions are virtual/online - NEVER ask about this
    - ALL sessions are virtual, so location doesn't matter
+   - Insurance coverage does NOT depend on location - all sessions are virtual
    
 **3. WHEN GIVING EXAMPLES OF THERAPY TYPES, ONLY USE THE THERAPY TYPE NAMES**
    - DON'T say: "Jasmine Goins, LCSW - specializes in CBT"
@@ -2627,16 +2631,26 @@ ${therapistListForAI}
       cleanResponse = cleanResponse.replace(/(Jasmine\s+Goins)([A-Z])/gi, '$2');
       cleanResponse = cleanResponse.replace(/(Jasmine\s+Goins)(Jasmine\s+Goins)/gi, '');
       
-      // Remove location questions
+      // Remove location questions - ULTRA AGGRESSIVE
       cleanResponse = cleanResponse.replace(/Are you looking for (virtual|in-person) or (in-person|virtual) (appointments|sessions)\?/gi, '');
       cleanResponse = cleanResponse.replace(/Are you looking for in-person or (virtual|telehealth)/gi, '');
       cleanResponse = cleanResponse.replace(/\(online\)\s+therapy\?/gi, '');
       cleanResponse = cleanResponse.replace(/Are you looking for \(online\) therapy\?/gi, '');
+      cleanResponse = cleanResponse.replace(/therapy\s+sessions\?/gi, ''); // Remove empty "therapy sessions?"
+      cleanResponse = cleanResponse.replace(/\?\s*therapy\s+sessions\?/gi, '?'); // Fix double question marks
+      cleanResponse = cleanResponse.replace(/What state are you located in\?/gi, '');
+      cleanResponse = cleanResponse.replace(/What state are you in\?/gi, '');
+      cleanResponse = cleanResponse.replace(/What (state|city) are you (located in|in)\?/gi, '');
+      cleanResponse = cleanResponse.replace(/This is important for insurance coverage/gi, '');
+      cleanResponse = cleanResponse.replace(/\(This is important for insurance coverage\)/gi, '');
+      cleanResponse = cleanResponse.replace(/The more information you can provide, the better I can narrow down the options and find a good fit for you\./gi, '');
       
       // Fix broken grammar and empty placeholders
       cleanResponse = cleanResponse.replace(/therapist's\s+Jasmine\s+Goins/gi, 'therapist\'s gender');
       cleanResponse = cleanResponse.replace(/therapist's\s+[A-Z][a-z]+\s+[A-Z][a-z]+/gi, 'therapist\'s gender');
       cleanResponse = cleanResponse.replace(/preferences for a therapist's\s+[A-Z][a-z]+\s+[A-Z][a-z]+/gi, 'preferences for a therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/Do you have a preference for\s+'s\s+gender/gi, 'Do you have a preference for a therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/preference for\s+'s\s+gender/gi, 'preference for a therapist\'s gender');
       cleanResponse = cleanResponse.replace(/therapist's\s+,/gi, 'therapist\'s gender,');
       cleanResponse = cleanResponse.replace(/therapist's\s+age/gi, 'therapist\'s gender, age');
       cleanResponse = cleanResponse.replace(/have\s*\(BCBS\)/gi, 'have BCBS');
@@ -2650,6 +2664,7 @@ ${therapistListForAI}
       cleanResponse = cleanResponse.replace(/looking for\s+with a specific/gi, 'looking for a therapist with a specific');
       cleanResponse = cleanResponse.replace(/\(e\.g\.,\s*-\s*specializes/gi, '(e.g., CBT, mindfulness-based therapy');
       cleanResponse = cleanResponse.replace(/\(e\.g\.,\s*-\s*specializes in/gi, '(e.g., CBT, mindfulness-based therapy');
+      cleanResponse = cleanResponse.replace(/\(e\.g\.,\s+CBT,\s+mindfulness-based therapy in CBT/gi, '(e.g., CBT, mindfulness-based therapy');
       
       // Final verification - if STILL has Jasmine Goins, replace entire sentence
       if (/Jasmine\s+Goins/i.test(cleanResponse)) {
