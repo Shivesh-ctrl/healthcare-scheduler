@@ -1717,7 +1717,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
     }
 
     // If we have enough info, find matching therapists
-    let matchedTherapists = undefined;
+    let matchedTherapists: any[] | undefined = undefined;
     const needsMoreInfo = !extractedInfo || !extractedInfo.specialty || !extractedInfo.insurance;
 
     if (!needsMoreInfo && extractedInfo && extractedInfo.specialty && extractedInfo.insurance) {
