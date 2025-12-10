@@ -329,8 +329,18 @@ When user first says they're looking for therapy or need help:
 7. ❌ DO NOT: Say "I can help you find [Therapist Name]"
 8. ❌ DO NOT: Say "[Therapist Name] who can provide that support"
 9. ❌ DO NOT: Ask "what you're looking for in [Therapist Name]"
-10. ❌ DO NOT: Assume they mentioned a therapist name when they say "I'm looking for therapy"
-11. ❌ DO NOT: Say "To help me find the best match, could you tell me a little more about what you're looking for in [Therapist Name]?"
+10. ❌ DO NOT: Ask "Do you have a preference for [Therapist Name]'s gender"
+11. ❌ DO NOT: Assume they mentioned a therapist name when they say "I'm looking for therapy"
+12. ❌ DO NOT: Say "To help me find the best match, could you tell me a little more about what you're looking for in [Therapist Name]?"
+13. ❌ DO NOT: Ask about location preferences - ALL appointments are virtual/telehealth only, so location is NOT relevant
+14. ❌ DO NOT: Ask "Do you have any location preferences, or are you open to telehealth?" - this is FORBIDDEN since all appointments are virtual
+
+**LOCATION RULES:**
+- 🚨🚨🚨 ALL appointments are VIRTUAL/TELEHEALTH ONLY
+- 🚨🚨🚨 NEVER ask about location preferences - location is NOT relevant since all appointments are virtual
+- 🚨🚨🚨 NEVER ask "Do you have any location preferences, or are you open to telehealth?" - this is FORBIDDEN
+- 🚨🚨🚨 NEVER ask "Are you looking for in-person or telehealth?" - this is FORBIDDEN
+- 🚨🚨🚨 If user asks about location, say "All appointments are virtual/telehealth, so location is not a concern"
 
 **ONLY AFTER you have their problem AND insurance, THEN show matched therapists with names.**
 **BEFORE that, use generic phrases like "the right therapist" or "a therapist" - NEVER use actual therapist names.**
@@ -785,16 +795,23 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         
         // Pattern 3: Therapist name in possessive form (e.g., "Jasmine Goins, LCSW's gender" or "preferences for Jasmine Goins, LCSW's gender")
         const possessivePattern = /([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+(?:gender|age|background|preferences|qualities)/gi;
-        const preferencesForPattern = /(?:preferences\s+for|do\s+you\s+have\s+any\s+preferences\s+for)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+(?:gender|age|background|preferences|qualities)/gi;
+        const preferencesForPattern = /(?:preferences\s+for|do\s+you\s+have\s+any\s+preferences\s+for|tell\s+me.*preferences\s+for)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+(?:gender|age|background|preferences|qualities)/gi;
         
         if (possessivePattern.test(aiResponse) || preferencesForPattern.test(aiResponse)) {
           console.error('❌ AI used therapist name in possessive form before matching - removing');
-          // Replace "preferences for [Name]'s gender" with "preferences for a therapist's gender"
-          aiResponse = aiResponse.replace(preferencesForPattern, 'preferences for a therapist\'s $1');
+          // Replace "preferences for [Name]'s gender" with "preferences for a therapist's gender" (remove $1)
+          aiResponse = aiResponse.replace(preferencesForPattern, 'preferences for a therapist\'s');
           // Replace "[Name]'s gender" with "therapist's preferences"
           aiResponse = aiResponse.replace(possessivePattern, 'therapist\'s preferences');
           // Clean up any remaining therapist name references
           aiResponse = aiResponse.replace(/([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)\'?s\s+(?:gender|age|background|preferences|qualities)/gi, 'therapist\'s preferences');
+        }
+        
+        // Pattern 3b: Catch "what you're looking for in [Therapist Name]"
+        const lookingForInPattern = /(?:what\s+you'?re\s+looking\s+for\s+in|what.*looking\s+for\s+in|tell\s+me.*what\s+you'?re\s+looking\s+for\s+in)\s+([A-Z][a-z]+\s+[A-Z][a-z]+(?:\s*,\s*(?:LCPC|LCSW|LSW|CADC|LPC))?)/gi;
+        if (lookingForInPattern.test(aiResponse)) {
+          console.error('❌ AI asked "what you\'re looking for in [Therapist Name]" before matching - removing');
+          aiResponse = aiResponse.replace(lookingForInPattern, 'what you\'re looking for in a therapist');
         }
         
         // Pattern 4: Therapist name in "preferences for [Name]" or "help you find [Name]" or "want to help you find [Name]"
@@ -819,15 +836,27 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         // Pattern 5: Catch any remaining therapist name mentions and replace with generic terms
         // Specifically target "Jasmine Goins, LCSW" as it's the most common offender
         const jasmineGoinsPattern = /Jasmine\s+Goins,?\s*LCSW/gi;
-        if (jasmineGoinsPattern.test(aiResponse)) {
+        if (jasmineGoinsPattern.test(aiResponse) && (!matchedTherapistsForAI || matchedTherapistsForAI.length === 0)) {
           console.error('❌ AI mentioned "Jasmine Goins, LCSW" before matching - removing all instances');
           // Replace all instances of "Jasmine Goins, LCSW" with generic terms based on context
           aiResponse = aiResponse.replace(/I\s+want\s+to\s+help\s+you\s+find\s+Jasmine\s+Goins,?\s*LCSW/gi, 'I want to help you find the right therapist');
           aiResponse = aiResponse.replace(/help\s+you\s+find\s+Jasmine\s+Goins,?\s*LCSW/gi, 'help you find the right therapist');
           aiResponse = aiResponse.replace(/preferences\s+for\s+Jasmine\s+Goins,?\s*LCSW\'?s/gi, 'preferences for a therapist\'s');
           aiResponse = aiResponse.replace(/Jasmine\s+Goins,?\s*LCSW\'?s\s+(?:gender|age|background|preferences)/gi, 'a therapist\'s preferences');
+          aiResponse = aiResponse.replace(/what\s+you'?re\s+looking\s+for\s+in\s+Jasmine\s+Goins,?\s*LCSW/gi, 'what you\'re looking for in a therapist');
+          aiResponse = aiResponse.replace(/tell\s+me.*what\s+you'?re\s+looking\s+for\s+in\s+Jasmine\s+Goins,?\s*LCSW/gi, 'tell me what you\'re looking for in a therapist');
           // Catch any remaining instances
           aiResponse = aiResponse.replace(jasmineGoinsPattern, 'a therapist');
+        }
+        
+        // Pattern 5b: Remove location preference questions since all appointments are virtual
+        const locationPattern = /(?:do\s+you\s+have\s+any\s+location\s+preferences|are\s+you\s+looking\s+for\s+in-person\s+or\s+telehealth|location\s+preferences|preferences\s+regarding\s+location)/gi;
+        if (locationPattern.test(aiResponse)) {
+          console.error('❌ AI asked about location preferences - removing since all appointments are virtual');
+          // Remove the entire sentence/question about location
+          aiResponse = aiResponse.replace(/\?[^?]*location[^?]*\?/gi, '');
+          aiResponse = aiResponse.replace(/•\s*[^\n]*location[^\n]*\n/gi, '');
+          aiResponse = aiResponse.replace(/\n\s*[^\n]*location\s+preferences[^\n]*\n/gi, '\n');
         }
         
         // Pattern 6: Catch any other therapist name mentions
