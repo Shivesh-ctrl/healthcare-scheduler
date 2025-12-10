@@ -7,6 +7,13 @@ import { anthropic } from 'https://esm.sh/@ai-sdk/anthropic@1.0.0';
 // @ts-ignore - ESM.sh HTTP imports are valid in Supabase Edge Functions runtime
 import { createGoogleGenerativeAI } from 'https://esm.sh/@ai-sdk/google@1.0.2';
 
+// @ts-ignore - Deno global is available in Supabase Edge Functions runtime
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
+
 export type AIProvider = 'openai' | 'anthropic' | 'google';
 
 export function getAIModel(provider: AIProvider = 'openai') {
