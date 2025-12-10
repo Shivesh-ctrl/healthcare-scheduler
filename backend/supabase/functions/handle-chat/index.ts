@@ -396,50 +396,43 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
     // Add matched therapists to system prompt if available
     if (matchedTherapistsForAI && matchedTherapistsForAI.length > 0) {
       systemPrompt += `\n\n**🎯 MATCHED THERAPISTS FOR USER - CRITICAL DISPLAY RULES:**\n`;
-      systemPrompt += `\n**🚨🚨🚨 WHEN USER HAS PROVIDED THEIR PROBLEM AND INSURANCE, YOU MUST IMMEDIATELY SHOW ALL MATCHED THERAPISTS WITH FULL DETAILS IN THIS EXACT FORMAT:**\n`;
-      systemPrompt += `\n**Format for each therapist (USE THIS EXACT STRUCTURE):**\n`;
-      systemPrompt += `\n---\n`;
-      systemPrompt += `**Therapist Name (Full Name with Credentials)**\n`;
-      systemPrompt += `\n**Bio:**\n[Full bio text here]\n`;
-      systemPrompt += `\n**Specialties:**\n[Comma-separated list of specialties]\n`;
-      systemPrompt += `\n**Insurance Accepted:**\n[Comma-separated list of insurance]\n`;
-      systemPrompt += `\n**Availability:**\n[Based on user's requested schedule - e.g., "Weekend mornings", "Weekdays", "Flexible"]\n`;
-      systemPrompt += `\n---\n`;
+      systemPrompt += `\n**🚨🚨🚨 ABSOLUTE FORBIDDEN - READ CAREFULLY:**\n`;
+      systemPrompt += `- ❌❌❌ NEVER use placeholder text like "[Jasmine Goins, LCSW 1]", "[Jasmine Goins, LCSW 2]", "[Therapist Name]", "[Full bio text here]", "[Comma-separated list]" - THESE ARE FORBIDDEN\n`;
+      systemPrompt += `- ❌❌❌ NEVER say "Option 1: [Jasmine Goins, LCSW 1]" or "Option 2: [Jasmine Goins, LCSW 2]" - THESE ARE FORBIDDEN\n`;
+      systemPrompt += `- ❌❌❌ NEVER use brackets [] or placeholders - ALWAYS use the ACTUAL therapist data provided below\n`;
+      systemPrompt += `- ❌❌❌ NEVER repeat the same therapist name multiple times - each therapist is UNIQUE\n`;
+      systemPrompt += `- ❌❌❌ NEVER say "therapist, LCSW" or "a therapist" - ALWAYS use the EXACT full name from the list below\n`;
+      systemPrompt += `- ❌❌❌ NEVER say "Jasmine Goins, LCSW Therapy (CBT)" - say "Jasmine Goins, LCSW - specializes in CBT"\n`;
+      systemPrompt += `- ❌❌❌ NEVER ask about demographics or preferences AFTER showing matches - show matches FIRST\n`;
       
-      systemPrompt += `\n**🚨🚨🚨 FORBIDDEN - NEVER DO THESE:**\n`;
-      systemPrompt += `- ❌ NEVER say "therapist, LCSW" or "a therapist" - ALWAYS use the EXACT full name\n`;
-      systemPrompt += `- ❌ NEVER say "Jasmine Goins, LCSW Therapy (CBT)" - this is WRONG formatting\n`;
-      systemPrompt += `- ❌ NEVER ask "Are you interested in a specific type of therapy (e.g., Jasmine Goins, LCSW Therapy (CBT))" - this is FORBIDDEN\n`;
-      systemPrompt += `- ❌ NEVER use placeholder text like "therapist, LCSW" or "a therapist from our available team"\n`;
-      systemPrompt += `- ❌ NEVER ask about demographics or preferences AFTER showing matches - show matches FIRST\n`;
-      systemPrompt += `- ❌ NEVER say "To help me narrow it down" AFTER showing matches - just show the matches\n`;
+      systemPrompt += `\n**✅✅✅ CORRECT FORMAT - USE THE ACTUAL THERAPIST DATA BELOW:**\n`;
+      systemPrompt += `\n**Here are the therapists I found for you:**\n\n`;
       
-      systemPrompt += `\n**✅ CORRECT FORMAT - SHOW ALL MATCHED THERAPISTS LIKE THIS:**\n`;
       matchedTherapistsForAI.forEach((t: any, index: number) => {
         const specialties = Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General';
         const insurance = Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various';
         const bio = t.bio || 'Experienced therapist specializing in your needs.';
         const availability = extractedInfo?.schedule ? `Available: ${extractedInfo.schedule}` : 'Available: Flexible scheduling';
         
-        systemPrompt += `\n**${index + 1}. ${t.name}**\n`;
-        systemPrompt += `\n**Bio:**\n${bio}\n`;
-        systemPrompt += `\n**Specialties:**\n${specialties}\n`;
-        systemPrompt += `\n**Insurance Accepted:**\n${insurance}\n`;
-        systemPrompt += `\n**Availability:**\n${availability}\n`;
-        systemPrompt += `\n---\n`;
+        systemPrompt += `**${index + 1}. ${t.name}**\n\n`;
+        systemPrompt += `**Bio:**\n${bio}\n\n`;
+        systemPrompt += `**Specialties:**\n${specialties}\n\n`;
+        systemPrompt += `**Insurance Accepted:**\n${insurance}\n\n`;
+        systemPrompt += `**Availability:**\n${availability}\n\n`;
+        systemPrompt += `---\n\n`;
       });
       
-      systemPrompt += `\n**🚨🚨🚨 CRITICAL RULES FOR DISPLAYING MATCHED THERAPISTS:**\n`;
-      systemPrompt += `1. ✅ IMMEDIATELY show ALL matched therapists above when user has provided problem AND insurance\n`;
-      systemPrompt += `2. ✅ Use EXACT therapist names from the list above - NEVER use placeholders\n`;
-      systemPrompt += `3. ✅ Show FULL bio for each therapist - do NOT truncate\n`;
-      systemPrompt += `4. ✅ Show specialties, insurance, and availability clearly\n`;
-      systemPrompt += `5. ✅ After showing matches, ask: "Would you like to book an appointment with [Therapist Name]?"\n`;
-      systemPrompt += `6. ❌ DO NOT ask about preferences or demographics AFTER showing matches\n`;
-      systemPrompt += `7. ❌ DO NOT use placeholder text like "therapist, LCSW" or "a therapist"\n`;
-      systemPrompt += `8. ❌ DO NOT say "Jasmine Goins, LCSW Therapy (CBT)" - say "Jasmine Goins, LCSW - specializes in CBT"\n`;
-      systemPrompt += `9. ❌ DO NOT ask "Are you interested in a specific type of therapy (e.g., Jasmine Goins, LCSW Therapy (CBT))" - this is FORBIDDEN\n`;
-      systemPrompt += `10. ✅ Use clear, well-formatted responses with proper line breaks\n`;
+      systemPrompt += `\n**🚨🚨🚨 CRITICAL RULES - YOU MUST FOLLOW THESE EXACTLY:**\n`;
+      systemPrompt += `1. ✅ Copy the EXACT therapist names, bios, specialties, and insurance from the list above\n`;
+      systemPrompt += `2. ✅ Show ALL ${matchedTherapistsForAI.length} therapist(s) from the list above - do NOT invent or repeat names\n`;
+      systemPrompt += `3. ✅ Use the EXACT names: ${matchedTherapistsForAI.map((t: any) => t.name).join(', ')}\n`;
+      systemPrompt += `4. ✅ Show the FULL bio for each therapist - copy it exactly from above\n`;
+      systemPrompt += `5. ✅ Show specialties and insurance exactly as listed above\n`;
+      systemPrompt += `6. ✅ After showing all therapists, ask: "Would you like to book an appointment with one of these therapists?"\n`;
+      systemPrompt += `7. ❌ DO NOT use placeholder text, brackets [], or repeated names\n`;
+      systemPrompt += `8. ❌ DO NOT say "[Jasmine Goins, LCSW 1]" or "[Therapist Name]" - use the ACTUAL names from the list\n`;
+      systemPrompt += `9. ❌ DO NOT ask about preferences or demographics - just show the therapists\n`;
+      systemPrompt += `10. ✅ Each therapist in the list above is UNIQUE - do NOT repeat the same name multiple times\n`;
     }
 
     // Add current date context to system prompt
@@ -638,6 +631,60 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         }).join('\n');
         // Also remove the pattern from the response
         aiResponse = aiResponse.replace(therapistDatePattern, '');
+      }
+      
+      // Check for placeholder patterns like "[Jasmine Goins, LCSW 1]", "[Therapist Name]", etc.
+      const placeholderPatterns = [
+        /\[Jasmine Goins, LCSW \d+\]/gi,
+        /\[Therapist Name\]/gi,
+        /\[Full bio text here\]/gi,
+        /\[Comma-separated list[^\]]*\]/gi,
+        /\[Jasmine Goins, LCSW[^\]]*\]/gi,
+        /Option \d+:\s*\[[^\]]+\]/gi,
+        /\[[^\]]*Jasmine Goins[^\]]*\]/gi,
+        /\[[^\]]*therapist[^\]]*\]/gi,
+      ];
+      
+      for (const pattern of placeholderPatterns) {
+        if (pattern.test(aiResponse)) {
+          console.error('❌ AI used placeholder text - removing and replacing with actual therapist data');
+          // If we have matched therapists, replace placeholders with actual data
+          if (matchedTherapistsForAI && matchedTherapistsForAI.length > 0) {
+            // Remove all placeholder text
+            aiResponse = aiResponse.replace(/\[Jasmine Goins, LCSW \d+\]/gi, '');
+            aiResponse = aiResponse.replace(/\[Therapist Name\]/gi, '');
+            aiResponse = aiResponse.replace(/\[Full bio text here\]/gi, '');
+            aiResponse = aiResponse.replace(/\[Comma-separated list[^\]]*\]/gi, '');
+            aiResponse = aiResponse.replace(/\[Jasmine Goins, LCSW[^\]]*\]/gi, '');
+            aiResponse = aiResponse.replace(/Option \d+:\s*\[[^\]]+\]/gi, '');
+            aiResponse = aiResponse.replace(/\[[^\]]*Jasmine Goins[^\]]*\]/gi, '');
+            aiResponse = aiResponse.replace(/\[[^\]]*therapist[^\]]*\]/gi, '');
+            
+            // If the response is now empty or mostly placeholders, replace with actual therapist list
+            if (aiResponse.trim().length < 100 || aiResponse.match(/\[.*\]/g)?.length || 0 > 2) {
+              console.log('⚠️ AI response contains too many placeholders - replacing with actual therapist data');
+              let therapistList = '\n\n**Here are the therapists I found for you:**\n\n';
+              matchedTherapistsForAI.forEach((t: any, index: number) => {
+                const specialties = Array.isArray(t.specialties) ? t.specialties.join(', ') : 'General';
+                const insurance = Array.isArray(t.accepted_insurance) ? t.accepted_insurance.join(', ') : 'Various';
+                const bio = t.bio || 'Experienced therapist specializing in your needs.';
+                const availability = extractedInfo?.schedule ? `Available: ${extractedInfo.schedule}` : 'Available: Flexible scheduling';
+                
+                therapistList += `**${index + 1}. ${t.name}**\n\n`;
+                therapistList += `**Bio:**\n${bio}\n\n`;
+                therapistList += `**Specialties:**\n${specialties}\n\n`;
+                therapistList += `**Insurance Accepted:**\n${insurance}\n\n`;
+                therapistList += `**Availability:**\n${availability}\n\n`;
+                therapistList += `---\n\n`;
+              });
+              therapistList += `Would you like to book an appointment with one of these therapists?`;
+              aiResponse = therapistList;
+            }
+          } else {
+            // Just remove placeholders if no therapists matched
+            aiResponse = aiResponse.replace(/\[[^\]]+\]/g, '');
+          }
+        }
       }
       
       // Check for bad formatting patterns like "therapist, LCSW" or "Jasmine Goins, LCSW Therapy (CBT)"
