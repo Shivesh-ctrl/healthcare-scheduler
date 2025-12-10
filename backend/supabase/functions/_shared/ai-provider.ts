@@ -113,7 +113,7 @@ export async function generateAIResponse(
       'gemini-2.0-flash',      // Primary model (available and working with paid API key)
     ];
     
-    let lastError = null;
+    let lastError: Error | null = null;
     
     // Try v1 API only (faster, more stable) - skip v1beta to save time
     const apiVersions = ['v1'];
