@@ -73,7 +73,6 @@ serve(async (req: Request) => {
     }
 
     // Get matched therapists first (if we have enough info) to include in system prompt
-    let matchedTherapistsForPrompt = undefined;
     let extractedInfoForMatching: Partial<ExtractedInfo> | undefined;
     let extractedInfo: Partial<ExtractedInfo> | undefined; // Declare early to avoid initialization error
     
@@ -88,9 +87,6 @@ serve(async (req: Request) => {
         };
       }
     }
-    
-    // Parse EXTRACTED_INFO from current message if available (will be parsed later, but we need it now)
-    const tempAIMessage = message; // We'll parse this after getting AI response, but for now use current message
     
     // Find matched therapists BEFORE AI response so AI can include them automatically
     // Use inquiry data if available, or try to extract from message
@@ -980,7 +976,8 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             let foundDate = null;
             let foundTime = null;
             
-            // Helper function to parse explicit dates
+            // Helper function to parse explicit dates (defined once, reused)
+            // Note: This function is also defined later in the code - consider extracting to a shared helper
             const parseExplicitDate = (dateStr: string): string | null => {
               // Try YYYY-MM-DD format
               const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
@@ -1274,8 +1271,9 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
               /(?:on|for)\s+(\w+day)/i, // "on Sunday"
             ];
             
-            // Helper to parse explicit dates
-            const parseExplicitDate = (dateStr: string): string | null => {
+            // Helper to parse explicit dates (reuse same logic as above)
+            // Note: This is a duplicate of parseExplicitDate defined earlier - consider extracting to shared helper
+            const parseExplicitDateLocal = (dateStr: string): string | null => {
               const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
               if (isoMatch) return dateStr;
               
@@ -1309,7 +1307,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
               const match = msg.content.match(pattern);
               if (match && match[1]) {
                 // First try to parse as explicit date
-                const explicitDate = parseExplicitDate(match[0] || match[1]);
+                const explicitDate = parseExplicitDateLocal(match[0] || match[1]);
                 if (explicitDate) {
                   bookingInfo.appointment_date = explicitDate;
                   console.log(`✅ Extracted explicit date from history: ${explicitDate}`);
@@ -1624,18 +1622,11 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
       const specialtyLower = extractedInfo.specialty.toLowerCase().trim();
       const insuranceNormalized = normalizeInsurance(extractedInfo.insurance);
 
-      // Query therapists matching both specialty AND insurance
-      const { data: therapists, error: therapistError } = await supabase
-        .from('therapists')
-        .select('*')
-        .eq('is_active', true);
-
-      if (therapistError) {
-        console.error('Error fetching therapists:', therapistError);
-      } else {
+      // Reuse allActiveTherapists fetched earlier instead of querying again
+      if (allActiveTherapists) {
         // Filter therapists in JavaScript to ensure proper matching
         // This is more reliable than using .contains() which can be inconsistent
-        matchedTherapists = therapists.filter((therapist: any) => {
+        matchedTherapists = allActiveTherapists.filter((therapist: any) => {
           const hasSpecialty = therapist.specialties && 
             Array.isArray(therapist.specialties) &&
             therapist.specialties.some((s: string) => 
@@ -1675,8 +1666,11 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           
           return 0;
         });
+      } else {
+        console.error('Error: allActiveTherapists not available for matching');
+      }
 
-        // Update inquiry with matched therapist and status
+      // Update inquiry with matched therapist and status
       if (matchedTherapists && matchedTherapists.length > 0 && matchedTherapists[0] && matchedTherapists[0].id) {
           const firstTherapist = matchedTherapists[0];
           const { error: updateError } = await supabase
@@ -1954,18 +1948,13 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         console.log('📅 Processing booking request...');
         console.log('📅 Full booking info:', JSON.stringify(bookingInfo, null, 2));
         
-        // Find therapist by name (flexible matching)
-        const { data: allTherapists } = await supabase
-          .from('therapists')
-          .select('*')
-          .eq('is_active', true);
-        
+        // Find therapist by name (flexible matching) - reuse allActiveTherapists
         console.log('🔍 Searching for therapist:', bookingInfo.therapist_name);
-        console.log('📋 Available therapists:', allTherapists?.map((t: any) => t.name));
+        console.log('📋 Available therapists:', allActiveTherapists?.map((t: any) => t.name));
         
         // Try multiple matching strategies for better accuracy
         const therapistNameLower = bookingInfo.therapist_name.toLowerCase().trim();
-        const therapist = allTherapists?.find((t: any) => {
+        const therapist = allActiveTherapists?.find((t: any) => {
           const dbNameLower = t.name.toLowerCase().trim();
           
           // Strategy 1: Exact match
@@ -1989,7 +1978,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         
         if (!therapist) {
           console.error('❌ Therapist not found:', bookingInfo.therapist_name);
-          console.error('📋 Available therapist names:', allTherapists?.map((t: any) => t.name));
+          console.error('📋 Available therapist names:', allActiveTherapists?.map((t: any) => t.name));
           
           // Build helpful error message with available therapists (ONLY from the 8 therapists in database)
           let errorMessage = `\n\n⚠️ I couldn't find a therapist named **"${bookingInfo.therapist_name}"** in the system.`;
@@ -2002,7 +1991,7 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
             errorMessage += `\nPlease select one of these therapists by name, and I'll help you book your appointment.`;
           } else if (allTherapists && allTherapists.length > 0) {
             errorMessage += `\n\nHere are the **therapists available** in our system (these are the only therapists we have):\n\n`;
-            allTherapists.forEach((t: any) => {
+            allActiveTherapists.forEach((t: any) => {
               errorMessage += `• **${t.name}**\n`;
             });
             errorMessage += `\n\nPlease let me know which therapist you'd like to book with, and I'll help you schedule.`;
