@@ -1,6 +1,14 @@
+// @ts-ignore - Deno HTTP imports are valid in Supabase Edge Functions runtime
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createSupabaseClient } from '../_shared/supabase-client.ts';
 import { GoogleCalendarService } from '../_shared/google-calendar.ts';
+
+// @ts-ignore - Deno global is available in Supabase Edge Functions runtime
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 
 interface BookAppointmentRequest {
