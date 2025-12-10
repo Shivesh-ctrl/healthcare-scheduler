@@ -127,7 +127,7 @@ serve(async (req: Request) => {
     console.log(`   - Has calendar_id: ${!!therapist.google_calendar_id}`);
     console.log(`   - Has refresh_token: ${!!therapist.google_refresh_token}`);
 
-    let googleEventId = null;
+    let googleEventId: string | null = null;
 
     // ============================================
     // STEP 3 & 4: GET ACCESS TOKEN & CREATE CALENDAR EVENT
