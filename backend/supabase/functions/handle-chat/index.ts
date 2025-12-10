@@ -1150,13 +1150,32 @@ ${therapistListForAI}
       cleanResponse = cleanResponse.replace(/\s{2,}/g, ' ');
       cleanResponse = cleanResponse.replace(/\n{3,}/g, '\n\n');
       
-      // PASS 5: Final pattern removal
+      // PASS 5: Final pattern removal - AGGRESSIVE
       cleanResponse = cleanResponse.replace(/\b([A-Z][a-z]+\s+[A-Z][a-z]+)\s*,\s*(LCSW|LCPC|LSW|CADC|LPC)\b/gi, '');
       cleanResponse = cleanResponse.replace(/\bJasmine\s+Goins\b/gi, '');
       cleanResponse = cleanResponse.replace(/\bGoins\b/gi, '');
       
+      // PASS 6: Remove from specific contexts
+      cleanResponse = cleanResponse.replace(/therapist's\s+Jasmine\s+Goins/gi, 'therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/therapist's\s+[A-Z][a-z]+\s+[A-Z][a-z]+/gi, 'therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/preferences for a therapist's\s+[A-Z][a-z]+\s+[A-Z][a-z]+/gi, 'preferences for a therapist\'s gender');
+      cleanResponse = cleanResponse.replace(/preferences for a therapist's\s+,\s*age/gi, 'preferences for a therapist\'s gender, age');
+      
       cleanResponse = cleanResponse.trim();
       console.log('✅ IMMEDIATE CLEANUP COMPLETE on cleanResponse');
+      
+      // VERIFICATION: Check if any names remain and FORCE remove
+      const hasJasmine = /Jasmine\s+Goins/i.test(cleanResponse);
+      if (hasJasmine) {
+        console.error('❌❌❌ STILL HAS JASMINE GOINS AFTER CLEANUP - FORCING REMOVAL');
+        cleanResponse = cleanResponse.replace(/Jasmine\s+Goins[^,]*/gi, '');
+        cleanResponse = cleanResponse.replace(/,\s*Jasmine\s+Goins/gi, '');
+        cleanResponse = cleanResponse.replace(/Jasmine\s+Goins\s*,/gi, '');
+        cleanResponse = cleanResponse.replace(/Jasmine\s+Goins/gi, '');
+        // Fix broken grammar
+        cleanResponse = cleanResponse.replace(/therapist's\s+,/gi, 'therapist\'s gender,');
+        cleanResponse = cleanResponse.replace(/therapist's\s+age/gi, 'therapist\'s gender, age');
+      }
     }
     
     // Parse EXTRACTED_INFO (remove from patient-facing response)
@@ -1450,13 +1469,13 @@ ${therapistListForAI}
             
             // Only try day patterns if we didn't find an explicit date
             if (!foundDate) {
-              for (const pattern of dayPatterns) {
-                const match = message.match(pattern);
-                if (match) {
-                  foundDay = match[1] || match[2];
-                  foundDate = convertDayToDate(foundDay);
-                  console.log(`✅ Found day in message: ${foundDay} → ${foundDate}`);
-                  break;
+            for (const pattern of dayPatterns) {
+              const match = message.match(pattern);
+              if (match) {
+                foundDay = match[1] || match[2];
+                foundDate = convertDayToDate(foundDay);
+                console.log(`✅ Found day in message: ${foundDay} → ${foundDate}`);
+                break;
                 }
               }
             }
@@ -2013,7 +2032,7 @@ ${therapistListForAI}
 
         // Sort by relevance (exact matches first, then partial matches)
         if (matchedTherapists) {
-          matchedTherapists = matchedTherapists.sort((a: any, b: any) => {
+        matchedTherapists = matchedTherapists.sort((a: any, b: any) => {
           const aExactSpecialty = a.specialties.some((s: string) => s.toLowerCase() === specialtyLower);
           const bExactSpecialty = b.specialties.some((s: string) => s.toLowerCase() === specialtyLower);
           const aExactInsurance = a.accepted_insurance.some((ins: string) => {
@@ -2030,13 +2049,13 @@ ${therapistListForAI}
           if (bExactSpecialty && bExactInsurance && !(aExactSpecialty && aExactInsurance)) return 1;
           
           return 0;
-          });
+        });
         }
       } else {
         console.error('Error: allActiveTherapists not available for matching');
       }
 
-      // Update inquiry with matched therapist and status
+        // Update inquiry with matched therapist and status
       if (matchedTherapists && matchedTherapists.length > 0 && matchedTherapists[0] && matchedTherapists[0].id) {
           const firstTherapist = matchedTherapists[0];
           const { error: updateError } = await supabase
@@ -2117,7 +2136,7 @@ ${therapistListForAI}
               status: 'pending' // Keep as pending if no matches found
             })
             .eq('id', currentInquiryId);
-        }
+      }
     }
 
     // Handle booking if BOOKING_INFO was provided
