@@ -680,9 +680,55 @@ ${therapistListForAI}
           }
         }
         
-        // STEP 7: Final cleanup - remove truncated text and extra whitespace
+        // STEP 7: NUCLEAR FINAL PASS - Remove ANY remaining therapist names ANYWHERE
+        // This catches names that slip through in weird positions
+        const allTherapistNames = [
+          "Jasmine Goins, LCSW",
+          "Jasmine Goins",
+          "Rachel Kurt, LCPC",
+          "Rachel Kurt",
+          "Tykisha Bays, LSW, CADC",
+          "Tykisha Bays",
+          "Adriane Wilk, LCPC",
+          "Adriane Wilk",
+          "Joy Banks, LCPC",
+          "Joy Banks",
+          "Ebony Norwood, LCSW",
+          "Ebony Norwood",
+          "Porsche McGee, LSW",
+          "Porsche McGee",
+          "Aakruti Patel, LCPC",
+          "Aakruti Patel",
+          "Erica Rodriguez, LCSW",
+          "Erica Rodriguez",
+          "Brianna Smith, LCPC",
+          "Brianna Smith",
+          "Adrienne Farmer, LCSW",
+          "Adrienne Farmer",
+          "Alicia Muhammad, LCSW",
+          "Alicia Muhammad",
+          "Porsche White, LCSW",
+          "Porsche White",
+          "Alexia Sula, LCSW",
+          "Alexia Sula",
+        ];
+        
+        for (const name of allTherapistNames) {
+          // Remove from ANYWHERE in the text
+          const regex = new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          const oldResponse = aiResponse;
+          aiResponse = aiResponse.replace(regex, '');
+          if (oldResponse !== aiResponse) {
+            console.log(`🧹 FINAL PASS: Removed "${name}" from response`);
+          }
+        }
+        
+        // STEP 8: Clean up any text corruption from removals
+        aiResponse = aiResponse.replace(/\s*,\s*,/g, ','); // Remove double commas
+        aiResponse = aiResponse.replace(/\s{2,}/g, ' '); // Remove multiple spaces
+        aiResponse = aiResponse.replace(/,\s+or\s+background/g, ', age, or background'); // Fix broken lists
+        aiResponse = aiResponse.replace(/therapist's\s+,/g, 'therapist\'s gender,'); // Fix "therapist's ,"
         aiResponse = aiResponse.replace(/\n{3,}/g, '\n\n'); // Max 2 newlines
-        aiResponse = aiResponse.replace(/\s{3,}/g, ' '); // Max 2 spaces
         aiResponse = aiResponse.trim();
         
         console.log('✅ GUARANTEED CLEANUP COMPLETE');
