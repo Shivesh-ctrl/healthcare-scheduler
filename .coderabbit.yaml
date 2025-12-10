@@ -1,0 +1,71 @@
+# CodeRabbit AI Configuration
+# This file configures CodeRabbit AI for automated code reviews
+
+# Language settings
+language: typescript
+
+# Paths to include in reviews
+paths:
+  - backend/supabase/functions/**/*.ts
+  - frontend/src/**/*.tsx
+  - frontend/src/**/*.ts
+
+# Paths to exclude from reviews
+exclude:
+  - node_modules/**
+  - dist/**
+  - build/**
+  - .git/**
+  - backend/supabase/migrations/00006_update_therapists_exact_list.sql
+
+# Review settings
+reviews:
+  # Review pull requests
+  pull_requests: true
+  
+  # Review commits
+  commits: false
+  
+  # Auto-approve if no issues found
+  auto_approve: false
+  
+  # Request changes if critical issues found
+  request_changes: true
+
+# Focus areas for reviews
+focus:
+  - security
+  - performance
+  - best_practices
+  - code_quality
+  - error_handling
+  - type_safety
+
+# Custom instructions
+instructions: |
+  This is a healthcare scheduling application with:
+  - Backend: Supabase Edge Functions (Deno/TypeScript)
+  - Frontend: React + TypeScript + Vite
+  - AI Integration: Google Gemini for chat
+  - Database: Supabase PostgreSQL
+  
+  Please focus on:
+  1. Security: Ensure no sensitive data exposure (API keys, tokens, patient data)
+  2. Error handling: Check for proper error handling in async functions
+  3. Type safety: Verify TypeScript types are properly used
+  4. Performance: Check for unnecessary re-renders, API calls
+  5. Best practices: Follow React and TypeScript best practices
+
+# Ignore patterns (files/paths to skip)
+ignore_patterns:
+  - "**/*.test.ts"
+  - "**/*.spec.ts"
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+
+# Chat settings (for CodeRabbit chat feature)
+chat:
+  enabled: true
+  model: gpt-4
+
