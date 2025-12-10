@@ -85,7 +85,18 @@ export const chatAPI = {
         throw new Error('Request timeout. The server is taking too long to respond. Please try again.')
       }
       
-      throw error
+      // Handle network errors (Failed to fetch)
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError') || !error.message) {
+        throw new Error('Failed to connect to the server. Please check your internet connection and try again.')
+      }
+      
+      // Re-throw with original error message if it exists
+      if (error.message) {
+        throw error
+      }
+      
+      // Fallback for unknown errors
+      throw new Error('An unexpected error occurred. Please try again.')
     }
   }
 }

@@ -174,7 +174,15 @@ export default function ChatInterface() {
       // Get more detailed error message if available
       let errorContent = 'Sorry, I encountered an error. Please try again.'
       if (error?.message) {
-        errorContent = `Sorry, I encountered an error: ${error.message}. Please try again.`
+        // Show user-friendly error message
+        errorContent = `Sorry, I encountered an error: ${error.message}`
+        
+        // Add helpful suggestions for common errors
+        if (error.message.includes('Failed to connect') || error.message.includes('Failed to fetch')) {
+          errorContent += '\n\nPlease check your internet connection and try again.'
+        } else if (error.message.includes('timeout')) {
+          errorContent += '\n\nThe server is taking longer than usual. Please try again in a moment.'
+        }
       }
       
       const errorMessage: ConversationMessage = {
