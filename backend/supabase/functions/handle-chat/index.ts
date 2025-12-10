@@ -1750,7 +1750,8 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
         });
 
         // Sort by relevance (exact matches first, then partial matches)
-        matchedTherapists = matchedTherapists.sort((a: any, b: any) => {
+        if (matchedTherapists) {
+          matchedTherapists = matchedTherapists.sort((a: any, b: any) => {
           const aExactSpecialty = a.specialties.some((s: string) => s.toLowerCase() === specialtyLower);
           const bExactSpecialty = b.specialties.some((s: string) => s.toLowerCase() === specialtyLower);
           const aExactInsurance = a.accepted_insurance.some((ins: string) => {
@@ -1767,7 +1768,8 @@ BOOKING_INFO: {"therapist_name":"Adriane Wilk, LCPC","patient_name":"John Doe","
           if (bExactSpecialty && bExactInsurance && !(aExactSpecialty && aExactInsurance)) return 1;
           
           return 0;
-        });
+          });
+        }
       } else {
         console.error('Error: allActiveTherapists not available for matching');
       }
