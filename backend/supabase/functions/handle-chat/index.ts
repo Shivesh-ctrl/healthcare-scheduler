@@ -316,15 +316,32 @@ serve(async (req: Request) => {
       problem: string;
     } = { name: '', preferred_time: '', day_type: '', email: '', insurance: '', problem: '' };
 
+    // Load existing extracted info from inquiry if available
+    if (inquiry) {
+      extracted.name = inquiry.patient_name || extracted.name || '';
+      extracted.email = inquiry.patient_email || extracted.email || '';
+      extracted.preferred_time = inquiry.requested_schedule || extracted.preferred_time || '';
+      extracted.insurance = inquiry.insurance_info || extracted.insurance || '';
+      extracted.problem = inquiry.extracted_specialty || extracted.problem || '';
+    }
+
     try {
-      extracted = await extractAppointmentInfoWithAI(message, conversationHistory);
+      const newExtracted = await extractAppointmentInfoWithAI(message, conversationHistory);
+      // Merge with existing data (new data takes precedence)
+      extracted = {
+        name: newExtracted.name || extracted.name,
+        preferred_time: newExtracted.preferred_time || extracted.preferred_time,
+        day_type: newExtracted.day_type || extracted.day_type,
+        email: newExtracted.email || extracted.email,
+        insurance: newExtracted.insurance || extracted.insurance,
+        problem: newExtracted.problem || extracted.problem,
+      };
       // normalize day_type
       extracted.day_type = normalizeDayType(extracted.day_type);
       console.log('✅ Extracted appointment info:', extracted);
     } catch (err: any) {
       console.error('❌ Extraction failed:', err);
-      // If extraction fails, continue with empty extracted object and request missing fields
-      extracted = { name: '', preferred_time: '', day_type: '', email: '', insurance: '', problem: '' };
+      // Keep existing extracted data if extraction fails
     }
 
     // 2) Determine required fields

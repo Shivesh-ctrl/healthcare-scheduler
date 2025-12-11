@@ -6,10 +6,11 @@ import type { Therapist } from '../lib/types'
 interface TherapistSelectionProps {
   therapists: Therapist[];
   inquiryId: string | null;
+  extractedInfo?: any;
   onBack: () => void;
 }
 
-export default function TherapistSelection({ therapists, inquiryId, onBack }: TherapistSelectionProps) {
+export default function TherapistSelection({ therapists, inquiryId, extractedInfo, onBack }: TherapistSelectionProps) {
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(null)
 
   if (selectedTherapist) {
@@ -17,6 +18,11 @@ export default function TherapistSelection({ therapists, inquiryId, onBack }: Th
       <BookingForm
         therapist={selectedTherapist}
         inquiryId={inquiryId}
+        prefillData={extractedInfo ? {
+          name: extractedInfo.patient_name,
+          email: extractedInfo.patient_email,
+          preferred_time: extractedInfo.schedule,
+        } : undefined}
         onBack={() => setSelectedTherapist(null)}
       />
     )

@@ -8,6 +8,13 @@ interface BookingFormProps {
   therapist: Therapist;
   inquiryId: string | null;
   onBack: () => void;
+  prefillData?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    preferred_time?: string;
+    day_type?: string;
+  };
 }
 
 interface FormData {
@@ -24,16 +31,17 @@ interface BookingDetails {
   [key: string]: any;
 }
 
-export default function BookingForm({ therapist, inquiryId, onBack }: BookingFormProps) {
+export default function BookingForm({ therapist, inquiryId, onBack, prefillData }: BookingFormProps) {
   const navigate = useNavigate()
   const [formData, setFormData] = useState<FormData>({
-    name: '',
-    email: '',
-    phone: '',
+    name: prefillData?.name || '',
+    email: prefillData?.email || '',
+    phone: prefillData?.phone || '',
     date: '',
-    time: '',
+    time: prefillData?.preferred_time || '',
     notes: ''
   })
+  const [showConfirmation, setShowConfirmation] = useState<boolean>(!!prefillData?.name && !!prefillData?.email)
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [isBooked, setIsBooked] = useState<boolean>(false)
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null)
@@ -222,6 +230,75 @@ export default function BookingForm({ therapist, inquiryId, onBack }: BookingFor
                 Book Another Appointment
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show confirmation screen if we have pre-filled data
+  if (showConfirmation && prefillData?.name && prefillData?.email) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center py-8 px-4">
+        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">Confirm Your Appointment</h1>
+            <p className="text-gray-600">Please review your details and confirm to book</p>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-6 mb-6 text-left border border-gray-200">
+            <h2 className="font-semibold text-gray-800 mb-4">Appointment Details</h2>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <UserCircle className="w-5 h-5 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Therapist</p>
+                  <p className="font-medium text-gray-800">{therapist.name}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <UserCircle className="w-5 h-5 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Your Name</p>
+                  <p className="font-medium text-gray-800">{formData.name}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="font-medium text-gray-800">{formData.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Calendar className="w-5 h-5 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Preferred Time</p>
+                  <p className="font-medium text-gray-800">{formData.time || prefillData.preferred_time}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+            <p className="text-sm text-yellow-800 text-center">
+              <strong>Please select a specific date and time below to complete your booking.</strong>
+            </p>
+          </div>
+
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => setShowConfirmation(false)}
+              className="bg-green-800 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-900 transition-colors"
+            >
+              Continue to Booking
+            </button>
+            <button
+              onClick={onBack}
+              className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </div>

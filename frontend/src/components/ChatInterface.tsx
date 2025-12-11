@@ -21,6 +21,7 @@ export default function ChatInterface() {
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [inquiryId, setInquiryId] = useState<string | null>(null)
   const [matchedTherapists, setMatchedTherapists] = useState<Therapist[] | null>(null)
+  const [extractedInfo, setExtractedInfo] = useState<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Check authentication
@@ -185,6 +186,9 @@ export default function ChatInterface() {
 
       if (response.matchedTherapists && response.matchedTherapists.length > 0) {
         setMatchedTherapists(response.matchedTherapists)
+        if (response.extractedInfo) {
+          setExtractedInfo(response.extractedInfo)
+        }
       }
     } catch (error: any) {
       console.error('Error sending message:', error)
@@ -240,7 +244,11 @@ export default function ChatInterface() {
       <TherapistSelection 
         therapists={matchedTherapists} 
         inquiryId={inquiryId}
-        onBack={() => setMatchedTherapists(null)}
+        extractedInfo={extractedInfo}
+        onBack={() => {
+          setMatchedTherapists(null)
+          setExtractedInfo(null)
+        }}
       />
     )
   }
