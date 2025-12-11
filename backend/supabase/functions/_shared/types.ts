@@ -67,6 +67,7 @@ export interface ChatRequest {
   message: string;
   inquiryId?: string;
   conversationHistory?: ConversationMessage[];
+  patientIdentifier?: string;
 }
 
 export interface ChatResponse {

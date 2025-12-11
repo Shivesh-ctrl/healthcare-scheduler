@@ -250,7 +250,8 @@ serve(async (req: Request) => {
 
   try {
     // Parse request
-    const { message, inquiryId, conversationHistory = [], patientIdentifier }: ChatRequest = await req.json();
+    const { message, inquiryId, conversationHistory = [] }: ChatRequest = await req.json();
+    const patientIdentifier = (await req.json() as any).patientIdentifier;
 
     if (!message || typeof message !== 'string') {
       return new Response(
