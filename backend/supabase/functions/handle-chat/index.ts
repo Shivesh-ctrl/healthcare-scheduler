@@ -306,12 +306,26 @@ serve(async (req: Request) => {
       }
     }
 
-    // Check if user is asking for insurance list or therapist list
-    const messageLower = message.toLowerCase();
-    const askingForInsuranceList = messageLower.match(/\b(list|show|what|which|accepted|available).*insurance\b/i) || 
-                                    messageLower.match(/\binsurance.*(list|show|what|which|accepted|available)\b/i);
-    const askingForTherapistList = messageLower.match(/\b(list|show|what|which|available).*therapist\b/i) ||
-                                   messageLower.match(/\btherapist.*(list|show|what|which|available)\b/i);
+    // Check if user is asking for insurance list or therapist list - ULTRA AGGRESSIVE DETECTION
+    const messageLower = message.toLowerCase().trim();
+    const askingForInsuranceList = 
+      messageLower.includes('list') && messageLower.includes('insurance') ||
+      messageLower.includes('insurance') && (messageLower.includes('list') || messageLower.includes('show') || messageLower.includes('what') || messageLower.includes('which') || messageLower.includes('accepted') || messageLower.includes('available')) ||
+      messageLower.includes('what insurance') ||
+      messageLower.includes('which insurance') ||
+      messageLower.includes('accepted insurance') ||
+      messageLower.includes('insurance provider') && messageLower.includes('list') ||
+      messageLower.match(/\b(list|show|what|which|accepted|available).*insurance\b/i) ||
+      messageLower.match(/\binsurance.*(list|show|what|which|accepted|available)\b/i);
+    
+    const askingForTherapistList = 
+      messageLower.includes('list') && messageLower.includes('therapist') ||
+      messageLower.includes('therapist') && (messageLower.includes('list') || messageLower.includes('show') || messageLower.includes('what') || messageLower.includes('which') || messageLower.includes('available')) ||
+      messageLower.includes('what therapist') ||
+      messageLower.includes('which therapist') ||
+      messageLower.includes('available therapist') ||
+      messageLower.match(/\b(list|show|what|which|available).*therapist\b/i) ||
+      messageLower.match(/\btherapist.*(list|show|what|which|available)\b/i);
 
     // If asking for insurance list, provide it immediately
     if (askingForInsuranceList) {
