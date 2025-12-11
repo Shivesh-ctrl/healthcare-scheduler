@@ -294,6 +294,154 @@ serve(async (req: Request) => {
 
     const supabase = createSupabaseClient();
 
+    // Check if user is asking for insurance list or therapist list
+    const messageLower = message.toLowerCase();
+    const askingForInsuranceList = messageLower.match(/\b(list|show|what|which|accepted|available).*insurance\b/i) || 
+                                    messageLower.match(/\binsurance.*(list|show|what|which|accepted|available)\b/i);
+    const askingForTherapistList = messageLower.match(/\b(list|show|what|which|available).*therapist\b/i) ||
+                                   messageLower.match(/\btherapist.*(list|show|what|which|available)\b/i);
+
+    // If asking for insurance list, provide it immediately
+    if (askingForInsuranceList) {
+      // Get all unique insurance types from therapists
+      const { data: allTherapists } = await supabase
+        .from('therapists')
+        .select('accepted_insurance')
+        .eq('is_active', true);
+
+      const allInsurances = new Set<string>();
+      if (allTherapists) {
+        allTherapists.forEach((t: any) => {
+          if (Array.isArray(t.accepted_insurance)) {
+            t.accepted_insurance.forEach((ins: string) => {
+              allInsurances.add(ins);
+            });
+          }
+        });
+      }
+
+      const insuranceList = Array.from(allInsurances).sort().join(', ');
+      
+      const insuranceListMessage = `**Accepted Insurance Providers:**
+
+We accept the following insurance plans:
+
+${Array.from(allInsurances).sort().map(ins => `• **${ins.charAt(0).toUpperCase() + ins.slice(1)}**`).join('\n')}
+
+All our therapists accept these insurance plans, so you can choose any therapist that matches your needs!
+
+**To get started, could you please share:**
+• Your name
+• Your insurance provider (from the list above)
+• Your preferred time for appointments (morning, afternoon, or evening)
+• What days of the week work best for you${patientIdentifier ? '' : '\n• Your email address (so I can send you appointment confirmations)'}`;
+
+      // Update conversation history
+      const newHistory = [
+        ...(conversationHistory || []),
+        { role: 'user', content: message, timestamp: new Date().toISOString() },
+        { role: 'assistant', content: insuranceListMessage, timestamp: new Date().toISOString() },
+      ];
+
+      // Save inquiry
+      const inquiryData: any = {
+        problem_description: message,
+        conversation_history: newHistory,
+        status: 'pending',
+      };
+      if (patientIdentifier) inquiryData.patient_identifier = patientIdentifier;
+
+      let savedInquiryId = currentInquiryId;
+      try {
+        if (!currentInquiryId) {
+          const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
+          if (newInq) savedInquiryId = newInq.id;
+        } else {
+          await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
+        }
+      } catch (dbErr) {
+        console.error('❌ DB inquiry save error:', dbErr);
+      }
+
+      const response: ChatResponse = {
+        reply: insuranceListMessage,
+        inquiryId: savedInquiryId || '',
+        extractedInfo: undefined,
+        needsMoreInfo: true,
+        matchedTherapists: undefined,
+      };
+
+      return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // If asking for therapist list, provide it immediately
+    if (askingForTherapistList) {
+      const { data: allTherapists } = await supabase
+        .from('therapists')
+        .select('*')
+        .eq('is_active', true);
+
+      if (allTherapists && allTherapists.length > 0) {
+        let therapistListMessage = `**Available Therapists:**
+
+We have ${allTherapists.length} experienced therapists available:\n\n`;
+
+        allTherapists.forEach((therapist: any, index: number) => {
+          therapistListMessage += `**${index + 1}. ${therapist.name}**\n`;
+          if (therapist.bio) {
+            therapistListMessage += `${therapist.bio.substring(0, 150)}...\n`;
+          }
+          if (Array.isArray(therapist.specialties) && therapist.specialties.length > 0) {
+            therapistListMessage += `Specialties: ${therapist.specialties.slice(0, 3).join(', ')}\n`;
+          }
+          therapistListMessage += `\n`;
+        });
+
+        therapistListMessage += `**To get started, could you please share:**
+• Your name
+• Your insurance provider
+• Your preferred time for appointments (morning, afternoon, or evening)
+• What days of the week work best for you${patientIdentifier ? '' : '\n• Your email address (so I can send you appointment confirmations)'}`;
+
+        // Update conversation history
+        const newHistory = [
+          ...(conversationHistory || []),
+          { role: 'user', content: message, timestamp: new Date().toISOString() },
+          { role: 'assistant', content: therapistListMessage, timestamp: new Date().toISOString() },
+        ];
+
+        // Save inquiry
+        const inquiryData: any = {
+          problem_description: message,
+          conversation_history: newHistory,
+          status: 'pending',
+        };
+        if (patientIdentifier) inquiryData.patient_identifier = patientIdentifier;
+
+        let savedInquiryId = currentInquiryId;
+        try {
+          if (!currentInquiryId) {
+            const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
+            if (newInq) savedInquiryId = newInq.id;
+          } else {
+            await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
+          }
+        } catch (dbErr) {
+          console.error('❌ DB inquiry save error:', dbErr);
+        }
+
+        const response: ChatResponse = {
+          reply: therapistListMessage,
+          inquiryId: savedInquiryId || '',
+          extractedInfo: undefined,
+          needsMoreInfo: true,
+          matchedTherapists: undefined,
+        };
+
+        return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
     // Load existing inquiry if provided (optional)
     let currentInquiryId = inquiryId;
     let inquiry: any = null;
