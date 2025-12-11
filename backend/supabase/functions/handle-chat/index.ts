@@ -294,6 +294,18 @@ serve(async (req: Request) => {
 
     const supabase = createSupabaseClient();
 
+    // Load existing inquiry if provided (optional) - declare early to avoid scope issues
+    let currentInquiryId = inquiryId;
+    let inquiry: any = null;
+    if (currentInquiryId) {
+      const { data: inqData, error: inqErr } = await supabase.from('inquiries').select('*').eq('id', currentInquiryId).single();
+      if (inqErr) {
+        console.warn('⚠️ Could not load inquiry:', inqErr);
+      } else {
+        inquiry = inqData;
+      }
+    }
+
     // Check if user is asking for insurance list or therapist list
     const messageLower = message.toLowerCase();
     const askingForInsuranceList = messageLower.match(/\b(list|show|what|which|accepted|available).*insurance\b/i) || 
@@ -351,11 +363,10 @@ All our therapists accept these insurance plans, so you can choose any therapist
       };
       if (patientIdentifier) inquiryData.patient_identifier = patientIdentifier;
 
-      let savedInquiryId = currentInquiryId;
       try {
         if (!currentInquiryId) {
           const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
-          if (newInq) savedInquiryId = newInq.id;
+          if (newInq) currentInquiryId = newInq.id;
         } else {
           await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
         }
@@ -365,7 +376,7 @@ All our therapists accept these insurance plans, so you can choose any therapist
 
       const response: ChatResponse = {
         reply: insuranceListMessage,
-        inquiryId: savedInquiryId || '',
+        inquiryId: currentInquiryId || '',
         extractedInfo: undefined,
         needsMoreInfo: true,
         matchedTherapists: undefined,
@@ -418,11 +429,10 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
         };
         if (patientIdentifier) inquiryData.patient_identifier = patientIdentifier;
 
-        let savedInquiryId = currentInquiryId;
         try {
           if (!currentInquiryId) {
             const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
-            if (newInq) savedInquiryId = newInq.id;
+            if (newInq) currentInquiryId = newInq.id;
           } else {
             await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
           }
@@ -432,25 +442,13 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
 
         const response: ChatResponse = {
           reply: therapistListMessage,
-          inquiryId: savedInquiryId || '',
+          inquiryId: currentInquiryId || '',
           extractedInfo: undefined,
           needsMoreInfo: true,
           matchedTherapists: undefined,
         };
 
         return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
-    }
-
-    // Load existing inquiry if provided (optional)
-    let currentInquiryId = inquiryId;
-    let inquiry: any = null;
-    if (currentInquiryId) {
-      const { data: inqData, error: inqErr } = await supabase.from('inquiries').select('*').eq('id', currentInquiryId).single();
-      if (inqErr) {
-        console.warn('⚠️ Could not load inquiry:', inqErr);
-      } else {
-        inquiry = inqData;
       }
     }
 
