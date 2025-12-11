@@ -507,7 +507,7 @@ serve(async (req: Request) => {
         { role: 'assistant', content: therapistListMessage, timestamp: new Date().toISOString() },
       ];
 
-      // Update inquiry
+      // Update inquiry - save patient details for booking
       const inquiryUpdateData: any = {
         problem_description: inquiry?.problem_description || message,
         requested_schedule: extracted.preferred_time || inquiry?.requested_schedule || null,
@@ -515,6 +515,8 @@ serve(async (req: Request) => {
         extracted_specialty: extracted.problem || inquiry?.extracted_specialty || null,
         conversation_history: newHistory,
         status: 'matched',
+        patient_name: extracted.name || inquiry?.patient_name || null,
+        patient_email: extracted.email || inquiry?.patient_email || null,
       };
       if (patientIdentifier) inquiryUpdateData.patient_identifier = patientIdentifier;
       if (matchedTherapists.length > 0) {
