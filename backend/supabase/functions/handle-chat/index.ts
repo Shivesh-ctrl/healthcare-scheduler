@@ -32,6 +32,7 @@ async function extractAppointmentInfoWithAI(
   day_type: string; // "weekday" | "weekend" | ""
   email: string;
   insurance: string;
+  problem: string;
 }> {
   const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('AI API key not configured');
@@ -57,7 +58,8 @@ Extract these fields and return ONLY a JSON object (no surrounding text) with th
   "preferred_time": "<user-provided time or time range, e.g. '2025-12-14 15:00' or 'afternoons 3-5pm' or empty string>",
   "day_type": "<'weekday' or 'weekend' or empty string if not mentioned>",
   "email": "<email address or empty string>",
-  "insurance": "<insurance provider name or empty string>"
+  "insurance": "<insurance provider name or empty string>",
+  "problem": "<the main problem/issue mentioned, e.g. 'stress', 'anxiety', 'depression' or empty string>"
 }
 
 If any field is not present in the message, set it to an empty string "". Do not invent extra fields.`;
@@ -147,13 +149,24 @@ User message: ${userMessage}
   if (conversationContext) prompt += `Previous conversation:\n${conversationContext}\n`;
 
   if (extractedInfo) {
-    prompt += `Extracted info:\n- name: ${extractedInfo.name || 'Not provided'}\n- preferred_time: ${extractedInfo.preferred_time || 'Not provided'}\n- day_type: ${extractedInfo.day_type || 'Not provided'}\n- email: ${extractedInfo.email || 'Not provided'}\n- insurance: ${extractedInfo.insurance || 'Not provided'}\n\n`;
+    prompt += `Extracted info:\n- problem: ${extractedInfo.problem || 'Not provided'}\n- insurance: ${extractedInfo.insurance || 'Not provided'}\n- name: ${extractedInfo.name || 'Not provided'}\n- preferred_time: ${extractedInfo.preferred_time || 'Not provided'}\n- day_type: ${extractedInfo.day_type || 'Not provided'}\n- email: ${extractedInfo.email || 'Not provided'}\n\n`;
   }
 
   if (missingFields && missingFields.length > 0) {
-    prompt += `Ask for the following missing fields in a single natural, polite sentence: ${missingFields.join(
-      ', '
-    )}. Do not ask for any other information. Keep it short and friendly.`;
+    // First acknowledge what the user provided, then ask for missing fields
+    const hasProblem = extractedInfo?.problem && extractedInfo.problem.trim() !== '';
+    const hasInsurance = extractedInfo?.insurance && extractedInfo.insurance.trim() !== '';
+    
+    let acknowledgePart = '';
+    if (hasProblem && hasInsurance) {
+      acknowledgePart = `First, acknowledge the user's problem (${extractedInfo.problem}) and insurance (${extractedInfo.insurance}). Then, `;
+    } else if (hasProblem) {
+      acknowledgePart = `First, acknowledge the user's problem (${extractedInfo.problem}). Then, `;
+    } else if (hasInsurance) {
+      acknowledgePart = `First, acknowledge the user's insurance (${extractedInfo.insurance}). Then, `;
+    }
+    
+    prompt += `${acknowledgePart}ask for the following missing fields in a natural, polite way: ${missingFields.join(', ')}. Keep it warm and friendly.`;
   } else {
     prompt += `All required appointment details are present. Confirm the booking in a short friendly message including the scheduled time and day preference, and say you'll send an email confirmation (if email is available).`;
   }
@@ -264,7 +277,8 @@ serve(async (req: Request) => {
       day_type: string;
       email: string;
       insurance: string;
-    } = { name: '', preferred_time: '', day_type: '', email: '', insurance: '' };
+      problem: string;
+    } = { name: '', preferred_time: '', day_type: '', email: '', insurance: '', problem: '' };
 
     try {
       extracted = await extractAppointmentInfoWithAI(message, conversationHistory);
@@ -274,7 +288,7 @@ serve(async (req: Request) => {
     } catch (err: any) {
       console.error('❌ Extraction failed:', err);
       // If extraction fails, continue with empty extracted object and request missing fields
-      extracted = { name: '', preferred_time: '', day_type: '', email: '', insurance: '' };
+      extracted = { name: '', preferred_time: '', day_type: '', email: '', insurance: '', problem: '' };
     }
 
     // 2) Determine required fields
@@ -347,37 +361,177 @@ serve(async (req: Request) => {
       return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 4) All required info present -> create appointment
-    // Compose appointment record
-    const appointmentRecord: any = {
-      inquiry_id: currentInquiryId || null,
-      patient_identifier: patientIdentifier || null,
-      patient_name: extracted.name,
-      email: extracted.email || null,
-      preferred_time: extracted.preferred_time,
-      day_type: extracted.day_type,
-      insurance: extracted.insurance,
-      status: 'booked',
-      created_at: new Date().toISOString(),
+    // 4) All required info present -> find matching therapists first
+    console.log('🔍 Finding matching therapists...');
+    
+    // Normalize insurance for matching
+    const normalizeInsurance = (ins: string): string => {
+      const normalized = ins.toLowerCase().trim();
+      if (normalized.includes('blue cross') || normalized.includes('bcbs') || normalized.includes('bluecross')) {
+        return 'blue cross blue shield';
+      }
+      if (normalized.includes('aetna')) return 'aetna';
+      if (normalized.includes('cigna')) return 'cigna';
+      if (normalized.includes('united') && normalized.includes('health')) return 'united healthcare';
+      if (normalized.includes('medicare')) return 'medicare';
+      if (normalized.includes('medicaid')) return 'medicaid';
+      if (normalized.includes('humana')) return 'humana';
+      return normalized;
     };
 
-    let appointmentId: string | null = null;
-    try {
-      const { data: createdAppointment, error: createErr } = await supabase.from('appointments').insert(appointmentRecord).select().single();
-      if (createErr) {
-        console.error('❌ Error creating appointment:', createErr);
-        throw createErr;
-      }
-      appointmentId = createdAppointment.id;
-      console.log('✅ Created appointment:', appointmentId);
-    } catch (apptErr) {
-      console.error('❌ Appointment creation failed:', apptErr);
-      // Return an error to user (but gracefully)
-      return new Response(JSON.stringify({
-        error: 'Failed to create appointment. Please try again later.',
-        reply: 'I\'m sorry — I tried to book your appointment but something went wrong. Please try again.',
-      }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+    const insuranceNormalized = normalizeInsurance(extracted.insurance);
+    const problemLower = extracted.problem.toLowerCase().trim();
+
+    // Fetch all active therapists
+    const { data: allTherapists, error: therapistsError } = await supabase
+      .from('therapists')
+      .select('*')
+      .eq('is_active', true);
+
+    if (therapistsError) {
+      console.error('❌ Error fetching therapists:', therapistsError);
     }
+
+    // Filter therapists based on insurance and specialty/problem
+    let matchedTherapists: any[] = [];
+    if (allTherapists && allTherapists.length > 0) {
+      matchedTherapists = allTherapists.filter((therapist: any) => {
+        // Check insurance match
+        const hasInsurance = therapist.accepted_insurance && 
+          Array.isArray(therapist.accepted_insurance) &&
+          therapist.accepted_insurance.some((ins: string) => {
+            const insNormalized = normalizeInsurance(ins);
+            return insNormalized.includes(insuranceNormalized) || 
+                   insuranceNormalized.includes(insNormalized);
+          });
+
+        // Check specialty/problem match in specialties array or bio
+        const hasSpecialty = therapist.specialties && 
+          Array.isArray(therapist.specialties) &&
+          therapist.specialties.some((s: string) => 
+            s.toLowerCase().includes(problemLower) || 
+            problemLower.includes(s.toLowerCase())
+          );
+
+        // Also check bio if problem not found in specialties
+        const bioMatch = therapist.bio && 
+          therapist.bio.toLowerCase().includes(problemLower);
+
+        return hasInsurance && (hasSpecialty || bioMatch);
+      });
+
+      // Limit to top 3 matches
+      matchedTherapists = matchedTherapists.slice(0, 3);
+      console.log(`✅ Found ${matchedTherapists.length} matching therapists`);
+    }
+
+    // If we have matched therapists, show them to the user
+    if (matchedTherapists.length > 0) {
+      // Build response showing matched therapists
+      let therapistListMessage = `Great! I found ${matchedTherapists.length} therapist${matchedTherapists.length > 1 ? 's' : ''} that match your needs:\n\n`;
+      
+      matchedTherapists.forEach((therapist: any, index: number) => {
+        therapistListMessage += `**${index + 1}. ${therapist.name}**\n`;
+        if (therapist.bio) {
+          therapistListMessage += `Bio: ${therapist.bio}\n`;
+        }
+        if (extracted.preferred_time) {
+          therapistListMessage += `Available: ${extracted.preferred_time}`;
+          if (extracted.day_type) {
+            therapistListMessage += ` (${extracted.day_type})`;
+          }
+          therapistListMessage += `\n`;
+        }
+        therapistListMessage += `\n`;
+      });
+
+      therapistListMessage += `Would you like to book an appointment with one of these therapists?`;
+
+      // Update conversation history
+      const newHistory = [
+        ...(conversationHistory || []),
+        { role: 'user', content: message, timestamp: new Date().toISOString() },
+        { role: 'assistant', content: therapistListMessage, timestamp: new Date().toISOString() },
+      ];
+
+      // Update inquiry
+      const inquiryUpdateData: any = {
+        problem_description: inquiry?.problem_description || message,
+        requested_schedule: extracted.preferred_time || inquiry?.requested_schedule || null,
+        insurance_info: extracted.insurance || inquiry?.insurance_info || null,
+        extracted_specialty: extracted.problem || inquiry?.extracted_specialty || null,
+        conversation_history: newHistory,
+        status: 'matched',
+      };
+      if (patientIdentifier) inquiryUpdateData.patient_identifier = patientIdentifier;
+      if (matchedTherapists.length > 0) {
+        inquiryUpdateData.matched_therapist_id = matchedTherapists[0].id;
+      }
+
+      try {
+        if (!currentInquiryId) {
+          const { data: newInq, error } = await supabase.from('inquiries').insert(inquiryUpdateData).select().single();
+          if (!error) {
+            currentInquiryId = newInq.id;
+            inquiry = newInq;
+          }
+        } else {
+          await supabase.from('inquiries').update(inquiryUpdateData).eq('id', currentInquiryId);
+        }
+      } catch (dbErr) {
+        console.error('❌ DB inquiry update error:', dbErr);
+      }
+
+      // Return response with matched therapists
+      const response: ChatResponse = {
+        reply: therapistListMessage,
+        inquiryId: currentInquiryId || '',
+        extractedInfo: {
+          problem: extracted.problem || '',
+          specialty: extracted.problem || '',
+          schedule: extracted.preferred_time || '',
+          insurance: extracted.insurance || '',
+          patient_name: extracted.name || undefined,
+          patient_email: extracted.email || undefined,
+        },
+        needsMoreInfo: false,
+        matchedTherapists: matchedTherapists.map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          email: t.email,
+          bio: t.bio,
+          specialties: t.specialties || [],
+          accepted_insurance: t.accepted_insurance || [],
+          google_calendar_id: t.google_calendar_id,
+          google_refresh_token: t.google_refresh_token,
+          is_active: t.is_active,
+          created_at: t.created_at,
+          updated_at: t.updated_at,
+        })),
+      };
+
+      return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // If no therapists found, inform user
+    const noMatchMessage = `I'm sorry, I couldn't find any therapists that match your insurance (${extracted.insurance}) and specialty (${extracted.problem}). Please try again with different criteria.`;
+
+    const response: ChatResponse = {
+      reply: noMatchMessage,
+      inquiryId: currentInquiryId || '',
+      extractedInfo: {
+        problem: extracted.problem || '',
+        specialty: extracted.problem || '',
+        schedule: extracted.preferred_time || '',
+        insurance: extracted.insurance || '',
+        patient_name: extracted.name || undefined,
+        patient_email: extracted.email || undefined,
+      },
+      needsMoreInfo: false,
+      matchedTherapists: [],
+    };
+
+    return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     // 5) Update inquiry row: mark booked and attach appointment id
     if (currentInquiryId) {
