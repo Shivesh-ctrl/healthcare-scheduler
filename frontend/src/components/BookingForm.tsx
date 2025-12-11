@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Calendar, Clock, CheckCircle, UserCircle, Mail, Phone, User, XCircle } from 'lucide-react'
 import { appointmentAPI } from '../lib/supabase'
 import type { Therapist } from '../lib/types'
@@ -166,7 +167,26 @@ export default function BookingForm({ therapist, inquiryId, onBack }: BookingFor
             </div>
 
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-              <p className="text-sm text-green-800 text-center">
+              <p className="text-sm text-green-800 text-center mb-4">
+                You will be redirected to the home page in a few seconds...
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => navigate('/')}
+                  className="bg-green-800 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-900 transition-colors"
+                >
+                  Go to Home Page
+                </button>
+                <button
+                  onClick={onBack}
+                  className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                >
+                  Book Another Appointment
+                </button>
+              </div>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <p className="text-sm text-blue-800 text-center">
                 <strong>✅ Appointment saved to database</strong> • 
                 {bookingDetails?.calendarEventId ? (
                   <span> <strong>✅ Synced to {therapist.name}'s calendar</strong> • </span>

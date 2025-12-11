@@ -15,6 +15,7 @@ export default function AdminDashboard() {
   const [connectingCalendar, setConnectingCalendar] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(false)
 
   useEffect(() => {
     // Handle email confirmation callback from URL hash
@@ -114,13 +115,15 @@ export default function AdminDashboard() {
       setSearchParams({})
     }
 
-    // Auto-refresh admin data every 30 seconds when session is active
+    // Auto-refresh admin data every 60 seconds when session is active (reduced frequency)
     let refreshInterval: NodeJS.Timeout | null = null
     if (session) {
       refreshInterval = setInterval(() => {
-        console.log('🔄 Auto-refreshing admin data...')
-        loadAdminData(session as Session)
-      }, 30000) // Refresh every 30 seconds
+        if (!isLoadingData) {
+          console.log('🔄 Auto-refreshing admin data...')
+          loadAdminData(session as Session)
+        }
+      }, 60000) // Refresh every 60 seconds (reduced from 30)
     }
 
     return () => {
@@ -129,9 +132,16 @@ export default function AdminDashboard() {
         clearInterval(refreshInterval)
       }
     }
-  }, [searchParams, setSearchParams, session])
+  }, [searchParams, setSearchParams]) // Removed session from dependencies to prevent loops
 
   const loadAdminData = async (session: Session) => {
+    // Prevent multiple simultaneous requests
+    if (isLoadingData) {
+      console.log('⏸️  Admin data load already in progress, skipping...')
+      return
+    }
+
+    setIsLoadingData(true)
     try {
       console.log('🔄 Loading admin data...')
       const data = await adminAPI.getData(session)
@@ -144,9 +154,14 @@ export default function AdminDashboard() {
       })
       console.log('📋 Appointments data:', data.appointments)
       console.log('📊 Stats:', data.stats)
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error loading admin data:', error)
-      alert(`Failed to load admin data: ${error}`)
+      // Don't show alert on every error, just log it
+      if (error.message && !error.message.includes('Failed to fetch')) {
+        alert(`Failed to load admin data: ${error.message}`)
+      }
+    } finally {
+      setIsLoadingData(false)
     }
   }
 
