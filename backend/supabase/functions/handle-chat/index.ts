@@ -55,14 +55,14 @@ User message: ${userMessage}${conversationContext}
 Extract these fields and return ONLY a JSON object (no surrounding text) with these keys:
 {
   "name": "<patient's full name or empty string>",
-  "preferred_time": "<user-provided time or time range, e.g. '2025-12-14 15:00' or 'afternoons 3-5pm' or empty string>",
-  "day_type": "<'weekday' or 'weekend' or empty string if not mentioned>",
+  "preferred_time": "<user-provided time or time range, e.g. '2025-12-14 15:00' or 'afternoons 3-5pm' or 'morning' or empty string>",
+  "day_type": "<'weekday' or 'weekend' or specific day like 'monday' or empty string if not mentioned>",
   "email": "<email address or empty string>",
-  "insurance": "<insurance provider name or empty string>",
+  "insurance": "<insurance provider name (e.g. 'BCBS', 'Blue Cross Blue Shield', 'Aetna') or empty string - DO NOT extract plan types like PPO/HMO>",
   "problem": "<the main problem/issue mentioned, e.g. 'stress', 'anxiety', 'depression' or empty string>"
 }
 
-If any field is not present in the message, set it to an empty string "". Do not invent extra fields.`;
+If any field is not present in the message, set it to an empty string "". Do not invent extra fields. Do not extract insurance plan types (PPO, HMO, etc.) - only the insurance provider name.`;
 
   // Try Google Gemini first (if key present), else OpenAI
   try {
@@ -142,7 +142,12 @@ async function generateAIResponse(
   }
 
   // Build a helpful assistant prompt
-  let prompt = `You are a warm scheduling assistant helping users book therapy appointments.
+  let prompt = `You are a warm, empathetic scheduling assistant helping users book therapy appointments. Be understanding, compassionate, and supportive.
+
+IMPORTANT: If the user mentions any crisis, emergency, suicidal thoughts, or self-harm, immediately provide these helpline numbers:
+• 988 (Suicide & Crisis Lifeline - call or text)
+• Crisis Text Line: 741741
+• National Suicide Prevention Lifeline: 1-800-273-8255
 
 User message: ${userMessage}
 
