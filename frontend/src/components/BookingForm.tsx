@@ -208,12 +208,20 @@ export default function BookingForm({ therapist, inquiryId, onBack }: BookingFor
               </p>
             </div>
 
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-gradient-to-r from-green-800 to-green-900 text-white rounded-xl px-8 py-3 font-semibold hover:shadow-lg hover:from-green-900 hover:to-green-950 transition-all shadow-md"
-            >
-              Book Another Appointment
-            </button>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => navigate('/')}
+                className="bg-green-800 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-900 transition-colors"
+              >
+                Go to Home Page
+              </button>
+              <button
+                onClick={onBack}
+                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+              >
+                Book Another Appointment
+              </button>
+            </div>
           </div>
         </div>
       </div>
