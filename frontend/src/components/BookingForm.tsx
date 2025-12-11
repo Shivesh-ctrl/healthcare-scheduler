@@ -25,6 +25,7 @@ interface BookingDetails {
 }
 
 export default function BookingForm({ therapist, inquiryId, onBack }: BookingFormProps) {
+  const navigate = useNavigate()
   const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
@@ -36,6 +37,16 @@ export default function BookingForm({ therapist, inquiryId, onBack }: BookingFor
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false)
   const [isBooked, setIsBooked] = useState<boolean>(false)
   const [bookingDetails, setBookingDetails] = useState<BookingDetails | null>(null)
+
+  // Auto-redirect to home after 5 seconds if booked
+  useEffect(() => {
+    if (isBooked) {
+      const timer = setTimeout(() => {
+        navigate('/')
+      }, 5000) // Redirect after 5 seconds
+      return () => clearTimeout(timer)
+    }
+  }, [isBooked, navigate])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
