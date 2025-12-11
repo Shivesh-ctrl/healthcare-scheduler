@@ -516,7 +516,28 @@ serve(async (req: Request) => {
     // If no therapists found, inform user
     const noMatchMessage = `I'm sorry, I couldn't find any therapists that match your insurance (${extracted.insurance}) and specialty (${extracted.problem}). Please try again with different criteria.`;
 
-    const response: ChatResponse = {
+    // Update inquiry with no match status
+    const noMatchInquiryData: any = {
+      problem_description: inquiry?.problem_description || message,
+      requested_schedule: extracted.preferred_time || inquiry?.requested_schedule || null,
+      insurance_info: extracted.insurance || inquiry?.insurance_info || null,
+      extracted_specialty: extracted.problem || inquiry?.extracted_specialty || null,
+      status: 'pending',
+    };
+    if (patientIdentifier) noMatchInquiryData.patient_identifier = patientIdentifier;
+
+    try {
+      if (!currentInquiryId) {
+        const { data: newInq } = await supabase.from('inquiries').insert(noMatchInquiryData).select().single();
+        if (newInq) currentInquiryId = newInq.id;
+      } else {
+        await supabase.from('inquiries').update(noMatchInquiryData).eq('id', currentInquiryId);
+      }
+    } catch (dbErr) {
+      console.error('❌ DB inquiry update error:', dbErr);
+    }
+
+    const noMatchResponse: ChatResponse = {
       reply: noMatchMessage,
       inquiryId: currentInquiryId || '',
       extractedInfo: {
@@ -531,97 +552,7 @@ serve(async (req: Request) => {
       matchedTherapists: [],
     };
 
-    return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-    // 5) Update inquiry row: mark booked and attach appointment id
-    if (currentInquiryId) {
-      try {
-        const { data: updatedInq, error: upErr } = await supabase.from('inquiries')
-          .update({ status: 'booked', appointment_id: appointmentId })
-          .eq('id', currentInquiryId)
-          .select()
-          .single();
-        if (upErr) {
-          console.warn('⚠️ Could not update inquiry with appointment_id:', upErr);
-        } else {
-          inquiry = updatedInq;
-        }
-      } catch (e) {
-        console.warn('⚠️ Exception updating inquiry:', e);
-      }
-    } else {
-      // If there was no inquiry row, you might want to create one pointing to the appointment
-      try {
-        const newInquiryData = {
-          problem_description: message,
-          requested_schedule: extracted.preferred_time,
-          insurance_info: extracted.insurance,
-          extracted_specialty: extracted.name,
-          conversation_history: [
-            ...(conversationHistory || []),
-            { role: 'user', content: message, timestamp: new Date().toISOString() },
-            { role: 'assistant', content: `Appointment booked for ${extracted.preferred_time} (${extracted.day_type}).`, timestamp: new Date().toISOString() }
-          ],
-          status: 'booked',
-          appointment_id: appointmentId,
-          patient_identifier: patientIdentifier || null,
-        };
-        const { data: newInq, error } = await supabase.from('inquiries').insert(newInquiryData).select().single();
-        if (!error) {
-          currentInquiryId = newInq.id;
-          inquiry = newInq;
-        } else {
-          console.warn('⚠️ Could not create inquiry after appointment:', error);
-        }
-      } catch (e) {
-        console.warn('⚠️ Exception creating inquiry after appointment:', e);
-      }
-    }
-
-    // 6) Build confirmation reply (use AI to make it friendly)
-    const confirmationMessage = await generateAIResponse(message, conversationHistory, extracted, []);
-
-    // Add assistant message to conversation history
-    const newHistoryFinal = [
-      ...(conversationHistory || []),
-      { role: 'user', content: message, timestamp: new Date().toISOString() },
-      { role: 'assistant', content: confirmationMessage, timestamp: new Date().toISOString() },
-    ];
-
-    // Optionally persist the final conversation history into inquiries row
-    try {
-      if (currentInquiryId) {
-        await supabase.from('inquiries').update({ conversation_history: newHistoryFinal }).eq('id', currentInquiryId);
-      }
-    } catch (e) {
-      console.warn('⚠️ Could not persist final conversation history:', e);
-    }
-
-    // Response back to client
-    const response: ChatResponse = {
-      reply: confirmationMessage,
-      inquiryId: currentInquiryId || '',
-      extractedInfo: {
-        problem: extracted.name || '', // Using name as problem for now
-        specialty: extracted.name || '',
-        schedule: extracted.preferred_time || '',
-        insurance: extracted.insurance || '',
-        patient_name: extracted.name || undefined,
-        patient_email: extracted.email || undefined,
-      },
-      needsMoreInfo: false,
-      matchedTherapists: undefined,
-      // adding appointmentId for frontend convenience
-      // (if your ChatResponse type doesn't include appointmentId, frontend can read this from reply or you can extend the type)
-    };
-
-    // Attach appointmentId on top-level so frontend easily shows it
-    const responseBody = {
-      ...response,
-      appointmentId,
-    };
-
-    return new Response(JSON.stringify(responseBody), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(noMatchResponse), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error: any) {
     console.error('❌ Error in handle-chat:', error);
