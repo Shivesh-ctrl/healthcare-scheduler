@@ -160,11 +160,11 @@ User message: ${userMessage}
     
     let acknowledgePart = '';
     if (hasProblem && hasInsurance) {
-      acknowledgePart = `First, acknowledge the user's problem (${extractedInfo.problem}) and insurance (${extractedInfo.insurance}). Then, `;
+      acknowledgePart = `First, be empathetic and acknowledge the user's problem (${extractedInfo.problem}) and insurance (${extractedInfo.insurance}). Show understanding and warmth. Then, `;
     } else if (hasProblem) {
-      acknowledgePart = `First, acknowledge the user's problem (${extractedInfo.problem}). Then, `;
+      acknowledgePart = `First, be empathetic and acknowledge the user's problem (${extractedInfo.problem}). Show understanding and warmth. Then, `;
     } else if (hasInsurance) {
-      acknowledgePart = `First, acknowledge the user's insurance (${extractedInfo.insurance}). Then, `;
+      acknowledgePart = `First, be empathetic and acknowledge the user's insurance (${extractedInfo.insurance}). Show understanding and warmth. Then, `;
     }
     
     // Filter out email if user is logged in
@@ -175,11 +175,11 @@ User message: ${userMessage}
       'name': 'your name',
       'preferred_time': 'preferred time for appointments (morning, afternoon, evening)',
       'day_type': 'what days of the week work best for you',
-      'email': 'your email address',
+      'email': 'your email address (so I can send you appointment confirmations)',
       'insurance': 'your insurance provider'
     };
     
-    const formattedFields = fieldsToAsk.map(f => fieldLabels[f] || f).join(', ');
+    const formattedFields = fieldsToAsk.map(f => fieldLabels[f] || f);
     
     prompt += `${acknowledgePart}ask for the following missing information in a well-formatted way using bullet points and bold text where appropriate. Format your response like this:
 
@@ -188,7 +188,16 @@ User message: ${userMessage}
 • [Field 2]
 • [Field 3]
 
-Keep it warm, friendly, and professional. Use **bold** for emphasis. Missing fields: ${formattedFields}`;
+IMPORTANT RULES:
+- Be warm, empathetic, and understanding
+- NEVER ask for specific insurance plan details (PPO, HMO, etc.) - just the insurance name is enough
+- If the user mentions any crisis, emergency, or suicidal thoughts, immediately provide these helpline numbers:
+  * 988 (Suicide & Crisis Lifeline - call or text)
+  * Crisis Text Line: 741741
+  * National Suicide Prevention Lifeline: 1-800-273-8255
+- Keep it warm, friendly, and professional. Use **bold** for emphasis.
+
+Missing fields to ask for: ${formattedFields.join(', ')}`;
   } else {
     prompt += `All required appointment details are present. Confirm the booking in a short friendly message including the scheduled time and day preference, and say you'll send an email confirmation (if email is available).`;
   }
