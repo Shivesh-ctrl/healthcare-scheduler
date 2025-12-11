@@ -82,7 +82,7 @@ function cleanAIResponse(response: string, hasMatchedTherapists: boolean): strin
 
   // List of all therapist names to remove
   const therapistNames = [
-    'Jasmine Goins, LCSW', 'Jasmine Goins,LCSW', 'Jasmine Goins , LCSW', 'Jasmine Goins LCSW', 'Jasmine Goins',
+    'Jasmine Goins, LCSW', 'Jasmine Goins',
     'Rachel Kurt, LCPC', 'Rachel Kurt',
     'Tykisha Bays, LSW, CADC', 'Tykisha Bays',
     'Adriane Wilk, LCPC', 'Adriane Wilk',
@@ -111,24 +111,37 @@ function cleanAIResponse(response: string, hasMatchedTherapists: boolean): strin
     }
   }
 
-  // Remove location questions
+  // Remove location questions - ULTRA AGGRESSIVE
   response = response.replace(/Are you looking for (virtual|in-person) or (in-person|virtual) (appointments|sessions)\?/gi, '');
   response = response.replace(/Are you looking for in-person or (virtual|telehealth)/gi, '');
   response = response.replace(/therapy\s+sessions\?/gi, '');
   response = response.replace(/What state are you located in\?/gi, '');
   response = response.replace(/What state are you in\?/gi, '');
-  response = response.replace(/What (state|city) are you (located in|in)\?/gi, '');
+  response = response.replace(/What state do you live in\?/gi, '');
+  response = response.replace(/What (state|city) are you (located in|in|live in)\?/gi, '');
   response = response.replace(/Your location:\s*\(City,\s*State\)/gi, '');
   response = response.replace(/Your location\s*\(City,\s*State\)/gi, '');
   response = response.replace(/This is crucial for finding therapists in your (BCBS|network)/gi, '');
+  response = response.replace(/This is important for finding therapists licensed in your state/gi, '');
   response = response.replace(/This is important for insurance coverage/gi, '');
   response = response.replace(/Before I start searching for therapists, could you confirm the following:/gi, '');
   response = response.replace(/Before I start searching, could you confirm:/gi, '');
+  response = response.replace(/I still need to know.*state.*live in/gi, '');
+  response = response.replace(/To find the best therapist, I still need to know.*state/gi, '');
   
-  // Remove bullet points about location
+  // Remove insurance plan type questions
+  response = response.replace(/Do you have a specific type of (BCBS|Aetna|Cigna|insurance) plan\s*\(e\.g\.,\s*PPO,\s*HMO/gi, '');
+  response = response.replace(/What specific (BCBS|Aetna|Cigna|insurance) plan do you have/gi, '');
+  response = response.replace(/Do you know what specific (BCBS|Aetna|Cigna|insurance) plan you have/gi, '');
+  response = response.replace(/This information is usually on your insurance card/gi, '');
+  response = response.replace(/This information is on your insurance card/gi, '');
+  
+  // Remove bullet points about location and insurance plan
   response = response.replace(/\*\s*Your location[^\n]*\n/gi, '');
   response = response.replace(/•\s*Your location[^\n]*\n/gi, '');
   response = response.replace(/-\s*Your location[^\n]*\n/gi, '');
+  response = response.replace(/\d+\.\s*What state do you live in\?[^\n]*\n/gi, '');
+  response = response.replace(/\d+\.\s*Do you have a specific type of[^\n]*plan[^\n]*\n/gi, '');
 
   // Fix empty placeholders
   response = response.replace(/what you're looking for in\s+\?/gi, 'what you\'re looking for in a therapist?');
@@ -274,20 +287,31 @@ serve(async (req: Request) => {
 **2. NEVER ASK ABOUT LOCATION - ALL SESSIONS ARE VIRTUAL/ONLINE ONLY**
    - DON'T ask: "What is your zip code?"
    - DON'T ask: "What state are you located in?"
+   - DON'T ask: "What state do you live in?"
    - DON'T ask: "Your location: (City, State)"
    - DON'T ask: "Are you looking for in-person or telehealth?"
    - DON'T ask: "therapy sessions?" (empty placeholder)
    - DON'T say: "This is crucial for finding therapists in your BCBS network"
+   - DON'T say: "This is important for finding therapists licensed in your state"
    - DON'T say: "Before I start searching for therapists, could you confirm the following:"
    - ALL sessions are virtual/online - NEVER ask about this
    - Insurance coverage does NOT depend on location
+   - Therapists are licensed for virtual sessions - location is irrelevant
 
-**3. WHEN GIVING EXAMPLES, ONLY USE THERAPY TYPE NAMES**
+**3. NEVER ASK FOR SPECIFIC INSURANCE PLAN DETAILS**
+   - DON'T ask: "Do you have a specific type of BCBS plan (e.g., PPO, HMO)?"
+   - DON'T ask: "What specific BCBS plan do you have?"
+   - DON'T ask: "Do you know what specific BCBS plan you have?"
+   - Once user mentions insurance (e.g., "BCBS", "Aetna"), ACKNOWLEDGE it and move on
+   - DO say: "Thanks for sharing that you have BCBS insurance"
+   - DO NOT ask for plan type details - just acknowledge the insurance name
+
+**4. WHEN GIVING EXAMPLES, ONLY USE THERAPY TYPE NAMES**
    - DON'T say: "Jasmine Goins, LCSW - specializes in CBT"
    - DO say: "CBT" or "mindfulness-based therapy"
    - Examples: "(e.g., CBT, DBT, psychodynamic therapy)"
 
-**4. WHEN ASKING ABOUT PREFERENCES, USE GENERIC TERMS**
+**5. WHEN ASKING ABOUT PREFERENCES, USE GENERIC TERMS**
    - DON'T say: "preferences for Jasmine Goins, LCSW's gender"
    - DO say: "preferences for a therapist's gender"
 
