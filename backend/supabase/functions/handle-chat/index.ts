@@ -126,7 +126,8 @@ async function generateAIResponse(
   userMessage: string,
   conversationHistory: any[] = [],
   extractedInfo: any = null,
-  missingFields: string[] = []
+  missingFields: string[] = [],
+  isLoggedIn: boolean = false
 ): Promise<string> {
   const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('AI API key not configured');
@@ -166,7 +167,28 @@ User message: ${userMessage}
       acknowledgePart = `First, acknowledge the user's insurance (${extractedInfo.insurance}). Then, `;
     }
     
-    prompt += `${acknowledgePart}ask for the following missing fields in a natural, polite way: ${missingFields.join(', ')}. Keep it warm and friendly.`;
+    // Filter out email if user is logged in
+    const fieldsToAsk = isLoggedIn ? missingFields.filter(f => f !== 'email') : missingFields;
+    
+    // Format fields for better readability
+    const fieldLabels: Record<string, string> = {
+      'name': 'your name',
+      'preferred_time': 'preferred time for appointments (morning, afternoon, evening)',
+      'day_type': 'what days of the week work best for you',
+      'email': 'your email address',
+      'insurance': 'your insurance provider'
+    };
+    
+    const formattedFields = fieldsToAsk.map(f => fieldLabels[f] || f).join(', ');
+    
+    prompt += `${acknowledgePart}ask for the following missing information in a well-formatted way using bullet points and bold text where appropriate. Format your response like this:
+
+**To get started, could you please share:**
+• [Field 1]
+• [Field 2]
+• [Field 3]
+
+Keep it warm, friendly, and professional. Use **bold** for emphasis. Missing fields: ${formattedFields}`;
   } else {
     prompt += `All required appointment details are present. Confirm the booking in a short friendly message including the scheduled time and day preference, and say you'll send an email confirmation (if email is available).`;
   }
@@ -305,7 +327,7 @@ serve(async (req: Request) => {
 
     // 3) If missing fields, ask for them (do not book yet)
     if (missingFields.length > 0) {
-      const followUp = await generateAIResponse(message, conversationHistory, extracted, missingFields);
+      const followUp = await generateAIResponse(message, conversationHistory, extracted, missingFields, !!patientIdentifier);
 
       // Update inquiry conversation history with assistant follow-up
       const newHistory = [
