@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Calendar, Clock, CheckCircle, UserCircle, Mail, Phone, User, XCircle } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, CheckCircle, UserCircle, Mail, User, XCircle } from 'lucide-react'
 import { appointmentAPI } from '../lib/supabase'
 import type { Therapist } from '../lib/types'
 
@@ -11,7 +11,6 @@ interface BookingFormProps {
   prefillData?: {
     name?: string;
     email?: string;
-    phone?: string;
     preferred_time?: string;
     day_type?: string;
   };
@@ -20,7 +19,6 @@ interface BookingFormProps {
 interface FormData {
   name: string;
   email: string;
-  phone: string;
   date: string;
   time: string;
   notes: string;
@@ -36,7 +34,6 @@ export default function BookingForm({ therapist, inquiryId, onBack, prefillData 
   const [formData, setFormData] = useState<FormData>({
     name: prefillData?.name || '',
     email: prefillData?.email || '',
-    phone: prefillData?.phone || '',
     date: '',
     time: prefillData?.preferred_time || '',
     notes: ''

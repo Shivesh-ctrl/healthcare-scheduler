@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Send, Bot, User, Loader, Home, LogIn, UserPlus, MessageCircle } from 'lucide-react'
 import { chatAPI, supabase } from '../lib/supabase'
-import TherapistSelection from './TherapistSelection'
+// Booking happens in chat - no separate component needed
 import MarkdownText from './MarkdownText'
 import type { ConversationMessage, Therapist, Session } from '../lib/types'
 
@@ -239,56 +239,8 @@ export default function ChatInterface() {
     )
   }
 
-  // Check if user wants to book or selected a therapist
-  const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
-  const lastUserMessageLower = lastUserMessage.toLowerCase();
-  
-  // Check for explicit booking intent
-  const wantsToBook = lastUserMessageLower.includes('book') || 
-                      lastUserMessageLower.includes('appointment') ||
-                      lastUserMessageLower.includes('schedule') ||
-                      (lastUserMessageLower.includes('i want') && (lastUserMessageLower.includes('therapist') || lastUserMessageLower.includes('with')));
-  
-  // Check if user mentioned a therapist name (this indicates they want to book with that therapist)
-  let selectedTherapist: Therapist | null = null;
-  let therapistsToShow: Therapist[] = [];
-  
-  if (matchedTherapists && matchedTherapists.length > 0) {
-    // Try to find if user mentioned a specific therapist
-    selectedTherapist = matchedTherapists.find((therapist: Therapist) => {
-      const therapistNameLower = therapist.name.toLowerCase();
-      // Check if message contains the therapist's name (case-insensitive, partial match)
-      // Split name by comma to get parts (e.g., "Tykisha Bays, LSW, CADC" -> ["tykisha bays", "lsw", "cadc"])
-      const nameParts = therapistNameLower.split(',').map(p => p.trim());
-      const mainName = nameParts[0] || ''; // "tykisha bays"
-      
-      // Check if message contains full name or main name parts
-      return lastUserMessageLower.includes(therapistNameLower) ||
-             (mainName && lastUserMessageLower.includes(mainName)) ||
-             // Also check individual words from the main name
-             (mainName.split(' ').some(word => word.length > 3 && lastUserMessageLower.includes(word)));
-    }) || null;
-    
-    // If specific therapist selected, show only that one; otherwise show all
-    therapistsToShow = selectedTherapist ? [selectedTherapist] : matchedTherapists;
-  }
-  
-  // Show booking form if:
-  // 1. User mentioned a therapist name (this means they want to book with that therapist), OR
-  // 2. User explicitly wants to book AND we have matched therapists
-  if (matchedTherapists && matchedTherapists.length > 0 && (selectedTherapist || wantsToBook)) {
-    return (
-      <TherapistSelection 
-        therapists={therapistsToShow} 
-        inquiryId={inquiryId}
-        extractedInfo={extractedInfo}
-        onBack={() => {
-          setMatchedTherapists(null)
-          setExtractedInfo(null)
-        }}
-      />
-    )
-  }
+  // Booking happens entirely in chat - no separate booking page
+  // The backend handles all booking logic and returns confirmation messages
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">

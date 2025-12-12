@@ -18,7 +18,6 @@ interface BookAppointmentRequest {
   patientInfo: {
     patient_name: string;
     patient_email: string;
-    patient_phone?: string;
     notes?: string;
   };
 }
@@ -96,7 +95,6 @@ serve(async (req: Request) => {
 
     const patientName = patientInfo.patient_name;
     const patientEmail = finalPatientEmail;
-    const patientPhone = patientInfo.patient_phone;
     const notes = patientInfo.notes;
     
     if (authenticatedUserEmail && !patientInfo.patient_email) {
@@ -158,7 +156,7 @@ serve(async (req: Request) => {
         // Create the event
         const event = {
           summary: `Therapy Session - ${patientName}`,
-          description: `Patient: ${patientName}\nEmail: ${patientEmail}\nPhone: ${patientPhone || 'N/A'}\n${notes ? `\nNotes: ${notes}` : ''}`,
+          description: `Patient: ${patientName}\nEmail: ${patientEmail}${notes ? `\nNotes: ${notes}` : ''}`,
           start: {
             dateTime: startTime,
             timeZone: 'America/Chicago',
@@ -201,7 +199,6 @@ serve(async (req: Request) => {
       therapist_id: therapistId,
       patient_name: patientName,
       patient_email: patientEmail,
-      patient_phone: patientPhone,
       start_time: startTime,
       end_time: endTime,
       google_calendar_event_id: googleEventId,
@@ -216,7 +213,6 @@ serve(async (req: Request) => {
         therapist_id: therapistId,
         patient_name: patientName,
         patient_email: patientEmail,
-        patient_phone: patientPhone,
         start_time: startTime,
         end_time: endTime,
         google_calendar_event_id: googleEventId,
@@ -266,9 +262,6 @@ serve(async (req: Request) => {
         patient_email: patientEmail,
       };
       
-      if (patientPhone) {
-        inquiryUpdateData.patient_phone = patientPhone;
-      }
       
       const { error: updateError } = await supabase
       .from('inquiries')
