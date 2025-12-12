@@ -121,13 +121,15 @@ If any field is not present in the message, set it to an empty string "". Do not
   }
 }
 
-// -------------------- AI reply generation (for follow-ups / confirmations) --------------------
+// -------------------- AI reply generation (natural, empathetic responses) --------------------
 async function generateAIResponse(
   userMessage: string,
   conversationHistory: any[] = [],
   extractedInfo: any = null,
   missingFields: string[] = [],
-  isLoggedIn: boolean = false
+  isLoggedIn: boolean = false,
+  matchedTherapists: any[] = [],
+  userQueryType: string = '' // 'insurance', 'specialty', 'problem', 'general'
 ): Promise<string> {
   const apiKey = Deno.env.get('GOOGLE_AI_API_KEY') || Deno.env.get('OPENAI_API_KEY');
   if (!apiKey) throw new Error('AI API key not configured');
@@ -141,70 +143,90 @@ async function generateAIResponse(
     });
   }
 
-  // Build a helpful assistant prompt
-  let prompt = `You are a warm, empathetic scheduling assistant helping users book therapy appointments. Be understanding, compassionate, and supportive.
-
-IMPORTANT: If the user mentions any crisis, emergency, suicidal thoughts, or self-harm, immediately provide these helpline numbers:
-• 988 (Suicide & Crisis Lifeline - call or text)
-• Crisis Text Line: 741741
-• National Suicide Prevention Lifeline: 1-800-273-8255
-
-User message: ${userMessage}
-
-`;
-  if (conversationContext) prompt += `Previous conversation:\n${conversationContext}\n`;
-
-  if (extractedInfo) {
-    prompt += `Extracted info:\n- problem: ${extractedInfo.problem || 'Not provided'}\n- insurance: ${extractedInfo.insurance || 'Not provided'}\n- name: ${extractedInfo.name || 'Not provided'}\n- preferred_time: ${extractedInfo.preferred_time || 'Not provided'}\n- day_type: ${extractedInfo.day_type || 'Not provided'}\n- email: ${extractedInfo.email || 'Not provided'}\n\n`;
+  // Build therapist info for AI
+  let therapistInfo = '';
+  if (matchedTherapists && matchedTherapists.length > 0) {
+    therapistInfo = `\n\nMATCHED THERAPISTS (show these to the user naturally):\n`;
+    matchedTherapists.forEach((t: any, idx: number) => {
+      therapistInfo += `${idx + 1}. ${t.name}\n`;
+      if (t.bio) therapistInfo += `   Bio: ${t.bio}\n`;
+      if (t.specialties && Array.isArray(t.specialties)) {
+        therapistInfo += `   Specialties: ${t.specialties.join(', ')}\n`;
+      }
+      therapistInfo += `\n`;
+    });
   }
 
-  if (missingFields && missingFields.length > 0) {
-    // First acknowledge what the user provided, then ask for missing fields
-    const hasProblem = extractedInfo?.problem && extractedInfo.problem.trim() !== '';
-    const hasInsurance = extractedInfo?.insurance && extractedInfo.insurance.trim() !== '';
-    
-    let acknowledgePart = '';
-    if (hasProblem && hasInsurance) {
-      acknowledgePart = `First, be empathetic and acknowledge the user's problem (${extractedInfo.problem}) and insurance (${extractedInfo.insurance}). Show understanding and warmth. Then, `;
-    } else if (hasProblem) {
-      acknowledgePart = `First, be empathetic and acknowledge the user's problem (${extractedInfo.problem}). Show understanding and warmth. Then, `;
-    } else if (hasInsurance) {
-      acknowledgePart = `First, be empathetic and acknowledge the user's insurance (${extractedInfo.insurance}). Show understanding and warmth. Then, `;
+  // Build a natural, empathetic assistant prompt
+  let prompt = `You are a warm, empathetic, and understanding scheduling assistant helping users book therapy appointments. Be human-like, compassionate, and supportive. Respond naturally as if you're having a real conversation.
+
+CRITICAL RULES:
+1. ALWAYS answer the user's question FIRST before asking for anything else
+2. If the user asks about therapists (by insurance, specialty, problem), show them the matched therapists naturally
+3. Be empathetic - acknowledge their situation, show understanding
+4. Gather information naturally, one thing at a time - don't overwhelm with a long list
+5. NEVER ask for information the user already provided
+6. If user mentions crisis/emergency/suicidal thoughts, immediately provide:
+   • 988 (Suicide & Crisis Lifeline - call or text)
+   • Crisis Text Line: 741741
+   • National Suicide Prevention Lifeline: 1-800-273-8255
+
+User's current message: ${userMessage}
+
+`;
+  if (conversationContext) prompt += `Previous conversation:\n${conversationContext}\n\n`;
+
+  // Add what we know about the user
+  if (extractedInfo) {
+    prompt += `Information we already have from the user:\n`;
+    if (extractedInfo.problem) prompt += `- Problem/concern: ${extractedInfo.problem}\n`;
+    if (extractedInfo.insurance) prompt += `- Insurance: ${extractedInfo.insurance}\n`;
+    if (extractedInfo.name) prompt += `- Name: ${extractedInfo.name}\n`;
+    if (extractedInfo.preferred_time) prompt += `- Preferred time: ${extractedInfo.preferred_time}\n`;
+    if (extractedInfo.day_type) prompt += `- Day preference: ${extractedInfo.day_type}\n`;
+    if (extractedInfo.email) prompt += `- Email: ${extractedInfo.email}\n`;
+    prompt += `\n`;
+  }
+
+  // Add matched therapists if available
+  if (therapistInfo) {
+    prompt += therapistInfo;
+    prompt += `\nIMPORTANT: Present these therapists naturally. Acknowledge what the user asked for, then show the therapists. Be warm and helpful.\n`;
+  }
+
+  // Determine what to do next
+  if (matchedTherapists && matchedTherapists.length > 0) {
+    // We have matched therapists - show them and then ask for missing info naturally
+    if (missingFields && missingFields.length > 0) {
+      const fieldsToAsk = isLoggedIn ? missingFields.filter(f => f !== 'email') : missingFields;
+      const fieldMap: Record<string, string> = {
+        'name': 'your name',
+        'preferred_time': 'when you prefer appointments (morning, afternoon, evening)',
+        'day_type': 'which days work best for you',
+        'email': 'your email address',
+        'insurance': 'your insurance provider'
+      };
+      
+      prompt += `\nAfter showing the therapists, naturally ask for the missing information (${fieldsToAsk.map(f => fieldMap[f] || f).join(', ')}). 
+      Ask ONE thing at a time, not all at once. Be conversational and empathetic.`;
+    } else {
+      prompt += `\nAll required information is present. Confirm naturally and ask if they'd like to book with one of these therapists.`;
     }
-    
-    // Filter out email if user is logged in
+  } else if (missingFields && missingFields.length > 0) {
+    // No therapists matched yet, but we need more info
     const fieldsToAsk = isLoggedIn ? missingFields.filter(f => f !== 'email') : missingFields;
-    
-    // Format fields for better readability
-    const fieldLabels: Record<string, string> = {
+    const fieldMap: Record<string, string> = {
       'name': 'your name',
-      'preferred_time': 'preferred time for appointments (morning, afternoon, evening)',
-      'day_type': 'what days of the week work best for you',
-      'email': 'your email address (so I can send you appointment confirmations)',
+      'preferred_time': 'when you prefer appointments (morning, afternoon, evening)',
+      'day_type': 'which days work best for you',
+      'email': 'your email address',
       'insurance': 'your insurance provider'
     };
     
-    const formattedFields = fieldsToAsk.map(f => fieldLabels[f] || f);
-    
-    prompt += `${acknowledgePart}ask for the following missing information in a well-formatted way using bullet points and bold text where appropriate. Format your response like this:
-
-**To get started, could you please share:**
-• [Field 1]
-• [Field 2]
-• [Field 3]
-
-IMPORTANT RULES:
-- Be warm, empathetic, and understanding
-- NEVER ask for specific insurance plan details (PPO, HMO, etc.) - just the insurance name is enough
-- If the user mentions any crisis, emergency, or suicidal thoughts, immediately provide these helpline numbers:
-  * 988 (Suicide & Crisis Lifeline - call or text)
-  * Crisis Text Line: 741741
-  * National Suicide Prevention Lifeline: 1-800-273-8255
-- Keep it warm, friendly, and professional. Use **bold** for emphasis.
-
-Missing fields to ask for: ${formattedFields.join(', ')}`;
+    prompt += `\nThe user needs to provide: ${fieldsToAsk.map(f => fieldMap[f] || f).join(', ')}.
+    Ask for ONE thing at a time naturally. Be empathetic and acknowledge what they've already shared.`;
   } else {
-    prompt += `All required appointment details are present. Confirm the booking in a short friendly message including the scheduled time and day preference, and say you'll send an email confirmation (if email is available).`;
+    prompt += `\nRespond naturally to the user's message. Be helpful and empathetic.`;
   }
 
   try {
@@ -665,27 +687,110 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
       // Keep existing extracted data if extraction fails
     }
 
-    // 2) Determine required fields
-    const requiresEmail = !patientIdentifier; // if no patientIdentifier, we need email
+    // 2) Check if user is asking a specific question - find therapists FIRST if they are
+    let matchedTherapists: any[] = [];
+    let userQueryType = '';
+    
+    // Normalize insurance for matching
+    const normalizeInsurance = (ins: string): string => {
+      if (!ins) return '';
+      const normalized = ins.toLowerCase().trim();
+      if (normalized.includes('blue cross') || normalized.includes('bcbs') || normalized.includes('bluecross')) {
+        return 'blue cross blue shield';
+      }
+      if (normalized.includes('aetna')) return 'aetna';
+      if (normalized.includes('cigna')) return 'cigna';
+      if (normalized.includes('united') && normalized.includes('health')) return 'united';
+      if (normalized.includes('medicare')) return 'medicare';
+      if (normalized.includes('medicaid')) return 'medicaid';
+      if (normalized.includes('humana')) return 'humana';
+      return normalized;
+    };
+
+    // Check if user is asking about therapists by insurance, specialty, or problem
+    const messageLower = message.toLowerCase();
+    const hasInsuranceQuery = extracted.insurance && extracted.insurance.trim() !== '';
+    const hasProblemQuery = extracted.problem && extracted.problem.trim() !== '';
+    
+    // If user mentioned insurance or problem, find matching therapists immediately
+    if (hasInsuranceQuery || hasProblemQuery) {
+      console.log('🔍 User asking about therapists - finding matches...');
+      
+      const { data: allTherapists } = await supabase
+        .from('therapists')
+        .select('*')
+        .eq('is_active', true);
+
+      if (allTherapists && allTherapists.length > 0) {
+        const insuranceNormalized = hasInsuranceQuery ? normalizeInsurance(extracted.insurance) : '';
+        const problemLower = hasProblemQuery ? extracted.problem.toLowerCase().trim() : '';
+
+        matchedTherapists = allTherapists.filter((therapist: any) => {
+          // If insurance mentioned, must match insurance
+          if (hasInsuranceQuery) {
+            const hasInsurance = therapist.accepted_insurance && 
+              Array.isArray(therapist.accepted_insurance) &&
+              therapist.accepted_insurance.some((ins: string) => {
+                const insNormalized = normalizeInsurance(ins);
+                return insNormalized.includes(insuranceNormalized) || 
+                     insuranceNormalized.includes(insNormalized);
+              });
+            if (!hasInsurance) return false;
+          }
+
+          // If problem/specialty mentioned, must match specialty
+          if (hasProblemQuery) {
+            const hasSpecialty = therapist.specialties && 
+              Array.isArray(therapist.specialties) &&
+              therapist.specialties.some((s: string) => 
+                s.toLowerCase().includes(problemLower) || 
+                problemLower.includes(s.toLowerCase())
+              );
+            const bioMatch = therapist.bio && 
+              therapist.bio.toLowerCase().includes(problemLower);
+            if (!hasSpecialty && !bioMatch) return false;
+          }
+
+          // If only insurance or only problem, return true if that matches
+          return true;
+        });
+
+        // Limit to top 5 matches
+        matchedTherapists = matchedTherapists.slice(0, 5);
+        console.log(`✅ Found ${matchedTherapists.length} matching therapists`);
+        
+        if (hasInsuranceQuery && hasProblemQuery) userQueryType = 'both';
+        else if (hasInsuranceQuery) userQueryType = 'insurance';
+        else if (hasProblemQuery) userQueryType = 'specialty';
+      }
+    }
+
+    // 3) Determine required fields
+    const requiresEmail = !patientIdentifier;
     const requiredFields = ['name', 'preferred_time', 'day_type', 'insurance'] as const;
-    // will add 'email' to required if requiresEmail
     const missingFields: string[] = [];
 
-    // check required ones
     for (const field of requiredFields) {
       if (!extracted[field] || extracted[field].toString().trim() === '') missingFields.push(field);
     }
     if (requiresEmail && (!extracted.email || extracted.email.trim() === '')) missingFields.push('email');
 
-    // 3) If missing fields, ask for them (do not book yet)
-    if (missingFields.length > 0) {
-      const followUp = await generateAIResponse(message, conversationHistory, extracted, missingFields, !!patientIdentifier);
+    // 4) Generate natural AI response - answer their question first, then ask for missing info
+    const aiResponse = await generateAIResponse(
+      message, 
+      conversationHistory, 
+      extracted, 
+      missingFields, 
+      !!patientIdentifier,
+      matchedTherapists,
+      userQueryType
+    );
 
       // Update inquiry conversation history with assistant follow-up
       const newHistory = [
         ...(conversationHistory || []),
-      { role: 'user', content: message, timestamp: new Date().toISOString() },
-        { role: 'assistant', content: followUp, timestamp: new Date().toISOString() },
+        { role: 'user', content: message, timestamp: new Date().toISOString() },
+        { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() },
       ];
 
       // Save/update inquiry with partial info if desired (optional)
@@ -718,108 +823,81 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
       }
 
       const response: ChatResponse = {
-        reply: followUp,
+        reply: aiResponse,
         inquiryId: currentInquiryId || '',
         extractedInfo: {
-          problem: extracted.name || '', // Using name as problem for now
-          specialty: extracted.name || '',
+          problem: extracted.problem || '',
+          specialty: extracted.problem || '',
           schedule: extracted.preferred_time || '',
           insurance: extracted.insurance || '',
           patient_name: extracted.name || undefined,
           patient_email: extracted.email || undefined,
         },
-        needsMoreInfo: true,
-        matchedTherapists: undefined,
+        needsMoreInfo: missingFields.length > 0,
+        matchedTherapists: matchedTherapists.length > 0 ? matchedTherapists.map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          email: t.email,
+          bio: t.bio,
+          specialties: t.specialties || [],
+          accepted_insurance: t.accepted_insurance || [],
+        })) : undefined,
       };
 
       return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 4) All required info present -> find matching therapists first
-    console.log('🔍 Finding matching therapists...');
-    
-    // Normalize insurance for matching
-    const normalizeInsurance = (ins: string): string => {
-      const normalized = ins.toLowerCase().trim();
-      if (normalized.includes('blue cross') || normalized.includes('bcbs') || normalized.includes('bluecross')) {
-        return 'blue cross blue shield';
-      }
-      if (normalized.includes('aetna')) return 'aetna';
-      if (normalized.includes('cigna')) return 'cigna';
-      if (normalized.includes('united') && normalized.includes('health')) return 'united healthcare';
-      if (normalized.includes('medicare')) return 'medicare';
-      if (normalized.includes('medicaid')) return 'medicaid';
-      if (normalized.includes('humana')) return 'humana';
-      return normalized;
-    };
+    // 5) All required info present -> find matching therapists if not already found
+    if (matchedTherapists.length === 0) {
+      console.log('🔍 Finding matching therapists with all criteria...');
+      
+      const insuranceNormalized = normalizeInsurance(extracted.insurance);
+      const problemLower = extracted.problem.toLowerCase().trim();
 
-    const insuranceNormalized = normalizeInsurance(extracted.insurance);
-    const problemLower = extracted.problem.toLowerCase().trim();
+      const { data: allTherapists } = await supabase
+        .from('therapists')
+        .select('*')
+        .eq('is_active', true);
 
-    // Fetch all active therapists
-    const { data: allTherapists, error: therapistsError } = await supabase
-          .from('therapists')
-          .select('*')
-          .eq('is_active', true);
-        
-    if (therapistsError) {
-      console.error('❌ Error fetching therapists:', therapistsError);
-    }
-
-    // Filter therapists based on insurance and specialty/problem
-    let matchedTherapists: any[] = [];
-    if (allTherapists && allTherapists.length > 0) {
-      matchedTherapists = allTherapists.filter((therapist: any) => {
-        // Check insurance match
+      if (allTherapists && allTherapists.length > 0) {
+        matchedTherapists = allTherapists.filter((therapist: any) => {
           const hasInsurance = therapist.accepted_insurance && 
             Array.isArray(therapist.accepted_insurance) &&
             therapist.accepted_insurance.some((ins: string) => {
               const insNormalized = normalizeInsurance(ins);
               return insNormalized.includes(insuranceNormalized) || 
                    insuranceNormalized.includes(insNormalized);
-          });
+            });
 
-        // Check specialty/problem match in specialties array or bio
-        const hasSpecialty = therapist.specialties && 
-          Array.isArray(therapist.specialties) &&
-          therapist.specialties.some((s: string) => 
-            s.toLowerCase().includes(problemLower) || 
-            problemLower.includes(s.toLowerCase())
-          );
+          const hasSpecialty = therapist.specialties && 
+            Array.isArray(therapist.specialties) &&
+            therapist.specialties.some((s: string) => 
+              s.toLowerCase().includes(problemLower) || 
+              problemLower.includes(s.toLowerCase())
+            );
 
-        // Also check bio if problem not found in specialties
-        const bioMatch = therapist.bio && 
-          therapist.bio.toLowerCase().includes(problemLower);
+          const bioMatch = therapist.bio && 
+            therapist.bio.toLowerCase().includes(problemLower);
 
-        return hasInsurance && (hasSpecialty || bioMatch);
-      });
+          return hasInsurance && (hasSpecialty || bioMatch);
+        });
 
-      // Limit to top 3 matches
-      matchedTherapists = matchedTherapists.slice(0, 3);
-      console.log(`✅ Found ${matchedTherapists.length} matching therapists`);
+        matchedTherapists = matchedTherapists.slice(0, 3);
+        console.log(`✅ Found ${matchedTherapists.length} matching therapists`);
+      }
     }
 
-    // If we have matched therapists, show them to the user
+    // If we have matched therapists, show them using AI-generated response
     if (matchedTherapists.length > 0) {
-      // Build response showing matched therapists
-      let therapistListMessage = `Great! I found ${matchedTherapists.length} therapist${matchedTherapists.length > 1 ? 's' : ''} that match your needs:\n\n`;
-      
-      matchedTherapists.forEach((therapist: any, index: number) => {
-        therapistListMessage += `**${index + 1}. ${therapist.name}**\n`;
-        if (therapist.bio) {
-          therapistListMessage += `Bio: ${therapist.bio}\n`;
-        }
-        if (extracted.preferred_time) {
-          therapistListMessage += `Available: ${extracted.preferred_time}`;
-          if (extracted.day_type) {
-            therapistListMessage += ` (${extracted.day_type})`;
-          }
-          therapistListMessage += `\n`;
-        }
-        therapistListMessage += `\n`;
-      });
-
-      therapistListMessage += `Would you like to book an appointment with one of these therapists?`;
+      const aiResponse = await generateAIResponse(
+        message,
+        conversationHistory,
+        extracted,
+        [],
+        !!patientIdentifier,
+        matchedTherapists,
+        'matched'
+      );
 
       // Update conversation history
       const newHistory = [
