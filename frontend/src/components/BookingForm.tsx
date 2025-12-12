@@ -76,7 +76,6 @@ export default function BookingForm({ therapist, inquiryId, onBack, prefillData 
         {
           patient_name: formData.name,
           patient_email: formData.email,
-          patient_phone: formData.phone,
           notes: formData.notes
         }
       )
