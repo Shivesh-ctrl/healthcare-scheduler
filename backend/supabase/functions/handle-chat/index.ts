@@ -301,31 +301,192 @@ serve(async (req: Request) => {
       const { data: inqData, error: inqErr } = await supabase.from('inquiries').select('*').eq('id', currentInquiryId).single();
       if (inqErr) {
         console.warn('⚠️ Could not load inquiry:', inqErr);
-      } else {
+            } else {
         inquiry = inqData;
       }
     }
 
     // Check if user is asking for insurance list or therapist list - ULTRA AGGRESSIVE DETECTION
     const messageLower = message.toLowerCase().trim();
+    
+    // Check for insurance list requests - multiple patterns
+    const hasList = messageLower.includes('list');
+    const hasInsurance = messageLower.includes('insurance') || messageLower.includes('insurances');
+    const hasShow = messageLower.includes('show');
+    const hasWhat = messageLower.includes('what');
+    const hasWhich = messageLower.includes('which');
+    const hasAccepted = messageLower.includes('accepted');
+    const hasAvailable = messageLower.includes('available');
+    
     const askingForInsuranceList = 
-      messageLower.includes('list') && messageLower.includes('insurance') ||
-      messageLower.includes('insurance') && (messageLower.includes('list') || messageLower.includes('show') || messageLower.includes('what') || messageLower.includes('which') || messageLower.includes('accepted') || messageLower.includes('available')) ||
+      (hasList && hasInsurance) ||
+      (hasInsurance && (hasList || hasShow || hasWhat || hasWhich || hasAccepted || hasAvailable)) ||
       messageLower.includes('what insurance') ||
       messageLower.includes('which insurance') ||
       messageLower.includes('accepted insurance') ||
-      messageLower.includes('insurance provider') && messageLower.includes('list') ||
-      messageLower.match(/\b(list|show|what|which|accepted|available).*insurance\b/i) ||
-      messageLower.match(/\binsurance.*(list|show|what|which|accepted|available)\b/i);
+      messageLower.includes('insurance provider') ||
+      messageLower.match(/\b(list|show|what|which|accepted|available).*insurance\b/i) !== null ||
+      messageLower.match(/\binsurance.*(list|show|what|which|accepted|available)\b/i) !== null;
     
+    // Check for therapist list requests
+    const hasTherapist = messageLower.includes('therapist') || messageLower.includes('therapists');
     const askingForTherapistList = 
-      messageLower.includes('list') && messageLower.includes('therapist') ||
-      messageLower.includes('therapist') && (messageLower.includes('list') || messageLower.includes('show') || messageLower.includes('what') || messageLower.includes('which') || messageLower.includes('available')) ||
+      (hasList && hasTherapist) ||
+      (hasTherapist && (hasList || hasShow || hasWhat || hasWhich || hasAvailable)) ||
       messageLower.includes('what therapist') ||
       messageLower.includes('which therapist') ||
       messageLower.includes('available therapist') ||
-      messageLower.match(/\b(list|show|what|which|available).*therapist\b/i) ||
-      messageLower.match(/\btherapist.*(list|show|what|which|available)\b/i);
+      messageLower.match(/\b(list|show|what|which|available).*therapist\b/i) !== null ||
+      messageLower.match(/\btherapist.*(list|show|what|which|available)\b/i) !== null;
+    
+    console.log('🔍 Detection check:', { messageLower, askingForInsuranceList, askingForTherapistList });
+
+    // Check if user is asking for therapists by specific insurance
+    // Common insurance names
+    const insuranceNames = ['aetna', 'blue cross', 'bluecross', 'bcbs', 'cigna', 'united', 'medicare', 'medicaid', 'humana'];
+    let mentionedInsurance: string | null = null;
+    for (const ins of insuranceNames) {
+      if (messageLower.includes(ins)) {
+        mentionedInsurance = ins;
+        break;
+      }
+    }
+    
+    // Check if asking for therapists with insurance
+    const askingForTherapistsByInsurance = 
+      (hasTherapist && mentionedInsurance) ||
+      (messageLower.includes('who') && mentionedInsurance && (hasTherapist || messageLower.includes('accept'))) ||
+      (messageLower.includes('therapist') && messageLower.includes('accept') && mentionedInsurance) ||
+      (messageLower.includes('therapist') && mentionedInsurance && (messageLower.includes('who') || messageLower.includes('that')));
+
+    // If asking for therapists by insurance, provide them immediately
+    if (askingForTherapistsByInsurance && mentionedInsurance) {
+      console.log('🔍 User asking for therapists with insurance:', mentionedInsurance);
+      
+      // Get all therapists and filter by insurance
+      const { data: allTherapists } = await supabase
+        .from('therapists')
+        .select('*')
+        .eq('is_active', true);
+
+      const insuranceLower = mentionedInsurance.toLowerCase();
+      const matchingTherapists = (allTherapists || []).filter((therapist: any) => {
+        if (!therapist.accepted_insurance || !Array.isArray(therapist.accepted_insurance)) return false;
+        return therapist.accepted_insurance.some((ins: string) => 
+          ins.toLowerCase().includes(insuranceLower) || 
+          insuranceLower.includes(ins.toLowerCase())
+        );
+      });
+
+      if (matchingTherapists && matchingTherapists.length > 0) {
+        let therapistListMessage = `**Therapists Who Accept ${mentionedInsurance.charAt(0).toUpperCase() + mentionedInsurance.slice(1)} Insurance:**
+
+I found ${matchingTherapists.length} therapist${matchingTherapists.length > 1 ? 's' : ''} who accept ${mentionedInsurance.charAt(0).toUpperCase() + mentionedInsurance.slice(1)}:\n\n`;
+
+        matchingTherapists.forEach((therapist: any, index: number) => {
+          therapistListMessage += `**${index + 1}. ${therapist.name}**\n`;
+          if (therapist.bio) {
+            therapistListMessage += `${therapist.bio}\n`;
+          }
+          if (Array.isArray(therapist.specialties) && therapist.specialties.length > 0) {
+            therapistListMessage += `Specialties: ${therapist.specialties.join(', ')}\n`;
+          }
+          therapistListMessage += `\n`;
+        });
+
+        therapistListMessage += `**To get started, could you please share:**
+• Your name
+• What brings you in today?
+• Your preferred time for appointments (morning, afternoon, or evening)
+• What days of the week work best for you${patientIdentifier ? '' : '\n• Your email address (so I can send you appointment confirmations)'}`;
+
+        // Update conversation history
+        const newHistory = [
+          ...(conversationHistory || []),
+          { role: 'user', content: message, timestamp: new Date().toISOString() },
+          { role: 'assistant', content: therapistListMessage, timestamp: new Date().toISOString() },
+        ];
+
+        // Save inquiry with insurance info
+        const inquiryData: any = {
+          problem_description: message,
+          insurance_info: mentionedInsurance,
+          conversation_history: newHistory,
+          status: 'pending',
+        };
+        if (patientIdentifier) inquiryData.patient_identifier = patientIdentifier;
+
+        try {
+          if (!currentInquiryId) {
+            const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
+            if (newInq) currentInquiryId = newInq.id;
+      } else {
+            await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
+          }
+        } catch (dbErr) {
+          console.error('❌ DB inquiry save error:', dbErr);
+        }
+
+        const response: ChatResponse = {
+          reply: therapistListMessage,
+          inquiryId: currentInquiryId || '',
+          extractedInfo: undefined,
+          needsMoreInfo: true,
+          matchedTherapists: undefined,
+        };
+
+        return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      } else {
+        // No therapists found for this insurance
+        const noMatchMessage = `I'm sorry, but I couldn't find any therapists who accept ${mentionedInsurance.charAt(0).toUpperCase() + mentionedInsurance.slice(1)} insurance at this time.
+
+**Accepted Insurance Providers:**
+• Blue Cross Blue Shield
+• Aetna
+• Cigna
+• United
+• Medicare
+• Medicaid
+• Humana
+
+Would you like to see therapists who accept a different insurance plan, or would you like to proceed with one of the accepted insurances listed above?`;
+
+        const newHistory = [
+          ...(conversationHistory || []),
+          { role: 'user', content: message, timestamp: new Date().toISOString() },
+          { role: 'assistant', content: noMatchMessage, timestamp: new Date().toISOString() },
+        ];
+
+        const inquiryData: any = {
+          problem_description: message,
+          insurance_info: mentionedInsurance,
+          conversation_history: newHistory,
+          status: 'pending',
+        };
+        if (patientIdentifier) inquiryData.patient_identifier = patientIdentifier;
+
+        try {
+          if (!currentInquiryId) {
+            const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
+            if (newInq) currentInquiryId = newInq.id;
+          } else {
+            await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
+          }
+        } catch (dbErr) {
+          console.error('❌ DB inquiry save error:', dbErr);
+        }
+
+        const response: ChatResponse = {
+          reply: noMatchMessage,
+          inquiryId: currentInquiryId || '',
+          extractedInfo: undefined,
+          needsMoreInfo: true,
+          matchedTherapists: undefined,
+        };
+
+        return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
 
     // If asking for insurance list, provide it immediately
     if (askingForInsuranceList) {
@@ -381,7 +542,7 @@ All our therapists accept these insurance plans, so you can choose any therapist
         if (!currentInquiryId) {
           const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
           if (newInq) currentInquiryId = newInq.id;
-        } else {
+                } else {
           await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
         }
       } catch (dbErr) {
@@ -431,14 +592,14 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
         // Update conversation history
         const newHistory = [
           ...(conversationHistory || []),
-          { role: 'user', content: message, timestamp: new Date().toISOString() },
+      { role: 'user', content: message, timestamp: new Date().toISOString() },
           { role: 'assistant', content: therapistListMessage, timestamp: new Date().toISOString() },
-        ];
+    ];
 
         // Save inquiry
-        const inquiryData: any = {
+    const inquiryData: any = {
           problem_description: message,
-          conversation_history: newHistory,
+      conversation_history: newHistory,
           status: 'pending',
         };
         if (patientIdentifier) inquiryData.patient_identifier = patientIdentifier;
@@ -447,7 +608,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
           if (!currentInquiryId) {
             const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
             if (newInq) currentInquiryId = newInq.id;
-          } else {
+                } else {
             await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
           }
         } catch (dbErr) {
@@ -523,7 +684,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
       // Update inquiry conversation history with assistant follow-up
       const newHistory = [
         ...(conversationHistory || []),
-        { role: 'user', content: message, timestamp: new Date().toISOString() },
+      { role: 'user', content: message, timestamp: new Date().toISOString() },
         { role: 'assistant', content: followUp, timestamp: new Date().toISOString() },
       ];
 
@@ -533,7 +694,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
         requested_schedule: extracted.preferred_time || inquiry?.requested_schedule || null,
         insurance_info: extracted.insurance || inquiry?.insurance_info || null,
         extracted_specialty: extracted.name || inquiry?.extracted_specialty || null,
-        conversation_history: newHistory,
+      conversation_history: newHistory,
         status: inquiry?.status || 'pending',
       };
       if (patientIdentifier) partialInquiryData.patient_identifier = patientIdentifier;
@@ -597,10 +758,10 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
 
     // Fetch all active therapists
     const { data: allTherapists, error: therapistsError } = await supabase
-      .from('therapists')
-      .select('*')
-      .eq('is_active', true);
-
+          .from('therapists')
+          .select('*')
+          .eq('is_active', true);
+        
     if (therapistsError) {
       console.error('❌ Error fetching therapists:', therapistsError);
     }
@@ -610,11 +771,11 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
     if (allTherapists && allTherapists.length > 0) {
       matchedTherapists = allTherapists.filter((therapist: any) => {
         // Check insurance match
-        const hasInsurance = therapist.accepted_insurance && 
-          Array.isArray(therapist.accepted_insurance) &&
-          therapist.accepted_insurance.some((ins: string) => {
-            const insNormalized = normalizeInsurance(ins);
-            return insNormalized.includes(insuranceNormalized) || 
+          const hasInsurance = therapist.accepted_insurance && 
+            Array.isArray(therapist.accepted_insurance) &&
+            therapist.accepted_insurance.some((ins: string) => {
+              const insNormalized = normalizeInsurance(ins);
+              return insNormalized.includes(insuranceNormalized) || 
                    insuranceNormalized.includes(insNormalized);
           });
 
@@ -668,7 +829,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
       ];
 
       // Update inquiry - save patient details for booking
-      const inquiryUpdateData: any = {
+            const inquiryUpdateData: any = {
         problem_description: inquiry?.problem_description || message,
         requested_schedule: extracted.preferred_time || inquiry?.requested_schedule || null,
         insurance_info: extracted.insurance || inquiry?.insurance_info || null,
@@ -690,7 +851,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
             currentInquiryId = newInq.id;
             inquiry = newInq;
           }
-        } else {
+            } else {
           await supabase.from('inquiries').update(inquiryUpdateData).eq('id', currentInquiryId);
         }
       } catch (dbErr) {
@@ -698,9 +859,9 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
       }
 
       // Return response with matched therapists
-      const response: ChatResponse = {
+    const response: ChatResponse = {
         reply: therapistListMessage,
-        inquiryId: currentInquiryId || '',
+      inquiryId: currentInquiryId || '',
         extractedInfo: {
           problem: extracted.problem || '',
           specialty: extracted.problem || '',
@@ -773,7 +934,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
     console.error('❌ Error in handle-chat:', error);
     const errorMessage = error?.message ? String(error.message) : 'An error occurred';
     return new Response(JSON.stringify({
-      error: errorMessage,
+        error: errorMessage,
       reply: 'I apologize, but I encountered a technical issue. Please try again in a moment.'
     }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
   }
