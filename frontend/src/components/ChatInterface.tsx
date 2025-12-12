@@ -239,19 +239,47 @@ export default function ChatInterface() {
     )
   }
 
-  // Only show TherapistSelection if user explicitly wants to book
-  // Check the last message for booking intent
-  const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content.toLowerCase() || '';
-  const wantsToBook = lastUserMessage.includes('book') || 
-                      lastUserMessage.includes('appointment') ||
-                      lastUserMessage.includes('schedule') ||
-                      lastUserMessage.includes('i want') && (lastUserMessage.includes('therapist') || lastUserMessage.includes('with'));
+  // Check if user wants to book or selected a therapist
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
+  const lastUserMessageLower = lastUserMessage.toLowerCase();
   
-  // Only show booking form if user explicitly wants to book AND we have matched therapists
-  if (matchedTherapists && matchedTherapists.length > 0 && wantsToBook) {
+  // Check for explicit booking intent
+  const wantsToBook = lastUserMessageLower.includes('book') || 
+                      lastUserMessageLower.includes('appointment') ||
+                      lastUserMessageLower.includes('schedule') ||
+                      (lastUserMessageLower.includes('i want') && (lastUserMessageLower.includes('therapist') || lastUserMessageLower.includes('with')));
+  
+  // Check if user mentioned a therapist name (this indicates they want to book with that therapist)
+  let selectedTherapist: Therapist | null = null;
+  let therapistsToShow: Therapist[] = [];
+  
+  if (matchedTherapists && matchedTherapists.length > 0) {
+    // Try to find if user mentioned a specific therapist
+    selectedTherapist = matchedTherapists.find((therapist: Therapist) => {
+      const therapistNameLower = therapist.name.toLowerCase();
+      // Check if message contains the therapist's name (case-insensitive, partial match)
+      // Split name by comma to get parts (e.g., "Tykisha Bays, LSW, CADC" -> ["tykisha bays", "lsw", "cadc"])
+      const nameParts = therapistNameLower.split(',').map(p => p.trim());
+      const mainName = nameParts[0] || ''; // "tykisha bays"
+      
+      // Check if message contains full name or main name parts
+      return lastUserMessageLower.includes(therapistNameLower) ||
+             (mainName && lastUserMessageLower.includes(mainName)) ||
+             // Also check individual words from the main name
+             (mainName.split(' ').some(word => word.length > 3 && lastUserMessageLower.includes(word)));
+    }) || null;
+    
+    // If specific therapist selected, show only that one; otherwise show all
+    therapistsToShow = selectedTherapist ? [selectedTherapist] : matchedTherapists;
+  }
+  
+  // Show booking form if:
+  // 1. User explicitly wants to book AND we have matched therapists, OR
+  // 2. User mentioned a therapist name (even without explicit booking words)
+  if (matchedTherapists && matchedTherapists.length > 0 && (wantsToBook || selectedTherapist)) {
     return (
       <TherapistSelection 
-        therapists={matchedTherapists} 
+        therapists={therapistsToShow} 
         inquiryId={inquiryId}
         extractedInfo={extractedInfo}
         onBack={() => {

@@ -466,7 +466,7 @@ serve(async (req: Request) => {
           if (!currentInquiryId) {
             const { data: newInq } = await supabase.from('inquiries').insert(inquiryData).select().single();
             if (newInq) currentInquiryId = newInq.id;
-      } else {
+            } else {
             await supabase.from('inquiries').update(inquiryData).eq('id', currentInquiryId);
           }
         } catch (dbErr) {
@@ -631,9 +631,9 @@ All our therapists accept these insurance plans, so you can choose any therapist
         // Update conversation history
         const newHistory = [
           ...(conversationHistory || []),
-          { role: 'user', content: message, timestamp: new Date().toISOString() },
+      { role: 'user', content: message, timestamp: new Date().toISOString() },
           { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() },
-        ];
+    ];
 
         // Save inquiry
     const inquiryData: any = {
@@ -757,11 +757,11 @@ All our therapists accept these insurance plans, so you can choose any therapist
         matchedTherapists = allTherapists.filter((therapist: any) => {
           // If insurance mentioned, must match insurance
           if (hasInsuranceQuery) {
-            const hasInsurance = therapist.accepted_insurance && 
-              Array.isArray(therapist.accepted_insurance) &&
-              therapist.accepted_insurance.some((ins: string) => {
-                const insNormalized = normalizeInsurance(ins);
-                return insNormalized.includes(insuranceNormalized) || 
+          const hasInsurance = therapist.accepted_insurance && 
+            Array.isArray(therapist.accepted_insurance) &&
+            therapist.accepted_insurance.some((ins: string) => {
+              const insNormalized = normalizeInsurance(ins);
+              return insNormalized.includes(insuranceNormalized) || 
                      insuranceNormalized.includes(insNormalized);
               });
             if (!hasInsurance) return false;
@@ -991,7 +991,7 @@ All our therapists accept these insurance plans, so you can choose any therapist
       }
 
       // Return response with matched therapists
-      const response: ChatResponse = {
+    const response: ChatResponse = {
         reply: aiResponse,
       inquiryId: currentInquiryId || '',
         extractedInfo: {
