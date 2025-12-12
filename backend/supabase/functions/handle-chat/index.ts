@@ -207,8 +207,13 @@ User's current message: ${userMessage}
         'insurance': 'your insurance provider'
       };
       
-      prompt += `\nAfter showing the therapists, naturally ask for the missing information (${fieldsToAsk.map(f => fieldMap[f] || f).join(', ')}). 
-      Ask ONE thing at a time, not all at once. Be conversational and empathetic.`;
+      // Ask for the FIRST missing field only
+      const firstMissingField = fieldsToAsk[0];
+      const fieldLabel = fieldMap[firstMissingField] || firstMissingField;
+      
+      prompt += `\nAfter showing the therapists naturally and empathetically, ask for ONLY ONE thing: ${fieldLabel}. 
+      Do NOT ask for all missing information at once. Ask for just this one thing in a warm, understanding way. 
+      Be empathetic - acknowledge their situation and show you care.`;
     } else {
       prompt += `\nAll required information is present. Confirm naturally and ask if they'd like to book with one of these therapists.`;
     }
@@ -223,10 +228,15 @@ User's current message: ${userMessage}
       'insurance': 'your insurance provider'
     };
     
-    prompt += `\nThe user needs to provide: ${fieldsToAsk.map(f => fieldMap[f] || f).join(', ')}.
-    Ask for ONE thing at a time naturally. Be empathetic and acknowledge what they've already shared.`;
+    // Ask for the FIRST missing field only
+    const firstMissingField = fieldsToAsk[0];
+    const fieldLabel = fieldMap[firstMissingField] || firstMissingField;
+    
+    prompt += `\nAsk for ONLY ONE thing: ${fieldLabel}. 
+    Do NOT ask for all missing information at once. Ask for just this one thing in a warm, understanding, empathetic way. 
+    Acknowledge what they've already shared and show you understand their situation.`;
   } else {
-    prompt += `\nRespond naturally to the user's message. Be helpful and empathetic.`;
+    prompt += `\nRespond naturally to the user's message. Be helpful, warm, and empathetic.`;
   }
 
   try {
@@ -755,8 +765,8 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
           return true;
         });
 
-        // Limit to top 5 matches
-        matchedTherapists = matchedTherapists.slice(0, 5);
+        // Limit to top 6 matches
+        matchedTherapists = matchedTherapists.slice(0, 6);
         console.log(`✅ Found ${matchedTherapists.length} matching therapists`);
         
         if (hasInsuranceQuery && hasProblemQuery) userQueryType = 'both';
