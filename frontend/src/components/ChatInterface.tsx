@@ -239,7 +239,16 @@ export default function ChatInterface() {
     )
   }
 
-  if (matchedTherapists && matchedTherapists.length > 0) {
+  // Only show TherapistSelection if user explicitly wants to book
+  // Check the last message for booking intent
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content.toLowerCase() || '';
+  const wantsToBook = lastUserMessage.includes('book') || 
+                      lastUserMessage.includes('appointment') ||
+                      lastUserMessage.includes('schedule') ||
+                      lastUserMessage.includes('i want') && (lastUserMessage.includes('therapist') || lastUserMessage.includes('with'));
+  
+  // Only show booking form if user explicitly wants to book AND we have matched therapists
+  if (matchedTherapists && matchedTherapists.length > 0 && wantsToBook) {
     return (
       <TherapistSelection 
         therapists={matchedTherapists} 

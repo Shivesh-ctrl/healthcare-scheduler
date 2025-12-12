@@ -207,7 +207,9 @@ User's current message: ${userMessage}
       Specialties: [List of specialties]
       
       (Continue for ALL therapists)
-    - After showing ALL therapists, then ask for the next piece of information (one thing at a time)\n`;
+    - After showing ALL therapists, then ask for the next piece of information (one thing at a time)
+    - Do NOT automatically open a booking form - keep everything in the chat
+    - Wait for the user to explicitly say they want to book before showing booking options\n`;
   }
 
   // Determine what to do next
