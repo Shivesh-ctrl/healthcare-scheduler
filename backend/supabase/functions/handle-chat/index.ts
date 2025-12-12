@@ -191,11 +191,23 @@ User's current message: ${userMessage}
   // Add matched therapists if available
   if (therapistInfo) {
     prompt += therapistInfo;
-    prompt += `\nCRITICAL: You MUST display ALL the therapists listed above with their names, bios, and specialties. 
-    Do NOT use placeholders like "[Therapist list would be displayed here]". 
-    Actually list each therapist by name, show their bio, and their specialties. 
-    Format it naturally and empathetically, but make sure every therapist is shown. 
-    Acknowledge what the user asked for, then show ALL the therapists with their details.\n`;
+    prompt += `\nCRITICAL INSTRUCTIONS FOR DISPLAYING THERAPISTS:
+    - You MUST display ALL ${matchedTherapists.length} therapists listed above
+    - Show each therapist with their FULL name, bio, and specialties
+    - Number them 1, 2, 3, 4, 5, 6 (or however many there are)
+    - Do NOT stop early - show ALL therapists
+    - Do NOT use placeholders like "[Therapist list would be displayed here]"
+    - Format each therapist like this:
+      1. [Full Name]
+      Bio: [Full bio text]
+      Specialties: [List of specialties]
+      
+      2. [Full Name]
+      Bio: [Full bio text]
+      Specialties: [List of specialties]
+      
+      (Continue for ALL therapists)
+    - After showing ALL therapists, then ask for the next piece of information (one thing at a time)\n`;
   }
 
   // Determine what to do next
@@ -243,6 +255,9 @@ User's current message: ${userMessage}
     prompt += `\nRespond naturally to the user's message. Be helpful, warm, and empathetic.`;
   }
 
+  // Determine token limit based on whether we're showing therapists
+  const tokenLimit = matchedTherapists && matchedTherapists.length > 0 ? 2000 : 500;
+  
   try {
     if (Deno.env.get('GOOGLE_AI_API_KEY')) {
       const response = await fetch(
@@ -252,7 +267,7 @@ User's current message: ${userMessage}
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 250 },
+            generationConfig: { temperature: 0.7, maxOutputTokens: tokenLimit },
           }),
         }
       );
@@ -276,7 +291,7 @@ User's current message: ${userMessage}
             { role: 'user', content: prompt },
           ],
           temperature: 0.7,
-          max_tokens: 250,
+          max_tokens: tokenLimit,
         }),
       });
 
