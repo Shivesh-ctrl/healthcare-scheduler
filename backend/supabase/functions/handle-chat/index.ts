@@ -775,16 +775,17 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
     }
     if (requiresEmail && (!extracted.email || extracted.email.trim() === '')) missingFields.push('email');
 
-    // 4) Generate natural AI response - answer their question first, then ask for missing info
-    const aiResponse = await generateAIResponse(
-      message, 
-      conversationHistory, 
-      extracted, 
-      missingFields, 
-      !!patientIdentifier,
-      matchedTherapists,
-      userQueryType
-    );
+    // 4) If missing fields, ask for them (do not book yet)
+    if (missingFields.length > 0) {
+      const aiResponse = await generateAIResponse(
+        message, 
+        conversationHistory, 
+        extracted, 
+        missingFields, 
+        !!patientIdentifier,
+        matchedTherapists,
+        userQueryType
+      );
 
       // Update inquiry conversation history with assistant follow-up
       const newHistory = [
@@ -799,7 +800,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
         requested_schedule: extracted.preferred_time || inquiry?.requested_schedule || null,
         insurance_info: extracted.insurance || inquiry?.insurance_info || null,
         extracted_specialty: extracted.name || inquiry?.extracted_specialty || null,
-      conversation_history: newHistory,
+        conversation_history: newHistory,
         status: inquiry?.status || 'pending',
       };
       if (patientIdentifier) partialInquiryData.patient_identifier = patientIdentifier;
@@ -833,7 +834,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
           patient_name: extracted.name || undefined,
           patient_email: extracted.email || undefined,
         },
-        needsMoreInfo: missingFields.length > 0,
+        needsMoreInfo: true,
         matchedTherapists: matchedTherapists.length > 0 ? matchedTherapists.map((t: any) => ({
           id: t.id,
           name: t.name,
@@ -841,6 +842,11 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
           bio: t.bio,
           specialties: t.specialties || [],
           accepted_insurance: t.accepted_insurance || [],
+          google_calendar_id: t.google_calendar_id || null,
+          google_refresh_token: t.google_refresh_token || null,
+          is_active: t.is_active !== undefined ? t.is_active : true,
+          created_at: t.created_at || new Date().toISOString(),
+          updated_at: t.updated_at || new Date().toISOString(),
         })) : undefined,
       };
 
