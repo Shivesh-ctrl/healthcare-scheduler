@@ -59,7 +59,7 @@ Extract these fields and return ONLY a JSON object (no surrounding text) with th
   "day_type": "<'weekday' or 'weekend' or specific day like 'monday' or empty string if not mentioned>",
   "email": "<email address or empty string>",
   "insurance": "<insurance provider name (e.g. 'BCBS', 'Blue Cross Blue Shield', 'Aetna') or empty string - DO NOT extract plan types like PPO/HMO>",
-  "problem": "<the main problem/issue mentioned, e.g. 'stress', 'anxiety', 'depression' or empty string>"
+  "problem": "<the main problem/issue mentioned OR therapy type/specialty (e.g. 'stress', 'anxiety', 'depression', 'CBT', 'cognitive behavioral therapy', 'EMDR', 'DBT') or empty string>"
 }
 
 If any field is not present in the message, set it to an empty string "". Do not invent extra fields. Do not extract insurance plan types (PPO, HMO, etc.) - only the insurance provider name.`;
