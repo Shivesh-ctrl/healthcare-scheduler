@@ -360,24 +360,6 @@ export default function BookingForm({ therapist, inquiryId, onBack, prefillData 
                   placeholder="john@example.com"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    Phone
-                  </div>
-                </label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-green-700 focus:ring-2 focus:ring-green-100 transition-colors"
-                  placeholder="555-1234"
-                />
-              </div>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
