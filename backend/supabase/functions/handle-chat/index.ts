@@ -411,32 +411,25 @@ serve(async (req: Request) => {
       });
 
       if (matchingTherapists && matchingTherapists.length > 0) {
-        let therapistListMessage = `**Therapists Who Accept ${mentionedInsurance.charAt(0).toUpperCase() + mentionedInsurance.slice(1)} Insurance:**
-
-I found ${matchingTherapists.length} therapist${matchingTherapists.length > 1 ? 's' : ''} who accept ${mentionedInsurance.charAt(0).toUpperCase() + mentionedInsurance.slice(1)}:\n\n`;
-
-        matchingTherapists.forEach((therapist: any, index: number) => {
-          therapistListMessage += `**${index + 1}. ${therapist.name}**\n`;
-          if (therapist.bio) {
-            therapistListMessage += `${therapist.bio}\n`;
-          }
-          if (Array.isArray(therapist.specialties) && therapist.specialties.length > 0) {
-            therapistListMessage += `Specialties: ${therapist.specialties.join(', ')}\n`;
-          }
-          therapistListMessage += `\n`;
-        });
-
-        therapistListMessage += `**To get started, could you please share:**
-• Your name
-• What brings you in today?
-• Your preferred time for appointments (morning, afternoon, or evening)
-• What days of the week work best for you${patientIdentifier ? '' : '\n• Your email address (so I can send you appointment confirmations)'}`;
+        // Limit to 6 therapists
+        const limitedTherapists = matchingTherapists.slice(0, 6);
+        
+        // Use AI to generate natural, empathetic response
+        const aiResponse = await generateAIResponse(
+          message,
+          conversationHistory,
+          { insurance: mentionedInsurance },
+          ['name'],
+          !!patientIdentifier,
+          limitedTherapists,
+          'insurance'
+        );
 
         // Update conversation history
         const newHistory = [
           ...(conversationHistory || []),
           { role: 'user', content: message, timestamp: new Date().toISOString() },
-          { role: 'assistant', content: therapistListMessage, timestamp: new Date().toISOString() },
+          { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() },
         ];
 
         // Save inquiry with insurance info
@@ -460,7 +453,7 @@ I found ${matchingTherapists.length} therapist${matchingTherapists.length > 1 ? 
         }
 
         const response: ChatResponse = {
-          reply: therapistListMessage,
+          reply: aiResponse,
           inquiryId: currentInquiryId || '',
           extractedInfo: undefined,
           needsMoreInfo: true,
@@ -600,33 +593,26 @@ All our therapists accept these insurance plans, so you can choose any therapist
         .eq('is_active', true);
 
       if (allTherapists && allTherapists.length > 0) {
-        let therapistListMessage = `**Available Therapists:**
-
-We have ${allTherapists.length} experienced therapists available:\n\n`;
-
-        allTherapists.forEach((therapist: any, index: number) => {
-          therapistListMessage += `**${index + 1}. ${therapist.name}**\n`;
-          if (therapist.bio) {
-            therapistListMessage += `${therapist.bio.substring(0, 150)}...\n`;
-          }
-          if (Array.isArray(therapist.specialties) && therapist.specialties.length > 0) {
-            therapistListMessage += `Specialties: ${therapist.specialties.slice(0, 3).join(', ')}\n`;
-          }
-          therapistListMessage += `\n`;
-        });
-
-        therapistListMessage += `**To get started, could you please share:**
-• Your name
-• Your insurance provider
-• Your preferred time for appointments (morning, afternoon, or evening)
-• What days of the week work best for you${patientIdentifier ? '' : '\n• Your email address (so I can send you appointment confirmations)'}`;
+        // Limit to 6 therapists
+        const limitedTherapists = allTherapists.slice(0, 6);
+        
+        // Use AI to generate natural, empathetic response
+        const aiResponse = await generateAIResponse(
+          message,
+          conversationHistory,
+          {},
+          ['name', 'insurance', 'preferred_time', 'day_type'],
+          !!patientIdentifier,
+          limitedTherapists,
+          'general'
+        );
 
         // Update conversation history
         const newHistory = [
           ...(conversationHistory || []),
-      { role: 'user', content: message, timestamp: new Date().toISOString() },
-          { role: 'assistant', content: therapistListMessage, timestamp: new Date().toISOString() },
-    ];
+          { role: 'user', content: message, timestamp: new Date().toISOString() },
+          { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() },
+        ];
 
         // Save inquiry
     const inquiryData: any = {
@@ -648,11 +634,23 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
         }
 
         const response: ChatResponse = {
-          reply: therapistListMessage,
+          reply: aiResponse,
           inquiryId: currentInquiryId || '',
           extractedInfo: undefined,
           needsMoreInfo: true,
-          matchedTherapists: undefined,
+          matchedTherapists: limitedTherapists.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            email: t.email,
+            bio: t.bio,
+            specialties: t.specialties || [],
+            accepted_insurance: t.accepted_insurance || [],
+            google_calendar_id: t.google_calendar_id || null,
+            google_refresh_token: t.google_refresh_token || null,
+            is_active: t.is_active !== undefined ? t.is_active : true,
+            created_at: t.created_at || new Date().toISOString(),
+            updated_at: t.updated_at || new Date().toISOString(),
+          })),
         };
 
         return new Response(JSON.stringify(response), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
