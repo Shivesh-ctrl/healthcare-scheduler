@@ -943,8 +943,8 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
       }
 
       // Return response with matched therapists
-    const response: ChatResponse = {
-        reply: therapistListMessage,
+      const response: ChatResponse = {
+        reply: aiResponse,
       inquiryId: currentInquiryId || '',
         extractedInfo: {
           problem: extracted.problem || '',
