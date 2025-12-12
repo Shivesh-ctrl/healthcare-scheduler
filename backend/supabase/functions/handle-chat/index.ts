@@ -191,7 +191,11 @@ User's current message: ${userMessage}
   // Add matched therapists if available
   if (therapistInfo) {
     prompt += therapistInfo;
-    prompt += `\nIMPORTANT: Present these therapists naturally. Acknowledge what the user asked for, then show the therapists. Be warm and helpful.\n`;
+    prompt += `\nCRITICAL: You MUST display ALL the therapists listed above with their names, bios, and specialties. 
+    Do NOT use placeholders like "[Therapist list would be displayed here]". 
+    Actually list each therapist by name, show their bio, and their specialties. 
+    Format it naturally and empathetically, but make sure every therapist is shown. 
+    Acknowledge what the user asked for, then show ALL the therapists with their details.\n`;
   }
 
   // Determine what to do next
@@ -748,12 +752,31 @@ All our therapists accept these insurance plans, so you can choose any therapist
 
           // If problem/specialty mentioned, must match specialty
           if (hasProblemQuery) {
+            // Normalize specialty terms (e.g., "cbt" matches "cognitive behavioral therapy")
+            const specialtyAliases: Record<string, string[]> = {
+              'cbt': ['cbt', 'cognitive behavioral', 'cognitive-behavioral'],
+              'cognitive behavioral therapy': ['cbt', 'cognitive behavioral', 'cognitive-behavioral'],
+              'emdr': ['emdr', 'eye movement desensitization'],
+              'dbt': ['dbt', 'dialectical behavioral', 'dialectical-behavioral'],
+            };
+            
+            // Check if problem matches any specialty alias
+            let normalizedProblem = problemLower;
+            for (const [key, aliases] of Object.entries(specialtyAliases)) {
+              if (problemLower.includes(key) || aliases.some(a => problemLower.includes(a))) {
+                normalizedProblem = key;
+                break;
+              }
+            }
+            
             const hasSpecialty = therapist.specialties && 
               Array.isArray(therapist.specialties) &&
-              therapist.specialties.some((s: string) => 
-                s.toLowerCase().includes(problemLower) || 
-                problemLower.includes(s.toLowerCase())
-              );
+              therapist.specialties.some((s: string) => {
+                const sLower = s.toLowerCase();
+                return sLower.includes(normalizedProblem) || 
+                       normalizedProblem.includes(sLower) ||
+                       specialtyAliases[normalizedProblem]?.some(alias => sLower.includes(alias));
+              });
             const bioMatch = therapist.bio && 
               therapist.bio.toLowerCase().includes(problemLower);
             if (!hasSpecialty && !bioMatch) return false;
