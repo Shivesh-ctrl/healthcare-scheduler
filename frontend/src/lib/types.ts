@@ -101,7 +101,6 @@ export interface BookAppointmentRequest {
   patientInfo: {
     patient_name: string;
     patient_email: string;
-    patient_phone: string;
     notes?: string;
   };
 }
