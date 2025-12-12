@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { UserCircle, CheckCircle, Calendar, ArrowLeft, Award } from 'lucide-react'
 import BookingForm from './BookingForm'
 import type { Therapist } from '../lib/types'
@@ -12,6 +12,13 @@ interface TherapistSelectionProps {
 
 export default function TherapistSelection({ therapists, inquiryId, extractedInfo, onBack }: TherapistSelectionProps) {
   const [selectedTherapist, setSelectedTherapist] = useState<Therapist | null>(null)
+
+  // If only one therapist is passed, automatically select it and show booking form
+  useEffect(() => {
+    if (therapists.length === 1 && !selectedTherapist) {
+      setSelectedTherapist(therapists[0])
+    }
+  }, [therapists, selectedTherapist])
 
   if (selectedTherapist) {
     return (

@@ -274,9 +274,9 @@ export default function ChatInterface() {
   }
   
   // Show booking form if:
-  // 1. User explicitly wants to book AND we have matched therapists, OR
-  // 2. User mentioned a therapist name (even without explicit booking words)
-  if (matchedTherapists && matchedTherapists.length > 0 && (wantsToBook || selectedTherapist)) {
+  // 1. User mentioned a therapist name (this means they want to book with that therapist), OR
+  // 2. User explicitly wants to book AND we have matched therapists
+  if (matchedTherapists && matchedTherapists.length > 0 && (selectedTherapist || wantsToBook)) {
     return (
       <TherapistSelection 
         therapists={therapistsToShow} 
