@@ -708,7 +708,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
     };
 
     // Check if user is asking about therapists by insurance, specialty, or problem
-    const messageLower = message.toLowerCase();
+    // messageLower already declared above
     const hasInsuranceQuery = extracted.insurance && extracted.insurance.trim() !== '';
     const hasProblemQuery = extracted.problem && extracted.problem.trim() !== '';
     
