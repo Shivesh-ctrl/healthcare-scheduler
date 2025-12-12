@@ -909,7 +909,7 @@ We have ${allTherapists.length} experienced therapists available:\n\n`;
       const newHistory = [
         ...(conversationHistory || []),
         { role: 'user', content: message, timestamp: new Date().toISOString() },
-        { role: 'assistant', content: therapistListMessage, timestamp: new Date().toISOString() },
+        { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() },
       ];
 
       // Update inquiry - save patient details for booking
