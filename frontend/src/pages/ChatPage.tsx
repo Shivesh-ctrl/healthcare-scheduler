@@ -33,7 +33,7 @@ export default function ChatPage() {
               transform: 'translateX(-50%)',
               width: '600px',
               height: '600px',
-              background: `radial-gradient(circle, ${alpha('#1a73e8', 0.08)} 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${alpha('#1b4332', 0.08)} 0%, transparent 70%)`,
               pointerEvents: 'none',
               zIndex: -1,
             }}
@@ -49,8 +49,8 @@ export default function ChatPage() {
               py: 1,
               mb: 3,
               borderRadius: '24px',
-              bgcolor: alpha('#1a73e8', 0.08),
-              border: `1px solid ${alpha('#1a73e8', 0.2)}`,
+              bgcolor: alpha('#1b4332', 0.08),
+              border: `1px solid ${alpha('#1b4332', 0.2)}`,
             }}
           >
             <AutoAwesomeIcon sx={{ color: 'primary.main', fontSize: 20 }} />
@@ -84,7 +84,7 @@ export default function ChatPage() {
             <Box
               component="span"
               sx={{
-                background: 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)',
+                background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',

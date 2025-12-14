@@ -152,7 +152,7 @@ export default function AdminPage() {
                 width: 64,
                 height: 64,
                 borderRadius: '16px',
-                background: 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)',
+                background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -257,7 +257,7 @@ export default function AdminPage() {
                   borderRadius: '12px',
                   background: therapist?.google_refresh_token
                     ? 'linear-gradient(135deg, #1e8e3e 0%, #34a853 100%)'
-                    : 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)',
+                    : 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

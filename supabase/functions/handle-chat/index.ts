@@ -8,9 +8,9 @@ const corsHeaders = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 🤖 KAI - YOUR FRIENDLY APPOINTMENT BOOKING ASSISTANT
+// 🤖 OMI - YOUR FRIENDLY APPOINTMENT BOOKING ASSISTANT
 // ═══════════════════════════════════════════════════════════════════════════
-// Kai is a warm, empathetic, and intelligent assistant that helps users:
+// Omi is a warm, empathetic, and intelligent assistant that helps users:
 // - Find the right therapist
 // - Book, view, cancel, and reschedule appointments
 // - Answer questions about insurance, availability, and therapist details
@@ -18,7 +18,7 @@ const corsHeaders = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 📋 TOOL DEFINITIONS - What Kai can do
+// 📋 TOOL DEFINITIONS - What Omi can do
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TOOLS = {
@@ -244,7 +244,7 @@ async function resolveTherapistId(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KAI'S PERSONALITY & SYSTEM PROMPT
+// OMI'S PERSONALITY & SYSTEM PROMPT
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(context: {
@@ -252,7 +252,7 @@ function buildSystemPrompt(context: {
   timeZone: string;
   currentTime: string;
 }): string {
-  return `You are Kai, a warm, caring, and emotionally intelligent assistant for a therapy practice.
+  return `You are Omi, a warm, caring, and emotionally intelligent assistant for a therapy practice.
 
 YOUR CORE IDENTITY:
 You're like a supportive friend who happens to work at a therapy office. You genuinely care about people's wellbeing. Your job is to help people feel heard AND get connected with the right therapist.
@@ -349,7 +349,7 @@ REMEMBER:
 // ─────────────────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
-  console.log("🤖 Kai Assistant Loaded - v2.0 (Database Schema Compatible)");
+  console.log("🤖 Omi Assistant Loaded - v2.0 (Database Schema Compatible)");
 
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -1569,7 +1569,7 @@ async function toolBookAppointment(
           const eventBody = {
             summary: `Therapy Session with ${therapistName}`,
             description:
-              `Appointment ID: ${appointment.id}\nTherapist: ${therapistName}\n\nBooked via Kai chatbot`,
+              `Appointment ID: ${appointment.id}\nTherapist: ${therapistName}\n\nBooked via Omi chatbot`,
             start: {
               dateTime: startTimeISO,
               timeZone: "Asia/Kolkata",
@@ -2611,7 +2611,7 @@ Would you like me to show you a few therapists who could be a good fit? Just say
     return {
       success: true,
       message:
-        `I'm Kai, your therapy appointment assistant. Here's what I can help with:
+        `I'm Omi, your therapy appointment assistant. Here's what I can help with:
 
 1. "Show therapists" - Browse our team
 2. "Show insurance" - See accepted insurance

@@ -85,7 +85,7 @@ const playPopSound = playReceiveSound;
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([
-    { sender: "bot", text: "Hi, I'm Kai. I'm here to support you in finding a therapist. I know reaching out can be a big step. How can I help you today?" }
+    { sender: "bot", text: "Hi, I'm Omi. I'm here to support you in finding a therapist. I know reaching out can be a big step. How can I help you today?" }
   ]);
   // Use a random ID per session for demo purposes, ensuring a fresh conversation on refresh
   const [patientId] = useState(`anon-${Math.random().toString(36).substring(7)}`);

@@ -5,9 +5,9 @@ const theme = createTheme({
   palette: {
     mode: "light",
     primary: {
-      main: "#1a73e8", // Google Blue
-      light: "#4285f4",
-      dark: "#1557b0",
+      main: "#1b4332", // Dark Green
+      light: "#40916c",
+      dark: "#081c15",
       contrastText: "#ffffff",
     },
     secondary: {
@@ -40,9 +40,9 @@ const theme = createTheme({
       dark: "#c5221f",
     },
     info: {
-      main: "#1a73e8",
-      light: "#4285f4",
-      dark: "#1557b0",
+      main: "#1b4332",
+      light: "#40916c",
+      dark: "#081c15",
     },
     divider: "#dadce0",
   },
@@ -185,16 +185,16 @@ const theme = createTheme({
         },
         contained: {
           boxShadow:
-            "0px 1px 2px rgba(26, 115, 232, 0.3), 0px 1px 3px rgba(26, 115, 232, 0.15)",
+            "0px 1px 2px rgba(27, 67, 50, 0.3), 0px 1px 3px rgba(27, 67, 50, 0.15)",
           "&:hover": {
             boxShadow:
-              "0px 2px 4px rgba(26, 115, 232, 0.3), 0px 2px 6px rgba(26, 115, 232, 0.15)",
+              "0px 2px 4px rgba(27, 67, 50, 0.3), 0px 2px 6px rgba(27, 67, 50, 0.15)",
           },
         },
         containedPrimary: {
-          background: "linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)",
+          background: "linear-gradient(135deg, #1b4332 0%, #40916c 100%)",
           "&:hover": {
-            background: "linear-gradient(135deg, #1557b0 0%, #1a73e8 100%)",
+            background: "linear-gradient(135deg, #081c15 0%, #1b4332 100%)",
           },
         },
         outlined: {
@@ -242,11 +242,11 @@ const theme = createTheme({
               borderColor: "#bdc1c6",
             },
             "&.Mui-focused fieldset": {
-              borderColor: "#1a73e8",
+              borderColor: "#1b4332",
               borderWidth: "2px",
             },
             "&.Mui-focused": {
-              boxShadow: "0 0 0 3px rgba(26, 115, 232, 0.1)",
+              boxShadow: "0 0 0 3px rgba(27, 67, 50, 0.1)",
             },
           },
         },
@@ -275,7 +275,7 @@ const theme = createTheme({
         root: {
           transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
           "&:hover": {
-            backgroundColor: "rgba(26, 115, 232, 0.08)",
+            backgroundColor: "rgba(27, 67, 50, 0.08)",
           },
         },
       },

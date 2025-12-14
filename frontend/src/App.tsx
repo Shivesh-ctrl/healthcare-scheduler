@@ -62,11 +62,11 @@ export default function App() {
                     width: 40,
                     height: 40,
                     borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)',
+                    background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 2px 8px rgba(26, 115, 232, 0.3)',
+                    boxShadow: '0 2px 8px rgba(27, 67, 50, 0.3)',
                   }}
                 >
                   <AutoAwesomeIcon sx={{ color: 'white', fontSize: 24 }} />
@@ -78,7 +78,7 @@ export default function App() {
                     to="/"
                     sx={{
                       fontWeight: 700,
-                      background: 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)',
+                      background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
                       backgroundClip: 'text',
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent',
@@ -88,7 +88,7 @@ export default function App() {
                       letterSpacing: '-0.02em',
                     }}
                   >
-                    Kai Health Bot
+                    Omi Health Bot
                   </Typography>
                   <Typography
                     variant="caption"
@@ -124,7 +124,7 @@ export default function App() {
                     '&:hover': {
                       bgcolor: location.pathname.includes('/chat') || location.pathname === '/'
                         ? 'primary.dark'
-                        : alpha('#1a73e8', 0.08),
+                        : alpha('#1b4332', 0.08),
                     },
                   }}
                 >
