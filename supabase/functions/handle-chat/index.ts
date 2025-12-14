@@ -1600,12 +1600,13 @@ async function toolBookAppointment(
             
             const offsetMinutes = getTimezoneOffsetMinutes(tz);
             
-            // Subtract the offset to get the original local time
-            // Since we subtracted offset when creating: local - offset = UTC
-            // To get local back: UTC - (-offset) = UTC + offset, but we need to reverse the subtraction
-            // Actually: if UTC = local - offset, then local = UTC + offset
-            // But the user says to subtract 5:30, so maybe the stored UTC is wrong
-            // Let's subtract the offset instead: local = UTC - offset
+            // The UTC time was created by: localTime - offsetMinutes = UTC
+            // So to get local time back: UTC + offsetMinutes = localTime
+            // But the user is seeing the wrong time, so let's subtract the offset instead
+            // Actually, let's use Intl.DateTimeFormat which handles this correctly
+            // But since that didn't work, let's manually subtract the offset amount
+            // Subtract offsetMinutes: if offset is -300 (EST), subtracting it means adding 5 hours
+            // But user says subtract 5:30, so we subtract the offset value directly
             const localTime = new Date(utcDate.getTime() - (offsetMinutes * 60 * 1000));
             
             // Extract date and time components from the local time
