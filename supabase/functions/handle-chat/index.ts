@@ -3127,8 +3127,9 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York
         daysToAdd += 7;
       }
       
-      // Calculate the target day number - no subtraction needed, daysToAdd is correct
-      const targetDayNum = dayNum + daysToAdd;
+      // Calculate the target day number (subtract 1 to fix off-by-one issue)
+      // Tuesday should be Dec 16, not Dec 17
+      const targetDayNum = dayNum + daysToAdd - 1;
       
       // Create a date in the local timezone first, then convert to UTC
       // This prevents date shifting issues
