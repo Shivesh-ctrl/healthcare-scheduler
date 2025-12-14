@@ -57,54 +57,24 @@ export default function App() {
                   flexGrow: 1
                 }}
               >
-                <Box
+                <Typography
+                  variant="h6"
+                  component={Link}
+                  to="/"
                   sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '12px',
+                    fontWeight: 700,
                     background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 2px 8px rgba(27, 67, 50, 0.3)',
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    textDecoration: 'none',
+                    fontFamily: '"DM Sans", sans-serif',
+                    fontSize: '1.35rem',
+                    letterSpacing: '-0.02em',
                   }}
                 >
-                  <AutoAwesomeIcon sx={{ color: 'white', fontSize: 24 }} />
-                </Box>
-                <Box>
-                  <Typography
-                    variant="h6"
-                    component={Link}
-                    to="/"
-                    sx={{
-                      fontWeight: 700,
-                      background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
-                      backgroundClip: 'text',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      textDecoration: 'none',
-                      fontFamily: '"DM Sans", sans-serif',
-                      fontSize: '1.35rem',
-                      letterSpacing: '-0.02em',
-                    }}
-                  >
-                    Health Scheduler
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: 'text.secondary',
-                      fontSize: '0.7rem',
-                      fontWeight: 500,
-                      letterSpacing: '0.05em',
-                      display: 'block',
-                      lineHeight: 1,
-                      mt: -0.5
-                    }}
-                  >
-                    AI-POWERED CARE
-                  </Typography>
-                </Box>
+                  Health Scheduler
+                </Typography>
               </Box>
 
               {/* Navigation Buttons */}
