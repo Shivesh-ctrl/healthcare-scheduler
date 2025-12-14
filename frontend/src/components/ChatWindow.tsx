@@ -15,73 +15,6 @@ import PersonIcon from "@mui/icons-material/Person";
 
 type Message = { sender: "user" | "bot"; text: string };
 
-// Send sound (pop) - for user messages
-const playSendSound = () => {
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    // Quick pop sound (lower pitch, short)
-    oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(150, audioContext.currentTime + 0.08);
-    oscillator.type = 'sine';
-
-    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.1);
-  } catch (e) {
-    console.log("Audio not supported");
-  }
-};
-
-// Receive sound (WhatsApp-like ting) - for bot messages
-const playReceiveSound = () => {
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-    // First note (lower)
-    const osc1 = audioContext.createOscillator();
-    const gain1 = audioContext.createGain();
-    osc1.connect(gain1);
-    gain1.connect(audioContext.destination);
-
-    osc1.frequency.setValueAtTime(830, audioContext.currentTime); // G#5
-    osc1.type = 'sine';
-    gain1.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
-
-    osc1.start(audioContext.currentTime);
-    osc1.stop(audioContext.currentTime + 0.15);
-
-    // Second note (higher) - slight delay for ting effect
-    const osc2 = audioContext.createOscillator();
-    const gain2 = audioContext.createGain();
-    osc2.connect(gain2);
-    gain2.connect(audioContext.destination);
-
-    osc2.frequency.setValueAtTime(1046, audioContext.currentTime + 0.08); // C6
-    osc2.type = 'sine';
-    gain2.gain.setValueAtTime(0, audioContext.currentTime);
-    gain2.gain.setValueAtTime(0.3, audioContext.currentTime + 0.08);
-    gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.25);
-
-    osc2.start(audioContext.currentTime + 0.08);
-    osc2.stop(audioContext.currentTime + 0.25);
-  } catch (e) {
-    console.log("Audio not supported");
-  }
-};
-
-// Legacy function name for backward compatibility
-const playPopSound = playReceiveSound;
-
 // Format message text with bold, bullet points, and proper formatting
 const formatMessage = (text: string) => {
   const lines = text.split('\n');
@@ -236,7 +169,6 @@ export default function ChatWindow() {
     const userMsg = input;
     setInput("");
     setMessages(prev => [...prev, { sender: "user", text: userMsg }]);
-    playSendSound(); // Play pop sound when user sends message
     setLoading(true);
 
     try {
@@ -251,7 +183,6 @@ export default function ChatWindow() {
       }
 
       setMessages(prev => [...prev, { sender: "bot", text: reply }]);
-      playPopSound(); // Play pop sound when bot responds
 
       // --- Handle therapist selection ---
       if (data?.nextAction === 'therapist-selected' && data.therapistId) {
@@ -263,7 +194,6 @@ export default function ChatWindow() {
       // --- Orchestration Logic ---
       if (data?.nextAction === 'find-therapist' && data.inquiryId) {
         setMessages(prev => [...prev, { sender: 'bot', text: "Thank you. I'm looking for therapists who can best support you..." }]);
-        playPopSound();
 
         const { data: findData, error: findError } = await supabase.functions.invoke('find-therapist', {
           body: { inquiryId: data.inquiryId, limit: 3 }
@@ -272,7 +202,6 @@ export default function ChatWindow() {
         if (findError) {
           console.error(findError);
           setMessages(prev => [...prev, { sender: 'bot', text: "I encountered an error searching for therapists." }]);
-          playPopSound();
         } else if (findData.matches && findData.matches.length > 0) {
           // Store matches for potential selection
           const therapistOptions = findData.matches.map((m: any) => ({
@@ -307,16 +236,13 @@ export default function ChatWindow() {
             sender: 'bot',
             text: matchesText
           }]);
-          playPopSound();
         } else {
           setMessages(prev => [...prev, { sender: 'bot', text: "I couldn't find any therapists matching your specific criteria right now. Would you like to adjust your requirements?" }]);
-          playPopSound();
         }
       }
 
       if (data?.nextAction === 'book-appointment' && data.therapistId && data.startTime) {
         setMessages(prev => [...prev, { sender: 'bot', text: "Wonderful. I'm securing that time for you..." }]);
-        playPopSound();
 
         const { data: bookData, error: bookError } = await supabase.functions.invoke('book-appointment', {
           body: {
@@ -331,7 +257,6 @@ export default function ChatWindow() {
 
         if (bookError) {
           setMessages(prev => [...prev, { sender: 'bot', text: `I had trouble booking that appointment: ${bookError.message}. Could you try a different time?` }]);
-          playPopSound();
         } else {
           const appointmentDate = new Date(data.startTime);
           const dateOptions: Intl.DateTimeFormatOptions = {
@@ -354,7 +279,6 @@ export default function ChatWindow() {
           }
 
           setMessages(prev => [...prev, { sender: 'bot', text: confirmMessage }]);
-          playPopSound();
 
           // Clear state after successful booking
           setMatchedTherapistId(null);
@@ -364,7 +288,6 @@ export default function ChatWindow() {
 
     } catch (err: any) {
       setMessages(prev => [...prev, { sender: "bot", text: "I'm having a bit of trouble connecting right now. Could you try that again?" }]);
-      playPopSound();
       console.error(err);
     } finally {
       setLoading(false);
