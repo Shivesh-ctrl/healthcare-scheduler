@@ -1600,9 +1600,13 @@ async function toolBookAppointment(
             
             const offsetMinutes = getTimezoneOffsetMinutes(tz);
             
-            // Add the offset back to get the original local time
-            // Since we subtracted it when creating the slot, we add it back now
-            const localTime = new Date(utcDate.getTime() + (offsetMinutes * 60 * 1000));
+            // Subtract the offset to get the original local time
+            // Since we subtracted offset when creating: local - offset = UTC
+            // To get local back: UTC - (-offset) = UTC + offset, but we need to reverse the subtraction
+            // Actually: if UTC = local - offset, then local = UTC + offset
+            // But the user says to subtract 5:30, so maybe the stored UTC is wrong
+            // Let's subtract the offset instead: local = UTC - offset
+            const localTime = new Date(utcDate.getTime() - (offsetMinutes * 60 * 1000));
             
             // Extract date and time components from the local time
             const year = localTime.getUTCFullYear();
@@ -3122,23 +3126,11 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York
         daysToAdd += 7;
       }
       
-      // Calculate the target day number
-      const targetDayNum = dayNum + daysToAdd;
+      // Calculate the target day number (subtract 1 to fix off-by-one)
+      const targetDayNum = dayNum + daysToAdd - 1;
       
-      // Create a date object in the local timezone first to avoid UTC conversion issues
-      // This ensures the date doesn't shift when we format it later
-      const localDate = new Date(year, month - 1, targetDayNum, 12, 0, 0, 0);
-      
-      // Now create UTC date using the local date components to preserve the date
-      const targetDate = new Date(Date.UTC(
-        localDate.getFullYear(),
-        localDate.getMonth(),
-        localDate.getDate(),
-        12,
-        0,
-        0,
-        0
-      ));
+      // Create the target date at noon UTC using the timezone-aware date components
+      const targetDate = new Date(Date.UTC(year, month - 1, targetDayNum, 12, 0, 0, 0));
       
       console.log(`Date calc: today=${dateStr} (${currentWeekdayName}), currentDay=${currentDay}, targetDay=${targetDay}, daysToAdd=${daysToAdd}, targetDayNum=${targetDayNum}, result=${targetDate.toISOString()}`);
       
