@@ -337,9 +337,9 @@ export default function AdminPage() {
               mb: 3,
             }}
           >
-            Patient Inquiries
+            Scheduled Appointments
           </Typography>
-          <InquiryList />
+          <AppointmentList />
         </Paper>
 
         <Paper 
@@ -362,9 +362,9 @@ export default function AdminPage() {
               mb: 3,
             }}
           >
-            Scheduled Appointments
+            Patient Inquiries
           </Typography>
-          <AppointmentList />
+          <InquiryList />
         </Paper>
       </Box>
     </Box>
