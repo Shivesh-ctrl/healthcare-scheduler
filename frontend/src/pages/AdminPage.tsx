@@ -35,12 +35,6 @@ export default function AdminPage() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (session) {
-      getAdminData();
-    }
-  }, [session]);
-
 
   if (!session) {
     return (
