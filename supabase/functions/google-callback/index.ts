@@ -30,13 +30,23 @@ serve(async (req) => {
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID')
     const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     
     console.log(`Client ID present: ${!!clientId}`);
     console.log(`Client Secret present: ${!!clientSecret}`);
     console.log(`Supabase URL: ${supabaseUrl}`);
+    console.log(`Service Role Key present: ${!!supabaseServiceKey}`);
     
     if (!supabaseUrl) {
       throw new Error('SUPABASE_URL environment variable not set')
+    }
+    
+    if (!clientId || !clientSecret) {
+      throw new Error('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET environment variables not set')
+    }
+    
+    if (!supabaseServiceKey) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY environment variable not set')
     }
     
     const redirectUri = `${supabaseUrl}/functions/v1/google-callback`
@@ -73,8 +83,7 @@ serve(async (req) => {
     }
 
     // 2. Save Refresh Token to Supabase
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! // Use SERVICE ROLE to bypass RLS
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     console.log(`Updating therapist ${therapistId} with refresh token...`);
     const { data, error: dbError } = await supabase
