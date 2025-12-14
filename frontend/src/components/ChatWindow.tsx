@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import {
   Box,
@@ -85,7 +85,7 @@ const playPopSound = playReceiveSound;
 // Format message text with bold, bullet points, and proper formatting
 const formatMessage = (text: string) => {
   const lines = text.split('\n');
-  const elements: JSX.Element[] = [];
+  const elements: React.ReactElement[] = [];
   let currentParagraph: string[] = [];
   
   const flushParagraph = () => {
@@ -100,7 +100,7 @@ const formatMessage = (text: string) => {
     }
   };
   
-  lines.forEach((line, idx) => {
+  lines.forEach((line) => {
     const trimmed = line.trim();
     
     // Check if it's a numbered list item (1. 2. 3. etc.)
@@ -157,7 +157,7 @@ const formatMessage = (text: string) => {
 
 // Format bold text (**text**)
 const formatBoldText = (text: string) => {
-  const parts: (string | JSX.Element)[] = [];
+  const parts: (string | React.ReactElement)[] = [];
   let currentIndex = 0;
   const boldRegex = /\*\*(.+?)\*\*/g;
   let match;

@@ -14,9 +14,7 @@ import {
   alpha
 } from "@mui/material";
 import {
-  AutoAwesome as AutoAwesomeIcon,
-  Chat as ChatIcon,
-  Dashboard as DashboardIcon
+  Chat as ChatIcon
 } from "@mui/icons-material";
 import theme from "./theme";
 
