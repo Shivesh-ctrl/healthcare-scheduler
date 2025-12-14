@@ -217,35 +217,113 @@ export default function HomePage() {
             mt: 8,
             display: 'flex',
             flexWrap: 'wrap',
-            gap: 4,
+            gap: 3,
             justifyContent: 'center',
-            maxWidth: 800,
+            maxWidth: 900,
+            width: '100%',
           }}
         >
-          <Box sx={{ textAlign: 'center', flex: { xs: '1 1 100%', sm: '1 1 calc(33.333% - 32px)' } }}>
+          <Paper
+            elevation={0}
+            sx={{
+              textAlign: 'center',
+              flex: { xs: '1 1 100%', sm: '1 1 calc(33.333% - 24px)' },
+              p: 3,
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 4px 20px rgba(27, 67, 50, 0.15)',
+                transform: 'translateY(-2px)',
+              },
+            }}
+          >
+            <Typography
+              variant="h3"
+              sx={{
+                mb: 1.5,
+                fontSize: '2.5rem',
+              }}
+            >
+              ⚡
+            </Typography>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}>
               Fast
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Quick appointment scheduling
             </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center', flex: { xs: '1 1 100%', sm: '1 1 calc(33.333% - 32px)' } }}>
+          </Paper>
+          
+          <Paper
+            elevation={0}
+            sx={{
+              textAlign: 'center',
+              flex: { xs: '1 1 100%', sm: '1 1 calc(33.333% - 24px)' },
+              p: 3,
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 4px 20px rgba(27, 67, 50, 0.15)',
+                transform: 'translateY(-2px)',
+              },
+            }}
+          >
+            <Typography
+              variant="h3"
+              sx={{
+                mb: 1.5,
+                fontSize: '2.5rem',
+              }}
+            >
+              🔒
+            </Typography>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}>
               Secure
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Your data is protected
             </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center', flex: { xs: '1 1 100%', sm: '1 1 calc(33.333% - 32px)' } }}>
+          </Paper>
+          
+          <Paper
+            elevation={0}
+            sx={{
+              textAlign: 'center',
+              flex: { xs: '1 1 100%', sm: '1 1 calc(33.333% - 24px)' },
+              p: 3,
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: '0 4px 20px rgba(27, 67, 50, 0.15)',
+                transform: 'translateY(-2px)',
+              },
+            }}
+          >
+            <Typography
+              variant="h3"
+              sx={{
+                mb: 1.5,
+                fontSize: '2.5rem',
+              }}
+            >
+              🤐
+            </Typography>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, color: 'primary.main' }}>
               Confidential
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Private and discreet service
             </Typography>
-          </Box>
+          </Paper>
         </Box>
       </Box>
     </Container>
