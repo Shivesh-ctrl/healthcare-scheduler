@@ -103,7 +103,6 @@ export default function App() {
                 <Button
                   component={Link}
                   to="/admin"
-                  startIcon={<DashboardIcon />}
                   variant={location.pathname.includes('/admin') ? "contained" : "outlined"}
                   sx={{
                     color: location.pathname.includes('/admin')
