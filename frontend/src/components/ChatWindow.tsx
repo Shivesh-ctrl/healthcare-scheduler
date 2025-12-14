@@ -387,12 +387,13 @@ export default function ChatWindow() {
       elevation={0}
       sx={{
         width: '100%',
-        maxWidth: 1200,
-        height: 900,
+        maxWidth: 1400,
+        height: '100%',
+        maxHeight: '100%',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        borderRadius: 4,
+        borderRadius: { xs: 0, sm: 4 },
         bgcolor: 'background.paper',
         border: '1px solid',
         borderColor: 'rgba(27, 67, 50, 0.12)',
