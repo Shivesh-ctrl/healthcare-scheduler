@@ -85,7 +85,7 @@ const playPopSound = playReceiveSound;
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([
-    { sender: "bot", text: "Hi, I'm Omi. I'm here to support you in finding a therapist. I know reaching out can be a big step. How can I help you today?" }
+    { sender: "bot", text: "Hi there! 👋 I'm Omi, your friendly AI assistant. I'm here to help you find the perfect therapist and schedule appointments. I know reaching out can feel like a big step, and I'm here to make it easier. What brings you here today?" }
   ]);
   // Use a random ID per session for demo purposes, ensuring a fresh conversation on refresh
   const [patientId] = useState(`anon-${Math.random().toString(36).substring(7)}`);
@@ -286,17 +286,17 @@ export default function ChatWindow() {
       elevation={3}
       sx={{
         width: '100%',
-        maxWidth: 900,
-        height: 650,
+        maxWidth: 1200,
+        height: 750,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         borderRadius: 4,
         bgcolor: 'background.paper',
-        boxShadow: '0px 8px 24px rgba(60, 64, 67, 0.15), 0px 2px 6px rgba(60, 64, 67, 0.1)',
+        boxShadow: '0px 8px 24px rgba(27, 67, 50, 0.15), 0px 2px 6px rgba(27, 67, 50, 0.1)',
         transition: 'box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
-          boxShadow: '0px 12px 32px rgba(60, 64, 67, 0.2), 0px 4px 8px rgba(60, 64, 67, 0.15)',
+          boxShadow: '0px 12px 32px rgba(27, 67, 50, 0.2), 0px 4px 8px rgba(27, 67, 50, 0.15)',
         }
       }}
     >
@@ -305,24 +305,24 @@ export default function ChatWindow() {
         sx={{
           flex: 1,
           overflowY: 'auto',
-          p: 4,
+          p: 5,
           display: 'flex',
           flexDirection: 'column',
-          gap: 2.5,
+          gap: 3,
           background: 'linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%)',
           position: 'relative',
           // Custom scrollbar styling
           '&::-webkit-scrollbar': {
-            width: '8px',
+            width: '10px',
           },
           '&::-webkit-scrollbar-track': {
             background: 'transparent',
           },
           '&::-webkit-scrollbar-thumb': {
-            backgroundColor: '#dadce0',
-            borderRadius: '8px',
+            backgroundColor: '#bdc1c6',
+            borderRadius: '10px',
             '&:hover': {
-              backgroundColor: '#bdc1c6',
+              backgroundColor: '#9aa0a6',
             },
           },
         }}
@@ -351,42 +351,42 @@ export default function ChatWindow() {
             {m.sender === "bot" && (
               <Avatar
                 sx={{
-                  background: 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)',
-                  width: 36,
-                  height: 36,
-                  boxShadow: '0 2px 8px rgba(26, 115, 232, 0.3)',
+                  background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
+                  width: 44,
+                  height: 44,
+                  boxShadow: '0 2px 8px rgba(27, 67, 50, 0.3)',
                 }}
               >
-                <SmartToyIcon fontSize="small" />
+                <SmartToyIcon />
               </Avatar>
             )}
 
             <Paper
               elevation={0}
               sx={{
-                p: 2.5,
-                maxWidth: '75%',
-                borderRadius: 3,
-                borderBottomLeftRadius: m.sender === "bot" ? 4 : 3,
-                borderBottomRightRadius: m.sender === "user" ? 4 : 3,
+                p: 3,
+                maxWidth: '80%',
+                borderRadius: 4,
+                borderBottomLeftRadius: m.sender === "bot" ? 4 : 4,
+                borderBottomRightRadius: m.sender === "user" ? 4 : 4,
                 bgcolor: m.sender === "user"
                   ? 'primary.main'
                   : 'white',
                 background: m.sender === "user"
-                  ? 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)'
+                  ? 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)'
                   : 'white',
                 color: m.sender === "user" ? 'white' : 'text.primary',
                 boxShadow: m.sender === "bot"
-                  ? '0px 2px 8px rgba(60, 64, 67, 0.1)'
-                  : '0px 2px 8px rgba(26, 115, 232, 0.25)',
+                  ? '0px 2px 8px rgba(27, 67, 50, 0.1)'
+                  : '0px 2px 8px rgba(27, 67, 50, 0.25)',
                 border: m.sender === "bot" ? '1px solid' : 'none',
-                borderColor: m.sender === "bot" ? 'divider' : 'transparent',
+                borderColor: m.sender === "bot" ? 'rgba(27, 67, 50, 0.1)' : 'transparent',
                 transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
                   transform: 'translateY(-1px)',
                   boxShadow: m.sender === "bot"
-                    ? '0px 4px 12px rgba(60, 64, 67, 0.15)'
-                    : '0px 4px 12px rgba(26, 115, 232, 0.35)',
+                    ? '0px 4px 12px rgba(27, 67, 50, 0.15)'
+                    : '0px 4px 12px rgba(27, 67, 50, 0.35)',
                 }
               }}
             >
@@ -394,8 +394,9 @@ export default function ChatWindow() {
                 variant="body1"
                 sx={{
                   whiteSpace: 'pre-wrap',
-                  lineHeight: 1.6,
-                  fontSize: '0.9375rem',
+                  lineHeight: 1.7,
+                  fontSize: '1rem',
+                  fontWeight: m.sender === "bot" ? 400 : 500,
                 }}
               >
                 {m.text}
@@ -405,13 +406,13 @@ export default function ChatWindow() {
             {m.sender === "user" && (
               <Avatar
                 sx={{
-                  bgcolor: '#5f6368',
-                  width: 36,
-                  height: 36,
-                  boxShadow: '0 2px 6px rgba(95, 99, 104, 0.3)',
+                  bgcolor: '#40916c',
+                  width: 44,
+                  height: 44,
+                  boxShadow: '0 2px 6px rgba(64, 145, 108, 0.3)',
                 }}
               >
-                <PersonIcon fontSize="small" />
+                <PersonIcon />
               </Avatar>
             )}
           </Box>
@@ -428,27 +429,27 @@ export default function ChatWindow() {
           >
             <Avatar
               sx={{
-                background: 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)',
-                width: 36,
-                height: 36,
-                boxShadow: '0 2px 8px rgba(26, 115, 232, 0.3)',
+                background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
+                width: 44,
+                height: 44,
+                boxShadow: '0 2px 8px rgba(27, 67, 50, 0.3)',
               }}
             >
-              <SmartToyIcon fontSize="small" />
+              <SmartToyIcon />
             </Avatar>
             <Paper
               elevation={0}
               sx={{
-                p: 2.5,
-                borderRadius: 3,
+                p: 3,
+                borderRadius: 4,
                 borderBottomLeftRadius: 4,
                 bgcolor: 'white',
                 border: '1px solid',
-                borderColor: 'divider',
-                boxShadow: '0px 2px 8px rgba(60, 64, 67, 0.1)',
+                borderColor: 'rgba(27, 67, 50, 0.1)',
+                boxShadow: '0px 2px 8px rgba(27, 67, 50, 0.1)',
               }}
             >
-              <CircularProgress size={20} thickness={4} />
+              <CircularProgress size={24} thickness={4} />
             </Paper>
           </Box>
         )}
@@ -458,20 +459,20 @@ export default function ChatWindow() {
       {/* Input Area */}
       <Box
         sx={{
-          p: 3,
+          p: 4,
           bgcolor: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
           borderTop: '1px solid',
-          borderColor: 'divider',
+          borderColor: 'rgba(27, 67, 50, 0.1)',
         }}
       >
-        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-end' }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end' }}>
           <TextField
             fullWidth
             autoFocus
             inputRef={inputRef}
             variant="outlined"
-            placeholder="Type your message..."
+            placeholder="Type your message here... 💬"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
@@ -485,9 +486,17 @@ export default function ChatWindow() {
             sx={{
               '& .MuiOutlinedInput-root': {
                 bgcolor: '#f8f9fa',
-                borderRadius: '12px',
-                fontSize: '0.9375rem',
+                borderRadius: '16px',
+                fontSize: '1rem',
+                padding: '4px 8px',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  bgcolor: '#f1f3f4',
+                },
+                '&.Mui-focused': {
+                  bgcolor: 'white',
+                  boxShadow: '0 0 0 3px rgba(27, 67, 50, 0.1)',
+                }
               }
             }}
           />
@@ -496,36 +505,36 @@ export default function ChatWindow() {
             onClick={handleSend}
             disabled={!input.trim() || loading}
             sx={{
-              width: 52,
-              height: 52,
+              width: 56,
+              height: 56,
               background: input.trim()
-                ? 'linear-gradient(135deg, #1a73e8 0%, #4285f4 100%)'
+                ? 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)'
                 : '#e8eaed',
-              color: input.trim() ? 'white' : '#5f6368',
+              color: input.trim() ? 'white' : '#9aa0a6',
               boxShadow: input.trim()
-                ? '0 2px 8px rgba(26, 115, 232, 0.3)'
+                ? '0 2px 8px rgba(27, 67, 50, 0.3)'
                 : 'none',
               '&:hover': {
                 background: input.trim()
-                  ? 'linear-gradient(135deg, #1557b0 0%, #1a73e8 100%)'
+                  ? 'linear-gradient(135deg, #081c15 0%, #1b4332 100%)'
                   : '#e8eaed',
-                transform: input.trim() ? 'translateY(-2px)' : 'none',
+                transform: input.trim() ? 'translateY(-2px) scale(1.05)' : 'none',
                 boxShadow: input.trim()
-                  ? '0 4px 12px rgba(26, 115, 232, 0.4)'
+                  ? '0 4px 12px rgba(27, 67, 50, 0.4)'
                   : 'none',
               },
               '&:active': {
-                transform: 'translateY(0)',
+                transform: 'translateY(0) scale(1)',
               },
               '&.Mui-disabled': {
                 background: '#e8eaed',
                 color: '#bdc1c6',
               },
-              borderRadius: '12px',
+              borderRadius: '16px',
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
-            <SendIcon fontSize="small" />
+            <SendIcon />
           </IconButton>
         </Box>
         <Typography
@@ -535,12 +544,12 @@ export default function ChatWindow() {
             alignItems: 'center',
             justifyContent: 'center',
             gap: 0.5,
-            mt: 1.5,
+            mt: 2,
             color: 'text.secondary',
-            fontSize: '0.75rem',
+            fontSize: '0.8125rem',
           }}
         >
-          <Box component="span" sx={{ fontSize: '1rem' }}>✨</Box>
+          <Box component="span" sx={{ fontSize: '1.1rem' }}>✨</Box>
           AI can make mistakes. Please verify important information.
         </Typography>
       </Box>
