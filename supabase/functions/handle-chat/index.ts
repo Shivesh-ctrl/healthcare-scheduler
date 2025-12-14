@@ -3113,8 +3113,8 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York
         daysToAdd += 7;
       }
       
-      // Calculate the target day number
-      const targetDayNum = dayNum + daysToAdd;
+      // Calculate the target day number (subtract 1 to fix the off-by-one issue)
+      const targetDayNum = dayNum + daysToAdd - 1;
       
       // Create the target date at noon UTC using the timezone-aware date components
       // Using noon avoids date boundary issues when converting between timezones
