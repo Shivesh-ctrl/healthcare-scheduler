@@ -39,24 +39,14 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    // Handle magic link callback - Supabase will automatically parse the hash
+    // Get current session
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-
-      // Clean up the URL hash if it contains auth tokens
-      if (window.location.hash && window.location.hash.includes('access_token')) {
-        // Replace the URL to remove the hash without reloading
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
     });
 
+    // Listen for auth state changes
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
-
-      // Also clean up hash on auth state change
-      if (window.location.hash && window.location.hash.includes('access_token')) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
     });
 
     return () => sub.subscription.unsubscribe();
