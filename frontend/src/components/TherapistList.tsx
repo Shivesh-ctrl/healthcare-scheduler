@@ -2,16 +2,17 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import {
   Box,
-  Paper,
-  Typography,
-  Chip,
-  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   CircularProgress,
   Button,
-  Card,
-  CardContent,
-  CardActions,
-  alpha
+  Chip,
+  IconButton,
+  Tooltip
 } from "@mui/material";
 import { 
   CheckCircle as CheckIcon,
@@ -135,148 +136,118 @@ export default function TherapistList() {
   }
 
   return (
-    <Grid container spacing={3}>
-      {therapists.map((therapist) => {
-        const isConnected = !!therapist.google_refresh_token;
-        
-        return (
-          <Grid item xs={12} sm={6} md={4} key={therapist.id}>
-            <Card
-              elevation={2}
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                borderRadius: 3,
-                background: isConnected
-                  ? `linear-gradient(135deg, ${alpha('#1e8e3e', 0.03)} 0%, ${alpha('#34a853', 0.03)} 100%)`
-                  : 'white',
-                border: '1px solid',
-                borderColor: isConnected ? alpha('#1e8e3e', 0.2) : alpha('#1b4332', 0.1),
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  boxShadow: '0px 8px 20px rgba(60, 64, 67, 0.15)',
-                  transform: 'translateY(-2px)',
-                }
-              }}
-            >
-              <CardContent sx={{ flexGrow: 1 }}>
-                {/* Header with name and status */}
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography 
-                    variant="h6" 
-                    sx={{ 
-                      fontWeight: 600,
-                      color: 'primary.main',
-                      flex: 1,
-                    }}
-                  >
-                    {therapist.name}
+    <TableContainer component={Box} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+      <Table sx={{ minWidth: 650 }} aria-label="therapists table">
+        <TableHead sx={{ bgcolor: 'background.default' }}>
+          <TableRow>
+            <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Bio</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Specialties</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Insurance</TableCell>
+            <TableCell sx={{ fontWeight: 600 }}>Calendar Status</TableCell>
+            <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {therapists.map((therapist) => {
+            const isConnected = !!therapist.google_refresh_token;
+            
+            return (
+              <TableRow 
+                key={therapist.id} 
+                sx={{ 
+                  '&:last-child td, &:last-child th': { border: 0 },
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                  }
+                }}
+              >
+                <TableCell component="th" scope="row" sx={{ fontWeight: 500 }}>
+                  {therapist.name}
+                </TableCell>
+                <TableCell sx={{ maxWidth: 300 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ 
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}>
+                    {therapist.bio || '-'}
                   </Typography>
-                  {isConnected && (
+                </TableCell>
+                <TableCell>
+                  {therapist.specialties && therapist.specialties.length > 0 ? (
+                    <Typography variant="body2">
+                      {therapist.specialties.slice(0, 3).join(', ')}
+                      {therapist.specialties.length > 3 && ` (+${therapist.specialties.length - 3})`}
+                    </Typography>
+                  ) : (
+                    '-'
+                  )}
+                </TableCell>
+                <TableCell>
+                  {therapist.accepted_insurance && therapist.accepted_insurance.length > 0 ? (
+                    <Typography variant="body2">
+                      {therapist.accepted_insurance.slice(0, 2).join(', ')}
+                      {therapist.accepted_insurance.length > 2 && ` (+${therapist.accepted_insurance.length - 2})`}
+                    </Typography>
+                  ) : (
+                    '-'
+                  )}
+                </TableCell>
+                <TableCell>
+                  {isConnected ? (
                     <Chip
                       icon={<CheckIcon />}
                       label="Connected"
                       color="success"
                       size="small"
-                      sx={{ ml: 1 }}
+                      variant="outlined"
+                    />
+                  ) : (
+                    <Chip
+                      label="Not Connected"
+                      size="small"
+                      variant="outlined"
                     />
                   )}
-                </Box>
-
-                {/* Bio */}
-                {therapist.bio && (
-                  <Typography 
-                    variant="body2" 
-                    color="text.secondary"
-                    sx={{ 
-                      mb: 2,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {therapist.bio}
-                  </Typography>
-                )}
-
-                {/* Specialties */}
-                {therapist.specialties && therapist.specialties.length > 0 && (
-                  <Box sx={{ mb: 1.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', mb: 0.5, display: 'block' }}>
-                      Specialties:
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {therapist.specialties.slice(0, 3).map((spec, idx) => (
-                        <Chip
-                          key={idx}
-                          label={spec}
-                          size="small"
-                          variant="outlined"
-                          sx={{ fontSize: '0.7rem', height: 20 }}
-                        />
-                      ))}
-                      {therapist.specialties.length > 3 && (
-                        <Chip
-                          label={`+${therapist.specialties.length - 3} more`}
-                          size="small"
-                          variant="outlined"
-                          sx={{ fontSize: '0.7rem', height: 20 }}
-                        />
-                      )}
-                    </Box>
-                  </Box>
-                )}
-
-                {/* Insurance */}
-                {therapist.accepted_insurance && therapist.accepted_insurance.length > 0 && (
-                  <Box>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', mb: 0.5, display: 'block' }}>
-                      Insurance:
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {therapist.accepted_insurance.slice(0, 3).join(', ')}
-                      {therapist.accepted_insurance.length > 3 && ` +${therapist.accepted_insurance.length - 3} more`}
-                    </Typography>
-                  </Box>
-                )}
-              </CardContent>
-
-              {/* Calendar Connection Action */}
-              <CardActions sx={{ pt: 0, pb: 2, px: 2 }}>
-                {isConnected ? (
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="error"
-                    onClick={() => handleDisconnectCalendar(therapist.id)}
-                    fullWidth
-                    startIcon={<LinkIcon />}
-                  >
-                    Disconnect Calendar
-                  </Button>
-                ) : (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => handleConnectCalendar(therapist.id)}
-                    disabled={connectingId === therapist.id}
-                    fullWidth
-                    startIcon={<CalendarIcon />}
-                    sx={{
-                      background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #081c15 0%, #1b4332 100%)',
-                      }
-                    }}
-                  >
-                    {connectingId === therapist.id ? 'Connecting...' : 'Connect Calendar'}
-                  </Button>
-                )}
-              </CardActions>
-            </Card>
-          </Grid>
-        );
-      })}
-    </Grid>
+                </TableCell>
+                <TableCell align="right">
+                  {isConnected ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      onClick={() => handleDisconnectCalendar(therapist.id)}
+                      startIcon={<LinkIcon />}
+                    >
+                      Disconnect
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => handleConnectCalendar(therapist.id)}
+                      disabled={connectingId === therapist.id}
+                      startIcon={<CalendarIcon />}
+                      sx={{
+                        background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #081c15 0%, #1b4332 100%)',
+                        }
+                      }}
+                    >
+                      {connectingId === therapist.id ? 'Connecting...' : 'Connect'}
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 

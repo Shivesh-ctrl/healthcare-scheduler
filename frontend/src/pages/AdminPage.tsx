@@ -154,41 +154,6 @@ export default function AdminPage() {
         </Button>
       </Box>
 
-      {/* All Therapists */}
-      <Paper 
-        elevation={2} 
-        sx={{ 
-          p: 4,
-          mb: 4,
-          borderRadius: 3,
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          '&:hover': {
-            boxShadow: '0px 8px 20px rgba(60, 64, 67, 0.15)',
-          }
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-          <PeopleIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-          <Typography 
-            variant="h5" 
-            sx={{ 
-              color: 'primary.main',
-              fontWeight: 600,
-            }}
-          >
-            All Therapists
-          </Typography>
-        </Box>
-        <Typography 
-          variant="body2" 
-          color="text.secondary" 
-          sx={{ mb: 3 }}
-        >
-          Manage calendar connections and view information for all therapists in the system.
-        </Typography>
-        <TherapistList />
-      </Paper>
-
       {/* Scheduled Appointments */}
       <Paper 
         elevation={2} 
