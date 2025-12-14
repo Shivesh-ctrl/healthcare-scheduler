@@ -11,11 +11,11 @@ serve(async (req) => {
   let therapistId = stateParam
   let redirectHost = Deno.env.get('SITE_URL') || 'https://ai-scheduler-oqbk.vercel.app'
   
-  if (stateParam.includes('|')) {
-    const [id, origin] = stateParam.split('|')
-    therapistId = id
-    if (origin) {
-      redirectHost = origin
+  if (stateParam && stateParam.includes('|')) {
+    const parts = stateParam.split('|')
+    therapistId = parts[0]
+    if (parts[1]) {
+      redirectHost = parts[1]
     }
   }
 
