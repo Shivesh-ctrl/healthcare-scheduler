@@ -3,7 +3,6 @@ import {
   Box,
   Container,
   Typography,
-  Button,
   Paper,
   alpha
 } from "@mui/material";
