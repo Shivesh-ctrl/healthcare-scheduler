@@ -380,7 +380,7 @@ Deno.serve(async (req) => {
       userMessage,
       conversationHistory = [],
       patientId = "anon-" + Date.now(),
-      timeZone = "Asia/Kolkata",
+      timeZone = "America/New_York",
     } = body;
 
     if (!userMessage) {
@@ -3001,7 +3001,7 @@ async function getOrCreateInquiry(supabase: any, patientId: string) {
   return newInquiry;
 }
 
-function parseFlexibleDate(dateStr: string, timeZone: string = "Asia/Kolkata"): Date {
+function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York"): Date {
   const str = dateStr.toLowerCase();
   // Get today's date in the specified timezone to avoid timezone shift issues
   const now = new Date();
@@ -3033,38 +3033,33 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "Asia/Kolkata"): 
   ];
   for (let i = 0; i < 7; i++) {
     if (str.includes(days[i])) {
-      // Simple approach: Get today's date components in the target timezone
+      // Get today's date in target timezone using a reliable method
       const now = new Date();
       
-      // Format current date in target timezone
-      const dateFormatter = new Intl.DateTimeFormat("en-CA", {
-        timeZone: timeZone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      });
-      const dateStr = dateFormatter.format(now); // Format: YYYY-MM-DD
+      // Get date string in YYYY-MM-DD format for the timezone
+      const dateStr = now.toLocaleDateString("en-CA", { timeZone });
       const [year, month, day] = dateStr.split('-').map(Number);
       
-      // Get current day of week in target timezone
-      const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
-        timeZone: timeZone,
-        weekday: "long",
-      });
-      const currentWeekday = weekdayFormatter.format(now).toLowerCase();
-      const currentDayIndex = days.findIndex(d => currentWeekday.includes(d));
-      const currentDay = currentDayIndex >= 0 ? currentDayIndex : now.getDay();
+      // Create a date object for today at noon in the timezone
+      // This avoids issues with date boundaries
+      const todayInTz = new Date(year, month - 1, day, 12, 0, 0, 0);
       
-      // Calculate days to add
-      const targetDay = i;
-      let daysToAdd = targetDay - currentDay;
+      // Get what day of week today is
+      const todayWeekday = todayInTz.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      
+      // Calculate days to add to reach target weekday
+      const targetDay = i; // 0 = Sunday, 1 = Monday, etc.
+      let daysToAdd = targetDay - todayWeekday;
+      
+      // If target day is today or in the past, go to next week
       if (daysToAdd <= 0) {
-        daysToAdd += 7; // Next occurrence
+        daysToAdd += 7;
       }
       
-      // Create target date in local time (not UTC) to avoid shifts
-      // Use the timezone's date components directly
+      // Create the target date
       const targetDate = new Date(year, month - 1, day + daysToAdd, 12, 0, 0, 0);
+      
+      console.log(`Date calc: today=${dateStr}, todayWeekday=${todayWeekday}, targetDay=${targetDay}, daysToAdd=${daysToAdd}, result=${targetDate.toISOString()}`);
       
       return targetDate;
     }
