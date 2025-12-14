@@ -11,7 +11,9 @@ import {
   CircularProgress,
   Button,
   Chip,
-  Typography
+  Typography,
+  IconButton,
+  Tooltip
 } from "@mui/material";
 import { 
   CheckCircle as CheckIcon,
@@ -196,21 +198,41 @@ export default function TherapistList() {
                   )}
                 </TableCell>
                 <TableCell>
-                  {isConnected ? (
-                    <Chip
-                      icon={<CheckIcon />}
-                      label="Connected"
-                      color="success"
-                      size="small"
-                      variant="outlined"
-                    />
-                  ) : (
-                    <Chip
-                      label="Not Connected"
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {isConnected ? (
+                      <>
+                        <Chip
+                          icon={<CheckIcon />}
+                          label="Connected"
+                          color="success"
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Tooltip title="View Google Calendar">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              window.open('https://calendar.google.com', '_blank');
+                            }}
+                            sx={{
+                              color: 'primary.main',
+                              '&:hover': {
+                                bgcolor: 'action.hover',
+                              }
+                            }}
+                          >
+                            <Typography sx={{ fontSize: '1.2rem' }}>📅</Typography>
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    ) : (
+                      <Chip
+                        label="Not Connected"
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
                 </TableCell>
                 <TableCell align="right">
                   {isConnected ? (
