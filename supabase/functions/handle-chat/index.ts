@@ -1574,8 +1574,15 @@ async function toolBookAppointment(
         if (tokenData.access_token) {
           const calendarId = adminTherapist.google_calendar_id || "primary";
 
-          // Format dateTime for Google Calendar in the user's timezone
-          const formatForTimezone = (date: Date, tz: string): string => {
+          // The startTimeISO and endTimeISO are in UTC, but represent local times
+          // We need to extract what the local time was intended to be
+          // The slot times are created with local hours (9 AM, 10 AM, etc.) in the timezone
+          // So we need to format the UTC date as if it's in the target timezone
+          const formatForGoogleCalendar = (utcISOString: string, tz: string): string => {
+            // Parse the UTC ISO string
+            const utcDate = new Date(utcISOString);
+            
+            // Format it in the target timezone to get the local time components
             const formatter = new Intl.DateTimeFormat("en-CA", {
               timeZone: tz,
               year: "numeric",
@@ -1586,15 +1593,28 @@ async function toolBookAppointment(
               second: "2-digit",
               hour12: false,
             });
-            const parts = formatter.formatToParts(date);
+            
+            const parts = formatter.formatToParts(utcDate);
             const year = parts.find(p => p.type === "year")?.value;
             const month = parts.find(p => p.type === "month")?.value;
             const day = parts.find(p => p.type === "day")?.value;
             const hour = parts.find(p => p.type === "hour")?.value;
             const minute = parts.find(p => p.type === "minute")?.value;
             const second = parts.find(p => p.type === "second")?.value;
+            
+            // Return in ISO format without timezone indicator
+            // Google Calendar will interpret this as local time in the specified timeZone
             return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
           };
+          
+          console.log(`📅 Creating Google Calendar event:`);
+          console.log(`   UTC startTime: ${startTimeISO}`);
+          console.log(`   UTC endTime: ${endTimeISO}`);
+          console.log(`   Target timezone: ${timeZone}`);
+          const formattedStart = formatForGoogleCalendar(startTimeISO, timeZone);
+          const formattedEnd = formatForGoogleCalendar(endTimeISO, timeZone);
+          console.log(`   Formatted start: ${formattedStart}`);
+          console.log(`   Formatted end: ${formattedEnd}`);
           
           // Create calendar event
           const eventBody = {
@@ -1602,11 +1622,11 @@ async function toolBookAppointment(
             description:
               `Appointment ID: ${appointment.id}\nTherapist: ${therapistName}\n\nBooked via Omi chatbot`,
             start: {
-              dateTime: formatForTimezone(new Date(startTimeISO), timeZone),
+              dateTime: formattedStart,
               timeZone: timeZone,
             },
             end: {
-              dateTime: formatForTimezone(new Date(endTimeISO), timeZone),
+              dateTime: formattedEnd,
               timeZone: timeZone,
             },
           };
