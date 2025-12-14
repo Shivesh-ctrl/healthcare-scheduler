@@ -3130,11 +3130,23 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York
         daysToAdd += 7;
       }
       
-      // Calculate the target day number (subtract 1 to fix off-by-one)
-      const targetDayNum = dayNum + daysToAdd - 1;
+      // Calculate the target day number - no subtraction needed, daysToAdd is correct
+      const targetDayNum = dayNum + daysToAdd;
       
-      // Create the target date at noon UTC using the timezone-aware date components
-      const targetDate = new Date(Date.UTC(year, month - 1, targetDayNum, 12, 0, 0, 0));
+      // Create a date in the local timezone first, then convert to UTC
+      // This prevents date shifting issues
+      const localTargetDate = new Date(year, month - 1, targetDayNum, 12, 0, 0, 0);
+      
+      // Now create UTC date from the local date components
+      const targetDate = new Date(Date.UTC(
+        localTargetDate.getFullYear(),
+        localTargetDate.getMonth(),
+        localTargetDate.getDate(),
+        12,
+        0,
+        0,
+        0
+      ));
       
       console.log(`Date calc: today=${dateStr} (${currentWeekdayName}), currentDay=${currentDay}, targetDay=${targetDay}, daysToAdd=${daysToAdd}, targetDayNum=${targetDayNum}, result=${targetDate.toISOString()}`);
       
