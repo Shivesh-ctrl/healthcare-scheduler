@@ -119,7 +119,7 @@ export default function App() {
         </AppBar>
 
         {/* Main Content */}
-        <Box component="main" sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <Box component="main" sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Routes>
             <Route path="/" element={<ChatPage />} />
             <Route path="/chat" element={<ChatPage />} />
