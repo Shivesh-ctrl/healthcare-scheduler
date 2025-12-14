@@ -9,36 +9,17 @@ import {
   Button, 
   Typography, 
   Paper, 
-  Container, 
-  Chip,
-  alpha
+  Container
 } from "@mui/material";
 import { 
   CalendarMonth as CalendarIcon,
-  CheckCircle as CheckIcon,
-  Link as LinkIcon,
   Logout as LogoutIcon,
   People as PeopleIcon
 } from "@mui/icons-material";
 
 export default function AdminPage() {
   const [session, setSession] = useState<any>(null);
-  const [therapist, setTherapist] = useState<any>(null);
 
-  async function getAdminData() {
-    if (!session) return;
-    try {
-      const { data, error } = await supabase.functions.invoke('get-admin-data');
-      if (error) throw error;
-
-      // Update therapist state if returned
-      if (data && data.therapist && data.therapist.length > 0) {
-        setTherapist(data.therapist[0]);
-      }
-    } catch (error) {
-      console.error("Error fetching admin data:", error);
-    }
-  }
 
   useEffect(() => {
     // Get current session
