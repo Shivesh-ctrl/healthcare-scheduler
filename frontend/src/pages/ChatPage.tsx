@@ -6,7 +6,7 @@ export default function ChatPage() {
     <Box 
       sx={{ 
         width: '100%',
-        height: 'calc(100vh - 128px)', // Full height minus header/footer
+        height: 'calc(100vh - 64px)', // Full height minus header only
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

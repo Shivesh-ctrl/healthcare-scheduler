@@ -130,53 +130,6 @@ export default function App() {
           </Container>
         </Box>
 
-        {/* Modern Footer */}
-        <Box
-          component="footer"
-          sx={{
-            py: 4,
-            mt: 4,
-            textAlign: 'center',
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-          }}
-        >
-          <Container maxWidth="lg">
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-              <AutoAwesomeIcon sx={{ color: '#1b4332', fontSize: 20 }} />
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  color: 'text.primary',
-                }}
-              >
-                Health Scheduler
-              </Typography>
-            </Box>
-            <Typography
-              variant="caption"
-              sx={{
-                color: 'text.secondary',
-                display: 'block',
-              }}
-            >
-              © {new Date().getFullYear()} Health Scheduler. Powered by AI. All rights reserved.
-            </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                color: 'text.secondary',
-                display: 'block',
-                mt: 0.5,
-                fontSize: '0.7rem',
-              }}
-            >
-              Your health journey, intelligently supported
-            </Typography>
-          </Container>
-        </Box>
       </Box>
     </ThemeProvider>
   );
