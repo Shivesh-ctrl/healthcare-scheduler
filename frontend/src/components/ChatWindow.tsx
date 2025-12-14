@@ -119,7 +119,7 @@ const formatBoldText = (text: string) => {
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([
-    { sender: "bot", text: "Hi there! 👋 I'm here to help you find the perfect therapist and schedule appointments. I know reaching out can feel like a big step, and I'm here to make it easier. What brings you here today?" }
+    { sender: "bot", text: "Hi there! 👋 I'm **Health Scheduler**, your friendly AI assistant. I'm here to help you find the perfect therapist and schedule appointments.\n\nI know reaching out can feel like a big step, and I'm here to make it easier. Here's what I can help you with:\n\n• **Find therapists** who specialize in what you're looking for\n• **Check availability** and see open time slots\n• **Schedule appointments** quickly and easily\n• **Answer questions** about insurance and coverage\n\nWhat brings you here today?" }
   ]);
   // Use a random ID per session for demo purposes, ensuring a fresh conversation on refresh
   const [patientId] = useState(`anon-${Math.random().toString(36).substring(7)}`);
