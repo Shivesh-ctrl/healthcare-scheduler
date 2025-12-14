@@ -7,11 +7,13 @@ import {
   Typography,
   Avatar,
   CircularProgress,
-  IconButton
+  IconButton,
+  alpha
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import PersonIcon from "@mui/icons-material/Person";
+import { AutoAwesome as AutoAwesomeIcon } from "@mui/icons-material";
 
 type Message = { sender: "user" | "bot"; text: string };
 
@@ -287,7 +289,7 @@ export default function ChatWindow() {
       sx={{
         width: '100%',
         maxWidth: 1200,
-        height: 750,
+        height: 900,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -327,6 +329,98 @@ export default function ChatWindow() {
           },
         }}
       >
+        {/* Hero Section Inside Chat Box */}
+        <Box 
+          sx={{ 
+            textAlign: 'center',
+            mb: 3,
+            position: 'relative',
+          }}
+        >
+          {/* Icon Badge */}
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 2.5,
+              py: 1,
+              mb: 2,
+              borderRadius: '24px',
+              bgcolor: alpha('#1b4332', 0.08),
+              border: `1px solid ${alpha('#1b4332', 0.2)}`,
+            }}
+          >
+            <AutoAwesomeIcon sx={{ color: '#1b4332', fontSize: 20 }} />
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                fontWeight: 600,
+                color: 'primary.main',
+                letterSpacing: '0.05em',
+                fontSize: '0.8rem',
+              }}
+            >
+              AI-POWERED ASSISTANT
+            </Typography>
+          </Box>
+
+          {/* Main Heading */}
+          <Typography 
+            variant="h4" 
+            component="h1" 
+            gutterBottom 
+            sx={{ 
+              fontWeight: 700,
+              color: 'text.primary',
+              mb: 1.5,
+              fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
+              lineHeight: 1.2,
+            }}
+          >
+            How can we{' '}
+            <Box
+              component="span"
+              sx={{
+                background: 'linear-gradient(135deg, #1b4332 0%, #40916c 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              help you
+            </Box>
+            {' '}today?
+          </Typography>
+
+          {/* Subtitle */}
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: 'text.secondary',
+              maxWidth: 600,
+              mx: 'auto',
+              fontSize: '0.9375rem',
+              lineHeight: 1.6,
+              mb: 1,
+            }}
+          >
+            Chat with our intelligent AI assistant to schedule therapy appointments,
+            check availability, or ask about insurance coverage.
+          </Typography>
+
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              color: 'text.secondary',
+              display: 'block',
+              fontSize: '0.8125rem',
+            }}
+          >
+            Fast • Secure • Confidential
+          </Typography>
+        </Box>
+
         {messages.map((m, i) => (
           <Box
             key={i}
