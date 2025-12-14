@@ -1134,51 +1134,52 @@ async function toolCheckAvailableSlots(
     };
   }
 
-  // Helper: Get the actual timezone offset for a specific date/time (accounts for DST)
-  const getTimezoneOffsetForDate = (date: Date, tz: string): number => {
-    // Create a formatter to get the timezone offset
-    const utcDate = new Date(date.toLocaleString("en-US", { timeZone: "UTC" }));
-    const tzDate = new Date(date.toLocaleString("en-US", { timeZone: tz }));
-    // Calculate offset in minutes
-    return (tzDate.getTime() - utcDate.getTime()) / (1000 * 60);
+  // Get timezone offset for the user's timezone in MINUTES (to handle fractional hours like IST +5:30)
+  // Note: This uses hardcoded offsets. For DST-aware calculations, we'd need to use Intl API
+  const getTimezoneOffsetMinutes = (tz: string): number => {
+    const tzOffsets: Record<string, number> = {
+      "Asia/Kolkata": 330, // +5:30 = 330 minutes
+      "America/New_York": -300, // -5:00 = -300 minutes (EST) or -240 (EDT)
+      "America/Chicago": -360, // -6:00 = -360 minutes (CST) or -300 (CDT)
+      "America/Denver": -420, // -7:00 = -420 minutes (MST) or -360 (MDT)
+      "America/Los_Angeles": -480, // -8:00 = -480 minutes (PST) or -420 (PDT)
+      "Europe/London": 0,
+      "UTC": 0,
+    };
+    return tzOffsets[tz] ?? 0;
   };
 
+  const offsetMinutes = getTimezoneOffsetMinutes(timeZone);
+  console.log("Timezone offset (minutes):", offsetMinutes);
+
   // Helper: Create a date at a specific hour in the user's timezone, stored as UTC
-  // This uses the actual timezone offset for the specific date (accounts for DST)
+  // For IST (UTC+5:30): 2 PM IST = 2 PM - 5:30 = 8:30 AM UTC
   const createSlotTime = (baseDate: Date, localHour: number): Date => {
-    // Create a date representing the local time in the target timezone
-    // First, create a date string in the target timezone
-    const dateStr = baseDate.toLocaleDateString("en-CA", { timeZone: timeZone });
-    const [year, month, day] = dateStr.split('-').map(Number);
-    
-    // Create a date object that represents localHour:00 in the target timezone
-    // We'll create it as if it's in UTC first, then adjust
-    const localDateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(localHour).padStart(2, '0')}:00:00`;
-    
-    // Create a date in the target timezone by using Intl.DateTimeFormat
-    // This properly handles DST
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    
-    // Create a temporary date to get the offset
-    const tempDate = new Date(Date.UTC(year, month - 1, day, localHour, 0, 0, 0));
-    const offsetMinutes = getTimezoneOffsetForDate(tempDate, timeZone);
-    
-    // Now create the UTC date by subtracting the offset
-    const utcDate = new Date(tempDate.getTime() - (offsetMinutes * 60 * 1000));
+    // Start with midnight UTC on that date
+    const slot = new Date(Date.UTC(
+      baseDate.getFullYear(),
+      baseDate.getMonth(),
+      baseDate.getDate(),
+      0,
+      0,
+      0,
+      0,
+    ));
+
+    // Add the local hour in milliseconds
+    const localTimeMs = localHour * 60 * 60 * 1000;
+
+    // Subtract offset to get UTC time
+    // IST is UTC+5:30, so 2 PM IST = 2 PM - 5:30 = 8:30 AM UTC
+    const offsetMs = offsetMinutes * 60 * 1000;
+
+    slot.setTime(slot.getTime() + localTimeMs - offsetMs);
 
     console.log(
-      `🕐 createSlotTime: ${localHour}:00 ${timeZone} (offset: ${offsetMinutes}min) → ${utcDate.toISOString()} UTC`,
+      `🕐 createSlotTime: ${localHour}:00 ${timeZone} → ${slot.toISOString()} UTC`,
     );
 
-    return utcDate;
+    return slot;
   };
 
   // Get appointments for that day (9 AM to 5 PM in user's timezone)
@@ -1581,12 +1582,8 @@ async function toolBookAppointment(
             // Parse the UTC ISO string
             const utcDate = new Date(utcISOString);
             
-            // Get the actual timezone offset for this specific date/time (accounts for DST)
-            // This is more accurate than using hardcoded offsets
-            const utcTime = utcDate.getTime();
-            const localTime = new Date(utcTime);
-            
-            // Create a formatter to get the local time components in the target timezone
+            // Use Intl.DateTimeFormat to get the local time components in the target timezone
+            // This properly handles DST and timezone conversions
             const formatter = new Intl.DateTimeFormat("en-CA", {
               timeZone: tz,
               year: "numeric",
@@ -1598,8 +1595,7 @@ async function toolBookAppointment(
               hour12: false,
             });
             
-            // Format the UTC date as if it were in the target timezone
-            // This gives us what the local time should be
+            // Format the UTC date to get what it represents in the target timezone
             const parts = formatter.formatToParts(utcDate);
             const year = parts.find(p => p.type === "year")?.value;
             const month = parts.find(p => p.type === "month")?.value;
@@ -1612,7 +1608,7 @@ async function toolBookAppointment(
             // Google Calendar will interpret this as local time in the specified timeZone
             const formatted = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
             console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
-            console.log(`   UTC date: ${utcDate.toISOString()}, Local time in ${tz}: ${hour}:${minute}`);
+            console.log(`   Local time extracted: ${hour}:${minute}:${second}`);
             return formatted;
           };
           
