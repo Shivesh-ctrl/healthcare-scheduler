@@ -901,6 +901,7 @@ async function executeTool(name: string, args: any, deps: any) {
         args,
         deps.inquiry,
         deps.authHeader,
+        deps.context.timeZone,
       );
 
     case "view_my_appointments":
@@ -1255,6 +1256,7 @@ async function toolBookAppointment(
   args: any,
   inquiry: any,
   authHeader: string,
+  timeZone: string = "America/New_York",
 ) {
   let { therapistId, startTime, endTime, problem } = args;
 
@@ -1572,18 +1574,40 @@ async function toolBookAppointment(
         if (tokenData.access_token) {
           const calendarId = adminTherapist.google_calendar_id || "primary";
 
+          // Format dateTime for Google Calendar in the user's timezone
+          const formatForTimezone = (date: Date, tz: string): string => {
+            const formatter = new Intl.DateTimeFormat("en-CA", {
+              timeZone: tz,
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            });
+            const parts = formatter.formatToParts(date);
+            const year = parts.find(p => p.type === "year")?.value;
+            const month = parts.find(p => p.type === "month")?.value;
+            const day = parts.find(p => p.type === "day")?.value;
+            const hour = parts.find(p => p.type === "hour")?.value;
+            const minute = parts.find(p => p.type === "minute")?.value;
+            const second = parts.find(p => p.type === "second")?.value;
+            return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+          };
+          
           // Create calendar event
           const eventBody = {
             summary: `Therapy Session with ${therapistName}`,
             description:
               `Appointment ID: ${appointment.id}\nTherapist: ${therapistName}\n\nBooked via Omi chatbot`,
             start: {
-              dateTime: startTimeISO,
-              timeZone: "Asia/Kolkata",
+              dateTime: formatForTimezone(new Date(startTimeISO), timeZone),
+              timeZone: timeZone,
             },
             end: {
-              dateTime: endTimeISO,
-              timeZone: "Asia/Kolkata",
+              dateTime: formatForTimezone(new Date(endTimeISO), timeZone),
+              timeZone: timeZone,
             },
           };
 
