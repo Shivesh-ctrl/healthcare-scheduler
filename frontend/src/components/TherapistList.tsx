@@ -113,9 +113,12 @@ export default function TherapistList() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const success = params.get('success');
-    const therapistId = params.get('state'); // We use state to pass therapist ID
-
-    if (success === 'true' && therapistId) {
+    const stateParam = params.get('state'); // Format: "therapistId|origin" or just "therapistId"
+    
+    if (success === 'true' && stateParam) {
+      // Extract therapist ID (before the | separator if present)
+      const therapistId = stateParam.includes('|') ? stateParam.split('|')[0] : stateParam;
+      
       window.history.replaceState({}, document.title, window.location.pathname);
       alert("Calendar connected successfully!");
       setConnectingId(null);
