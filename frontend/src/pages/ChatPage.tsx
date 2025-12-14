@@ -12,6 +12,7 @@ export default function ChatPage() {
         justifyContent: 'center',
         p: 2,
         boxSizing: 'border-box',
+        overflow: 'hidden', // Prevent page scrolling
       }}
     >
       <ChatWindow />

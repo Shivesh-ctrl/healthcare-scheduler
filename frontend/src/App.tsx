@@ -119,15 +119,13 @@ export default function App() {
         </AppBar>
 
         {/* Main Content */}
-        <Box component="main" sx={{ flexGrow: 1, py: 6 }}>
-          <Container maxWidth="lg">
-            <Routes>
-              <Route path="/" element={<ChatPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-              <Route path="/debug" element={<DebugPage />} />
-            </Routes>
-          </Container>
+        <Box component="main" sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <Routes>
+            <Route path="/" element={<ChatPage />} />
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/debug" element={<DebugPage />} />
+          </Routes>
         </Box>
 
       </Box>
