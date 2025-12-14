@@ -3044,7 +3044,8 @@ function parseFlexibleDate(dateStr: string): Date {
       if (daysToAdd <= 0) {
         daysToAdd += 7; // Next occurrence
       }
-      d.setDate(d.getDate() + daysToAdd);
+      // Add the days directly without using setDate to avoid timezone issues
+      d.setDate(day + daysToAdd);
       return d;
     }
   }
