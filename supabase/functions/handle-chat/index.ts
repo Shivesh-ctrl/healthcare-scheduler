@@ -3033,41 +3033,40 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "Asia/Kolkata"): 
   ];
   for (let i = 0; i < 7; i++) {
     if (str.includes(days[i])) {
-      // Get current date in the specified timezone
+      // Simple approach: Get today's date components in the target timezone
       const now = new Date();
-      const formatter = new Intl.DateTimeFormat("en-CA", {
+      
+      // Format current date in target timezone
+      const dateFormatter = new Intl.DateTimeFormat("en-CA", {
         timeZone: timeZone,
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
       });
-      const parts = formatter.formatToParts(now);
-      const year = parseInt(parts.find(p => p.type === "year")?.value || "2024");
-      const month = parseInt(parts.find(p => p.type === "month")?.value || "1") - 1;
-      const day = parseInt(parts.find(p => p.type === "day")?.value || "1");
+      const dateStr = dateFormatter.format(now); // Format: YYYY-MM-DD
+      const [year, month, day] = dateStr.split('-').map(Number);
       
-      // Create date object using UTC to avoid timezone shifts
-      const d = new Date(Date.UTC(year, month, day, 12, 0, 0, 0)); // Use noon UTC to avoid date boundary issues
-      
-      // Get the day of week in the target timezone
-      const dayFormatter = new Intl.DateTimeFormat("en-US", {
+      // Get current day of week in target timezone
+      const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
         timeZone: timeZone,
         weekday: "long",
       });
-      const currentDayName = dayFormatter.format(d).toLowerCase();
-      const currentDayIndex = days.findIndex(d => currentDayName.includes(d));
-      const currentDay = currentDayIndex >= 0 ? currentDayIndex : d.getUTCDay();
+      const currentWeekday = weekdayFormatter.format(now).toLowerCase();
+      const currentDayIndex = days.findIndex(d => currentWeekday.includes(d));
+      const currentDay = currentDayIndex >= 0 ? currentDayIndex : now.getDay();
       
+      // Calculate days to add
       const targetDay = i;
       let daysToAdd = targetDay - currentDay;
-      // If target day is today or in the past this week, go to next week
       if (daysToAdd <= 0) {
         daysToAdd += 7; // Next occurrence
       }
       
-      // Add days using UTC to avoid timezone shifts
-      d.setUTCDate(d.getUTCDate() + daysToAdd);
-      return d;
+      // Create target date in local time (not UTC) to avoid shifts
+      // Use the timezone's date components directly
+      const targetDate = new Date(year, month - 1, day + daysToAdd, 12, 0, 0, 0);
+      
+      return targetDate;
     }
   }
 
