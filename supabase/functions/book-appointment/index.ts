@@ -161,19 +161,47 @@ Deno.serve(async (req) => {
         // We use the Admin's calendar ID or 'primary'
         const calendarId = adminTherapist.google_calendar_id || "primary";
 
+        // Convert UTC ISO times to the user's timezone for Google Calendar
+        // This ensures the appointment shows at the correct local time (e.g., 9 AM IST, not 2:30 PM)
+        const startDate = new Date(startTime);
+        const endDate = new Date(endTime);
+        
+        // Format as ISO string without the Z (UTC indicator) and use the timezone
+        const formatForTimezone = (date: Date, tz: string): string => {
+          // Use Intl.DateTimeFormat to get the date components in the target timezone
+          const formatter = new Intl.DateTimeFormat("en-CA", {
+            timeZone: tz,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          });
+          
+          const parts = formatter.formatToParts(date);
+          const year = parts.find(p => p.type === "year")?.value;
+          const month = parts.find(p => p.type === "month")?.value;
+          const day = parts.find(p => p.type === "day")?.value;
+          const hour = parts.find(p => p.type === "hour")?.value;
+          const minute = parts.find(p => p.type === "minute")?.value;
+          const second = parts.find(p => p.type === "second")?.value;
+          
+          return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+        };
+        
         const eventBody = {
           summary: `Therapy Session: ${patientName || "Patient"}`,
           description:
             `Internal Therapist ID: ${therapistId}\nInquiry ID: ${inquiryId}\n\n(Routed to Admin Calendar)`,
           start: {
-            // startTime is already in UTC ISO format (e.g., 2026-03-02T08:30:00.000Z)
-            // So we tell Google it's UTC and it will display correctly in user's calendar timezone
-            dateTime: startTime,
-            timeZone: "UTC",
+            dateTime: formatForTimezone(startDate, timeZoneToUse),
+            timeZone: timeZoneToUse,
           },
           end: {
-            dateTime: endTime,
-            timeZone: "UTC",
+            dateTime: formatForTimezone(endDate, timeZoneToUse),
+            timeZone: timeZoneToUse,
           },
           reminders: {
             useDefault: false,
