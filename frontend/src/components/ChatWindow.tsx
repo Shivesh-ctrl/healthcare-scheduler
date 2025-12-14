@@ -82,6 +82,107 @@ const playReceiveSound = () => {
 // Legacy function name for backward compatibility
 const playPopSound = playReceiveSound;
 
+// Format message text with bold, bullet points, and proper formatting
+const formatMessage = (text: string) => {
+  const lines = text.split('\n');
+  const elements: JSX.Element[] = [];
+  let currentParagraph: string[] = [];
+  
+  const flushParagraph = () => {
+    if (currentParagraph.length > 0) {
+      const paragraphText = currentParagraph.join(' ');
+      elements.push(
+        <Box key={elements.length} component="div" sx={{ mb: 1.5, lineHeight: 1.7 }}>
+          {formatBoldText(paragraphText)}
+        </Box>
+      );
+      currentParagraph = [];
+    }
+  };
+  
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    
+    // Check if it's a numbered list item (1. 2. 3. etc.)
+    const numberedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+    if (numberedMatch) {
+      flushParagraph();
+      elements.push(
+        <Box key={elements.length} component="div" sx={{ mb: 1.5, display: 'flex', alignItems: 'flex-start' }}>
+          <Box component="span" sx={{ fontWeight: 700, mr: 1.5, minWidth: '24px' }}>
+            {numberedMatch[1]}.
+          </Box>
+          <Box component="span" sx={{ flex: 1 }}>
+            {formatBoldText(numberedMatch[2])}
+          </Box>
+        </Box>
+      );
+      return;
+    }
+    
+    // Check if it's a bullet point (- or •)
+    if (trimmed.match(/^[-•]\s+/)) {
+      flushParagraph();
+      const content = trimmed.replace(/^[-•]\s+/, '');
+      elements.push(
+        <Box key={elements.length} component="div" sx={{ mb: 1, pl: 2, position: 'relative' }}>
+          <Box component="span" sx={{ position: 'absolute', left: 0, fontWeight: 600 }}>•</Box>
+          <Box component="span">
+            {formatBoldText(content)}
+          </Box>
+        </Box>
+      );
+      return;
+    }
+    
+    // Empty line - flush current paragraph
+    if (trimmed === '') {
+      flushParagraph();
+      return;
+    }
+    
+    // Regular text - add to current paragraph
+    currentParagraph.push(trimmed);
+  });
+  
+  // Flush any remaining paragraph
+  flushParagraph();
+  
+  return (
+    <Box component="div">
+      {elements}
+    </Box>
+  );
+};
+
+// Format bold text (**text**)
+const formatBoldText = (text: string) => {
+  const parts: (string | JSX.Element)[] = [];
+  let currentIndex = 0;
+  const boldRegex = /\*\*(.+?)\*\*/g;
+  let match;
+  
+  while ((match = boldRegex.exec(text)) !== null) {
+    // Add text before bold
+    if (match.index > currentIndex) {
+      parts.push(text.substring(currentIndex, match.index));
+    }
+    // Add bold text
+    parts.push(
+      <Box key={match.index} component="span" sx={{ fontWeight: 700 }}>
+        {match[1]}
+      </Box>
+    );
+    currentIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (currentIndex < text.length) {
+    parts.push(text.substring(currentIndex));
+  }
+  
+  return parts.length > 0 ? parts : text;
+};
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([
@@ -456,14 +557,14 @@ export default function ChatWindow() {
             >
               <Typography
                 variant="body1"
+                component="div"
                 sx={{
-                  whiteSpace: 'pre-wrap',
                   lineHeight: 1.7,
                   fontSize: '1rem',
                   fontWeight: m.sender === "bot" ? 400 : 500,
                 }}
               >
-                {m.text}
+                {m.sender === "bot" ? formatMessage(m.text) : m.text}
               </Typography>
             </Paper>
 
