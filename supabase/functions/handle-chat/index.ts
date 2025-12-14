@@ -3033,33 +3033,42 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York
   ];
   for (let i = 0; i < 7; i++) {
     if (str.includes(days[i])) {
-      // Get today's date in target timezone using a reliable method
+      // Get today's date in target timezone
       const now = new Date();
       
-      // Get date string in YYYY-MM-DD format for the timezone
-      const dateStr = now.toLocaleDateString("en-CA", { timeZone });
-      const [year, month, day] = dateStr.split('-').map(Number);
+      // Get current date components in the target timezone
+      const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const dateStr = dateFormatter.format(now); // YYYY-MM-DD
+      const [year, month, dayNum] = dateStr.split('-').map(Number);
       
-      // Create a date object for today at noon in the timezone
-      // This avoids issues with date boundaries
-      const todayInTz = new Date(year, month - 1, day, 12, 0, 0, 0);
+      // Get current day of week in target timezone
+      const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: timeZone,
+        weekday: "long",
+      });
+      const currentWeekdayName = weekdayFormatter.format(now).toLowerCase();
+      const currentDayIndex = days.findIndex(d => currentWeekdayName.includes(d));
+      const currentDay = currentDayIndex >= 0 ? currentDayIndex : now.getDay();
       
-      // Get what day of week today is
-      const todayWeekday = todayInTz.getDay(); // 0 = Sunday, 1 = Monday, etc.
-      
-      // Calculate days to add to reach target weekday
+      // Calculate days to add
       const targetDay = i; // 0 = Sunday, 1 = Monday, etc.
-      let daysToAdd = targetDay - todayWeekday;
+      let daysToAdd = targetDay - currentDay;
       
       // If target day is today or in the past, go to next week
       if (daysToAdd <= 0) {
         daysToAdd += 7;
       }
       
-      // Create the target date
-      const targetDate = new Date(year, month - 1, day + daysToAdd, 12, 0, 0, 0);
+      // Create target date using UTC Date.UTC to avoid timezone shifts
+      // Use noon UTC to avoid date boundary issues
+      const targetDate = new Date(Date.UTC(year, month - 1, dayNum + daysToAdd, 12, 0, 0, 0));
       
-      console.log(`Date calc: today=${dateStr}, todayWeekday=${todayWeekday}, targetDay=${targetDay}, daysToAdd=${daysToAdd}, result=${targetDate.toISOString()}`);
+      console.log(`Date calc: today=${dateStr} (${currentWeekdayName}), currentDay=${currentDay}, targetDay=${targetDay}, daysToAdd=${daysToAdd}, result=${targetDate.toISOString()}`);
       
       return targetDate;
     }
