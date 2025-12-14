@@ -6,6 +6,24 @@ serve(async (req) => {
   const code = url.searchParams.get('code')
   const therapistId = url.searchParams.get('state') // We passed this earlier
   const error = url.searchParams.get('error')
+  
+  // Get the origin from referer header to redirect back to the correct host
+  const referer = req.headers.get('referer') || ''
+  let redirectHost = Deno.env.get('SITE_URL') || 'https://ai-scheduler-oqbk.vercel.app'
+  
+  // Try to extract origin from referer for localhost support
+  try {
+    if (referer) {
+      const refererUrl = new URL(referer)
+      // If it's localhost or 127.0.0.1, use it
+      if (refererUrl.hostname === 'localhost' || refererUrl.hostname === '127.0.0.1' || refererUrl.hostname.startsWith('localhost:')) {
+        redirectHost = `${refererUrl.protocol}//${refererUrl.host}`
+      }
+    }
+  } catch (e) {
+    // If parsing fails, use the default
+    console.log('Could not parse referer, using default:', redirectHost)
+  }
 
   if (error || !code || !therapistId) {
     return new Response(`Error: ${error || 'Missing code/state'}`, { status: 400 })
@@ -77,8 +95,7 @@ serve(async (req) => {
     console.log(`Updated rows:`, data);
 
     // 3. Redirect back to your React Admin App
-    const siteUrl = Deno.env.get('SITE_URL') || 'https://ai-scheduler-oqbk.vercel.app';
-    return Response.redirect(`${siteUrl}/admin?success=true&state=${therapistId}`, 302)
+    return Response.redirect(`${redirectHost}/admin?success=true&state=${therapistId}`, 302)
 
   } catch (err) {
     let errorMessage = 'An unknown error occurred';
