@@ -1,0 +1,3116 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🤖 KAI - YOUR FRIENDLY APPOINTMENT BOOKING ASSISTANT
+// ═══════════════════════════════════════════════════════════════════════════
+// Kai is a warm, empathetic, and intelligent assistant that helps users:
+// - Find the right therapist
+// - Book, view, cancel, and reschedule appointments
+// - Answer questions about insurance, availability, and therapist details
+// - Have natural, human-like conversations
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 📋 TOOL DEFINITIONS - What Kai can do
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TOOLS = {
+  function_declarations: [
+    {
+      name: "search_therapists",
+      description:
+        "Search for therapists by specialty, insurance, or general query. Use when user asks 'find me a therapist', 'who can help with X', 'show therapists', etc.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          specialty: {
+            type: "STRING",
+            description:
+              "Specialty area (anxiety, depression, PTSD, trauma, relationship issues, etc.)",
+          },
+          insurance: {
+            type: "STRING",
+            description: "Insurance provider name",
+          },
+          query: {
+            type: "STRING",
+            description: "General search query",
+          },
+        },
+      },
+    },
+    {
+      name: "get_therapist_details",
+      description:
+        "Get detailed information about a specific therapist. Use when user asks about a particular therapist by name.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          therapistName: {
+            type: "STRING",
+            description: "Name of the therapist",
+          },
+          therapistId: {
+            type: "STRING",
+            description: "ID of the therapist (if known)",
+          },
+        },
+      },
+    },
+    {
+      name: "check_available_slots",
+      description:
+        "Check what time slots are available for a therapist on a specific date. Use when user asks 'when is X available', 'what times work', etc.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          therapistId: { type: "STRING", description: "ID of the therapist" },
+          date: {
+            type: "STRING",
+            description:
+              "Date to check (today, tomorrow, YYYY-MM-DD, next Monday, etc.)",
+          },
+        },
+        required: ["therapistId", "date"],
+      },
+    },
+    {
+      name: "book_appointment",
+      description:
+        "Book an appointment. ONLY use after confirming user wants to book and slot is available.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          therapistId: { type: "STRING", description: "ID of the therapist" },
+          startTime: { type: "STRING", description: "ISO 8601 start time" },
+          endTime: { type: "STRING", description: "ISO 8601 end time" },
+          problem: { type: "STRING", description: "Reason for visit" },
+        },
+        required: ["therapistId", "startTime", "endTime"],
+      },
+    },
+    {
+      name: "view_my_appointments",
+      description:
+        "View user's appointments. Use when user asks 'when is my appointment', 'show my bookings', 'my schedule', etc.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          status: {
+            type: "STRING",
+            description:
+              "Filter: 'upcoming', 'past', or 'all'. Default: upcoming",
+          },
+        },
+      },
+    },
+    {
+      name: "cancel_appointment",
+      description:
+        "Cancel an appointment. Use when user says 'cancel my appointment'.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          appointmentId: {
+            type: "STRING",
+            description: "ID of appointment to cancel",
+          },
+        },
+        required: ["appointmentId"],
+      },
+    },
+    {
+      name: "reschedule_appointment",
+      description:
+        "Reschedule an existing appointment to a new time. Use when user says 'move my appointment', 'reschedule to'.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          appointmentId: {
+            type: "STRING",
+            description: "ID of appointment to reschedule",
+          },
+          newStartTime: {
+            type: "STRING",
+            description: "New ISO 8601 start time",
+          },
+          newEndTime: { type: "STRING", description: "New ISO 8601 end time" },
+        },
+        required: ["appointmentId", "newStartTime", "newEndTime"],
+      },
+    },
+    {
+      name: "list_accepted_insurance",
+      description:
+        "List all insurance providers we accept. Use when user asks 'what insurance do you accept' or 'do you take X insurance'.",
+      parameters: { type: "OBJECT", properties: {} },
+    },
+  ],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🔍 THERAPIST ID RESOLVER - Converts name/slug to UUID
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The AI sometimes passes therapist names or slugs instead of UUIDs.
+// This helper function handles all cases:
+// - Valid UUID: returns as-is
+// - Slug like "claudia-hernandez": extracts name and looks up in DB
+// - Partial name like "claudia": fuzzy matches against therapist list
+//
+async function resolveTherapistId(
+  supabase: any,
+  inputId: string,
+): Promise<{ id: string | null; name: string; error?: string }> {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  // Already a valid UUID
+  if (uuidRegex.test(inputId)) {
+    const { data: therapist } = await supabase
+      .from("therapists")
+      .select("id, name")
+      .eq("id", inputId)
+      .single();
+
+    return therapist
+      ? { id: therapist.id, name: therapist.name }
+      : { id: null, name: "", error: "Therapist not found" };
+  }
+
+  // Not a UUID - need to look up by name
+  console.log("🔍 Resolving therapist from:", inputId);
+
+  // Extract name from slug (e.g., "claudia-hernandez-lcpc" → "claudia hernandez")
+  const searchTerm = inputId
+    .replace(/-/g, " ")
+    .replace(/\b(lcpc|lcsw|lpc|lsw|phd|md|psyd|therapist)\b/gi, "")
+    .trim()
+    .toLowerCase();
+
+  // Get all therapists
+  const { data: therapists } = await supabase
+    .from("therapists")
+    .select("id, name")
+    .eq("is_active", true);
+
+  if (!therapists || therapists.length === 0) {
+    return { id: null, name: "", error: "No therapists available" };
+  }
+
+  // Find best match using multiple strategies
+  const match = therapists.find((t: any) => {
+    const fullName = t.name.toLowerCase();
+    const nameParts = fullName.split(/[\s,]+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts[1] : "";
+
+    // Strategy 1: Full name contains search term
+    if (fullName.includes(searchTerm)) return true;
+
+    // Strategy 2: Search term contains first name
+    if (searchTerm.includes(firstName)) return true;
+
+    // Strategy 3: Search term contains last name
+    if (lastName && searchTerm.includes(lastName)) return true;
+
+    // Strategy 4: First name matches first word of search
+    if (firstName === searchTerm.split(" ")[0]) return true;
+
+    // Strategy 5: Last name matches any word in search
+    if (lastName && searchTerm.split(" ").includes(lastName)) return true;
+
+    return false;
+  });
+
+  if (match) {
+    console.log("✅ Resolved therapist:", match.name, "→", match.id);
+    return { id: match.id, name: match.name };
+  }
+
+  console.error("❌ Could not resolve therapist from:", inputId);
+  return {
+    id: null,
+    name: "",
+    error: `Couldn't find therapist: ${searchTerm}`,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KAI'S PERSONALITY & SYSTEM PROMPT
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildSystemPrompt(context: {
+  patientId: string;
+  timeZone: string;
+  currentTime: string;
+}): string {
+  return `You are Kai, a warm, caring, and emotionally intelligent assistant for a therapy practice.
+
+YOUR CORE IDENTITY:
+You're like a supportive friend who happens to work at a therapy office. You genuinely care about people's wellbeing. Your job is to help people feel heard AND get connected with the right therapist.
+
+EMOTIONAL INTELLIGENCE (Most Important!):
+
+When someone shares something emotional (feeling depressed, anxious, stressed, etc):
+1. FIRST - Acknowledge and validate: "I'm really sorry you're going through this..." or "That sounds really difficult..."
+2. THEN - Normalize: "A lot of people feel this way, and it takes courage to reach out"
+3. FINALLY - Gently offer help: "I'd love to help you find someone to talk to..."
+
+NEVER jump straight to listing therapists when someone shares pain. Always acknowledge first.
+
+EXAMPLE RESPONSES:
+
+Bad (too transactional):
+User: "I've been really depressed lately"
+Bot: "Here are therapists who specialize in depression: 1. Dr. Smith..."
+
+Good (empathetic):
+User: "I've been really depressed lately"
+Bot: "I'm really sorry you're going through this. Depression can feel so heavy, and I want you to know that reaching out is a brave first step. 
+
+I'd love to help you find a therapist who specializes in this. Would you like me to show you a few options who might be a good fit?"
+
+CONVERSATIONAL STYLE:
+
+- Be warm and genuine, like a caring friend
+- Use contractions naturally: "I'd", "you're", "that's"
+- Show you're listening: "I hear you", "That makes sense"
+- Don't be robotic or overly formal
+- Use empathetic phrases: "I can imagine...", "That sounds tough..."
+- Ask permission before moving forward: "Would you like me to...?"
+
+SCHEDULING RULES (IMPORTANT - Know these BEFORE checking availability):
+
+- Working Days: Monday through Friday ONLY (no weekends)
+- Working Hours: 9:00 AM to 5:00 PM in the user's timezone
+
+DATE INFERENCE (Critical - NEVER ask for the year!):
+- You know the current date and time from the context provided above
+- When a user says "February 28th" or "March 15th" WITHOUT a year, ALWAYS assume the NEXT UPCOMING occurrence
+- Example: If today is December 2025 and user says "February 28th", that means February 28, 2026 - DON'T ASK!
+- Example: If today is March 2026 and user says "February 10th", that means February 10, 2027
+- NEVER ask "which year?" - it's always the next upcoming occurrence of that date
+- Use common sense: people book appointments for the future, not the past
+- Just proceed with checking availability using the inferred date
+
+WEEKEND VALIDATION:
+- When the user mentions a date, FIRST mentally check if it's a Saturday or Sunday
+- If the date is a weekend, IMMEDIATELY let them know: "I noticed [date] falls on a [Saturday/Sunday]. Our therapists are available Monday through Friday. Would you prefer the Friday before or the Monday after?"
+- DO NOT call check_available_slots for weekend dates - address it conversationally first
+- You can calculate the day of the week from the date and current context
+
+BOOKING FLOW (After emotional connection):
+
+1. Acknowledge feelings → Ask what they're experiencing (anxiety, depression, stress, etc.)
+2. Ask about insurance: "Do you have insurance you'd like to use? We accept Aetna, Blue Cross, Cigna, UnitedHealthcare, and more."
+3. User provides insurance (or says no insurance) → Show 3-4 therapist options who accept their insurance
+4. User picks one → "Great choice! Let me check when they're available..."
+5. When user suggests a date → VALIDATE it's a weekday BEFORE calling check_available_slots
+6. If weekday, show available times → "Does any of these work for you?"
+7. Book → Celebrate warmly: "You're all set! I'm really glad you're taking this step."
+
+INSURANCE INFORMATION:
+We accept: Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Humana, Kaiser Permanente, Medicare, Medicaid
+If user says "no insurance" or "self-pay" → Still show therapists, mention session rates if relevant.
+
+WHEN LISTING THERAPISTS:
+
+Instead of just listing, introduce them warmly:
+"I found a few therapists who could really help with what you're experiencing:
+
+1. **Sarah Chen** - She's wonderful with anxiety and has helped many people feel more grounded. 
+
+2. **David Park** - He specializes in depression and has a very calming, supportive approach.
+
+Any of these resonate with you?"
+
+CURRENT CONTEXT:
+Time: ${context.currentTime}
+Timezone: ${context.timeZone}  
+Patient ID: ${context.patientId}
+
+REMEMBER:
+- People reaching out for therapy are often vulnerable
+- Your warmth can make the difference between someone booking or giving up
+- Efficiency matters, but empathy matters more
+- You're not just a booking bot - you're often the first caring voice they encounter`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🚀 MAIN HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
+Deno.serve(async (req) => {
+  console.log("🤖 Kai Assistant Loaded - v2.0 (Database Schema Compatible)");
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    // Initialize Supabase client
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: req.headers.get("Authorization")! },
+        },
+      },
+    );
+
+    // Parse request
+    const body = await req.json();
+    const {
+      userMessage,
+      conversationHistory = [],
+      patientId = "anon-" + Date.now(),
+      timeZone = "Asia/Kolkata",
+    } = body;
+
+    if (!userMessage) {
+      return jsonResponse(
+        { success: false, error: "Message is required" },
+        400,
+      );
+    }
+
+    console.log(`📨 Message from ${patientId}: "${userMessage}"`);
+
+    // Get or create inquiry record
+    const inquiry = await getOrCreateInquiry(supabaseClient, patientId);
+
+    // Build context
+    const context = {
+      patientId,
+      timeZone,
+      currentTime: new Date().toLocaleString("en-US", { timeZone }),
+    };
+
+    // Attempt AI conversation with fallback
+    const result = await handleConversation({
+      supabaseClient,
+      userMessage,
+      conversationHistory,
+      context,
+      inquiry,
+      authHeader: req.headers.get("Authorization")!,
+    });
+
+    return jsonResponse(result);
+  } catch (error: any) {
+    console.error("❌ Fatal Error:", error);
+    return jsonResponse(
+      {
+        success: false,
+        error: "Something went wrong. Please try again.",
+        message:
+          "❤️ Sorry, I encountered an error. Could you try rephrasing that?",
+      },
+      500,
+    );
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🧠 CONVERSATION HANDLER - The brain of the operation
+// ─────────────────────────────────────────────────────────────────────────────
+async function handleConversation({
+  supabaseClient,
+  userMessage,
+  conversationHistory,
+  context,
+  inquiry,
+  authHeader,
+}: any) {
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
+
+  // LLM-only mode: Rely exclusively on AI conversation
+  if (!apiKey) {
+    return {
+      success: false,
+      message: "⚠️ AI service is not configured. Please contact support.",
+    };
+  }
+
+  try {
+    return await aiConversation({
+      supabaseClient,
+      userMessage,
+      conversationHistory,
+      context,
+      inquiry,
+      authHeader,
+      apiKey,
+    });
+  } catch (error: any) {
+    console.error("❌ AI conversation failed:", error);
+
+    // Return user-friendly error message when AI is unavailable
+    if (error?.message === "QUOTA_EXCEEDED") {
+      return {
+        success: true,
+        offlineMode: true,
+        message:
+          `⚠️ **I'm temporarily unavailable** due to high demand(API quota exceeded).
+
+Please try again in a few minutes. We apologize for the inconvenience.
+
+If you need immediate assistance:
+📞 Call us at: 1-800-XXX-XXXX
+📧 Email: support@example.com`,
+      };
+    }
+
+    // Generic AI error
+    return {
+      success: true,
+      offlineMode: true,
+      message: `⚠️ **I'm having trouble connecting right now.**
+
+Please try again in a moment. If the issue persists:
+📞 Call us at: 1-800-XXX-XXXX
+📧 Email: support@example.com`,
+    };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🧠 SMART CONTEXT EXTRACTOR - Understands what was discussed
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function extractConversationContext(
+  supabase: any,
+  conversationHistory: any[],
+  currentMessage: string,
+) {
+  // Combine all messages into one text for analysis
+  const allText = [
+    ...conversationHistory.map((m: any) => m.content || ""),
+    currentMessage,
+  ].join(" ").toLowerCase();
+
+  const extracted: any = {
+    selectedTherapist: null,
+    detectedProblem: null,
+    detectedInsurance: null,
+    requestedDate: null,
+    requestedTime: null,
+    conversationStage: "initial", // initial, exploring, therapist_selected, date_selected, booking
+  };
+
+  // ─── Detect Problem/Specialty ───
+  if (allText.includes("depress")) extracted.detectedProblem = "depression";
+  else if (allText.includes("anxi")) extracted.detectedProblem = "anxiety";
+  else if (allText.includes("trauma")) extracted.detectedProblem = "trauma";
+  else if (allText.includes("stress")) extracted.detectedProblem = "stress";
+  else if (allText.includes("relationship")) {
+    extracted.detectedProblem = "relationships";
+  } else if (allText.includes("grief") || allText.includes("loss")) {
+    extracted.detectedProblem = "grief";
+  }
+
+  // ─── Detect Insurance ───
+  const insuranceMap: Record<string, string> = {
+    "aetna": "Aetna",
+    "blue cross": "Blue Cross Blue Shield",
+    "cigna": "Cigna",
+    "united": "UnitedHealthcare",
+    "humana": "Humana",
+    "kaiser": "Kaiser Permanente",
+    "medicare": "Medicare",
+    "medicaid": "Medicaid",
+  };
+  for (const [key, value] of Object.entries(insuranceMap)) {
+    if (allText.includes(key)) {
+      extracted.detectedInsurance = value;
+      break;
+    }
+  }
+
+  // ─── Detect Selected Therapist ───
+  const { data: therapists } = await supabase
+    .from("therapists")
+    .select("id, name")
+    .eq("is_active", true);
+
+  if (therapists && therapists.length > 0) {
+    let bestMatch = null;
+    let lastMatchIndex = -1;
+
+    for (const t of therapists) {
+      const firstName = t.name.split(" ")[0].toLowerCase();
+      const lastName = t.name.split(" ")[1]?.toLowerCase().replace(/,.*/, "") ||
+        "";
+
+      // Check if therapist matches confirmed patterns
+      if (allText.includes(firstName) || allText.includes(lastName)) {
+        const confirmPatterns = [
+          // Direct confirmations
+          "works",
+          "fine",
+          "good",
+          "great",
+          "perfect",
+          "okay",
+          "ok",
+          "sounds good",
+          "looks good",
+          "looks fine",
+          "that one",
+          // Selection phrases
+          "book with",
+          "see " + firstName,
+          "choose",
+          "pick",
+          "select",
+          "chosen",
+          "selected",
+          "decided",
+          "prefer",
+          "go with",
+          "let's go",
+          "i'll take",
+          "i want",
+          // General affirmatives
+          "yes",
+          "yeah",
+          "yep",
+          "sure",
+          "please",
+          // Pronouns
+          "her",
+          "him",
+          "them",
+          "this one",
+        ];
+
+        const hasConfirmation = confirmPatterns.some((p) =>
+          allText.includes(p) && allText.includes(firstName)
+        );
+
+        if (hasConfirmation || allText.includes(t.name.toLowerCase())) {
+          // Find the LAST occurrence of their name in the text
+          const index1 = allText.lastIndexOf(firstName);
+          const index2 = allText.lastIndexOf(lastName);
+          const maxIndex = Math.max(index1, index2);
+
+          if (maxIndex > lastMatchIndex) {
+            lastMatchIndex = maxIndex;
+            bestMatch = t;
+          }
+        }
+      }
+    }
+
+    if (bestMatch) {
+      extracted.selectedTherapist = { id: bestMatch.id, name: bestMatch.name };
+      extracted.conversationStage = "therapist_selected";
+    }
+  }
+
+  // ─── Detect Conversation Stage ───
+  if (extracted.selectedTherapist) {
+    const msgLower = currentMessage.toLowerCase();
+
+    // Time patterns: "1:00 pm", "2pm", "10 am", "3:30pm"
+    const isTimePattern = /\b\d{1,2}(:\d{2})?\s*(am|pm)\b/i.test(msgLower);
+
+    // Date patterns: "26 dec", "dec 26", "26th", "tomorrow", "monday", etc.
+    // Exclude standalone numbers that could be times
+    const hasDateKeyword =
+      /\bjan|\bfeb|\bmar|\bapr|\bmay|\bjun|\bjul|\baug|\bsep|\boct|\bnov|\bdec|\btomorrow|\btoday|\bmonday|\btuesday|\bwednesday|\bthursday|\bfriday|\bsaturday|\bsunday/i
+        .test(msgLower);
+    const hasOrdinalDate = /\b\d{1,2}(st|nd|rd|th)\b/i.test(msgLower);
+    const isDatePattern = hasDateKeyword || hasOrdinalDate;
+
+    if (isTimePattern && !isDatePattern) {
+      // User is selecting a time (like "1:00 pm") - they've already given us a date
+      extracted.conversationStage = "time_selected";
+
+      // Extract the time
+      const timeMatch = msgLower.match(/\b(\d{1,2})(:\d{2})?\s*(am|pm)\b/i);
+      if (timeMatch) {
+        let hour = parseInt(timeMatch[1]);
+        const isPM = timeMatch[3].toLowerCase() === "pm";
+        if (isPM && hour < 12) hour += 12;
+        if (!isPM && hour === 12) hour = 0;
+        extracted.selectedTime = `${hour}:00`;
+      }
+    } else if (isDatePattern) {
+      // User mentioned a real date
+      extracted.conversationStage = "date_selected";
+
+      // Store the date for later use
+      const parsedDate = parseFlexibleDate(msgLower);
+      extracted.requestedDate = parsedDate.toISOString();
+    }
+  } else if (extracted.detectedProblem || extracted.detectedInsurance) {
+    extracted.conversationStage = "exploring";
+  }
+
+  console.log("📊 Extracted context:", extracted);
+  return extracted;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🤖 AI-POWERED CONVERSATION (Using Gemini)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function aiConversation({
+  supabaseClient,
+  userMessage,
+  conversationHistory,
+  context,
+  inquiry,
+  authHeader,
+  apiKey,
+}: any) {
+  const systemPrompt = buildSystemPrompt(context);
+
+  // Build conversation contents
+  const contents: any[] = conversationHistory.map((msg: any) => ({
+    role: msg.role === "assistant" ? "model" : "user",
+    parts: [{ text: msg.content }],
+  }));
+  contents.push({ role: "user", parts: [{ text: userMessage }] });
+
+  // FREE TIER OPTIMIZED: Use gemini-2.0-flash-001 which is available on v1beta
+  // See: https://ai.google.dev/gemini-api/docs/models/gemini
+  // Multi-model fallback strategy
+  // We try models in order of preference (latest/fastest first)
+  const MODELS = [
+    "gemini-2.5-flash", // Primary target
+  ];
+
+  let finalResponse = "";
+  let bookingResult: any = null;
+  let appointmentData: any = null;
+  const lastToolResults: any[] = []; // Track tool results for fallback
+
+  // Allow up to 4 turns: enough for tool call -> response -> tool call -> response
+  const MAX_TURNS = 4;
+
+  for (let turn = 0; turn < MAX_TURNS; turn++) {
+    try {
+      let responseData: any = null;
+      let usedModel = "";
+
+      // Try each model in sequence until one works
+      for (const model of MODELS) {
+        try {
+          const url =
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+          console.log(`🤖 Requesting AI response from ${model}...`);
+
+          const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents,
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              tools: [TOOLS],
+              generationConfig: {
+                temperature: 0.5,
+                topP: 0.8,
+                topK: 20,
+                maxOutputTokens: 1000,
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.warn(
+              `⚠️ Model ${model} failed (${response.status}):`,
+              errorText,
+            );
+
+            // Track quota exceeded specifically
+            if (response.status === 429) {
+              throw new Error("QUOTA_EXCEEDED");
+            }
+
+            continue; // Try next model
+          }
+
+          responseData = await response.json();
+          usedModel = model;
+          console.log(`✅ API call successful using ${model}`);
+          break; // Success! Exit model loop
+        } catch (innerError: any) {
+          console.warn(`⚠️ Error calling ${model}:`, innerError);
+          // If it's a quota error, rethrow immediately
+          if (innerError?.message === "QUOTA_EXCEEDED") {
+            throw innerError;
+          }
+          // Continue to next model
+        }
+      }
+
+      // If no model succeeded
+      if (!responseData) {
+        throw new Error("All AI models failed to respond");
+      }
+
+      const candidate = responseData.candidates?.[0];
+      const parts = candidate?.content?.parts || [];
+
+      // Check for function calls
+      const functionCalls = parts.filter((p: any) => p.functionCall);
+      const textParts = parts.filter((p: any) => p.text).map((p: any) => p.text)
+        .join("");
+
+      if (functionCalls.length > 0) {
+        // Execute tools (this doesn't use API quota)
+        console.log(`🔧 Executing ${functionCalls.length} tool(s)`);
+        contents.push({ role: "model", parts });
+
+        const toolResponses = [];
+        for (const fc of functionCalls) {
+          const { name, args } = fc.functionCall;
+          let result: any = { error: "Unknown tool" };
+
+          try {
+            result = await executeTool(name, args, {
+              supabaseClient,
+              context,
+              inquiry,
+              authHeader,
+            });
+
+            // Track for fallback
+            lastToolResults.push({ tool: name, result });
+
+            // Track booking results
+            if (name === "book_appointment" && result.success) {
+              bookingResult = result;
+              appointmentData = result.appointment;
+            }
+          } catch (error: any) {
+            console.error(`Tool ${name} error:`, error);
+            result = { error: error.message };
+          }
+
+          toolResponses.push({
+            functionResponse: {
+              name,
+              response: { content: result },
+            },
+          });
+        }
+
+        contents.push({ role: "function", parts: toolResponses });
+        // Continue to next turn to get AI's response to tool results
+      } else {
+        // Got final text response - we're done!
+        finalResponse = textParts;
+        break;
+      }
+    } catch (error: any) {
+      console.warn(`⚠️ Turn ${turn + 1} failed:`, error.message);
+      // Immediately fall back to rule-based (don't waste more quota!)
+      throw error;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // SMART FALLBACK: Generate response from tool results if AI didn't respond
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (!finalResponse && lastToolResults.length > 0) {
+    console.log("⚠️ AI didn't generate text, using tool results for response");
+
+    for (const { tool, result } of lastToolResults) {
+      if (tool === "check_available_slots" && result.availableSlots) {
+        const slots = result.availableSlots.slice(0, 5);
+        const slotList = slots.map((s: any, i: number) =>
+          `${i + 1}. ${s.displayTime}`
+        ).join("\n");
+
+        finalResponse =
+          `I found ${result.count} available times on ${result.date}:\n\n${slotList}\n\nWhich time works best for you?`;
+      } else if (tool === "search_therapists" && result.therapists) {
+        const therapists = result.therapists.slice(0, 3);
+        const list = therapists.map((t: any, i: number) => {
+          const specs = Array.isArray(t.specialties)
+            ? t.specialties.slice(0, 2).join(", ")
+            : "General";
+          return `${i + 1}. **${t.name}** - Specializes in ${specs}`;
+        }).join("\n\n");
+
+        finalResponse =
+          `Here are some therapists who might be a good fit:\n\n${list}\n\nWhich one would you like to learn more about?`;
+      } else if (tool === "book_appointment" && result.success) {
+        finalResponse = result.confirmationMessage ||
+          `Your appointment has been booked successfully! ${result.message}`;
+      }
+    }
+  }
+
+  return {
+    success: true,
+    message: finalResponse ||
+      "I'm here to help you schedule an appointment. Could you tell me which therapist you'd like to see, or would you like me to show you our available therapists?",
+    aiResponse: finalResponse,
+    nextAction: bookingResult ? "booked" : "awaiting-info",
+    inquiryId: inquiry.id,
+    appointment: appointmentData,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🔧 TOOL EXECUTOR - Routes to the right handler
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function executeTool(name: string, args: any, deps: any) {
+  console.log(`🔧 Tool: ${name}`, args);
+
+  switch (name) {
+    case "search_therapists":
+      return await toolSearchTherapists(deps.supabaseClient, args);
+
+    case "get_therapist_details":
+      return await toolGetTherapistDetails(deps.supabaseClient, args);
+
+    case "check_available_slots":
+      return await toolCheckAvailableSlots(
+        deps.supabaseClient,
+        args,
+        deps.context.timeZone,
+      );
+
+    case "book_appointment":
+      return await toolBookAppointment(
+        deps.supabaseClient,
+        args,
+        deps.inquiry,
+        deps.authHeader,
+      );
+
+    case "view_my_appointments":
+      return await toolViewMyAppointments(
+        deps.supabaseClient,
+        deps.context.patientId,
+        args,
+        deps.context.timeZone,
+      );
+
+    case "cancel_appointment":
+      return await toolCancelAppointment(
+        deps.supabaseClient,
+        args,
+        deps.authHeader,
+      );
+
+    case "reschedule_appointment":
+      return await toolRescheduleAppointment(
+        deps.supabaseClient,
+        args,
+        deps.context.timeZone,
+      );
+
+    case "list_accepted_insurance":
+      return toolListInsurance();
+
+    default:
+      return { error: `Unknown tool: ${name}` };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🛠️ TOOL IMPLEMENTATIONS - Database Schema Compatible
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function toolSearchTherapists(supabase: any, args: any) {
+  const { specialty, insurance, query } = args;
+
+  // Start with all active therapists
+  let therapists: any[] = [];
+
+  const { data, error } = await supabase
+    .from("therapists")
+    .select("id, name, bio, specialties, accepted_insurance")
+    .eq("is_active", true);
+
+  if (error) {
+    console.error("DB error:", error);
+    return { error: "Couldn't fetch therapists" };
+  }
+
+  therapists = data || [];
+  const allTherapists = [...therapists]; // Keep a copy of all therapists
+
+  // Filter by specialty
+  if (specialty) {
+    const spec = specialty.toLowerCase();
+    therapists = therapists.filter((t: any) =>
+      t.specialties &&
+      JSON.stringify(t.specialties).toLowerCase().includes(spec)
+    );
+  }
+
+  // Filter by insurance
+  if (insurance) {
+    const ins = insurance.toLowerCase();
+    therapists = therapists.filter((t: any) =>
+      t.accepted_insurance &&
+      JSON.stringify(t.accepted_insurance).toLowerCase().includes(ins)
+    );
+  }
+
+  // Filter by general query
+  if (query) {
+    const q = query.toLowerCase();
+    therapists = therapists.filter((t: any) =>
+      (t.name && t.name.toLowerCase().includes(q)) ||
+      (t.bio && t.bio.toLowerCase().includes(q)) ||
+      (t.specialties && JSON.stringify(t.specialties).toLowerCase().includes(q))
+    );
+  }
+
+  // If filters yielded no results, return all therapists instead of empty
+  // This ensures users always get therapist options
+  if (therapists.length === 0 && allTherapists.length > 0) {
+    console.log("⚠️ No exact matches found, returning all therapists");
+    therapists = allTherapists;
+  }
+
+  return {
+    count: therapists.length,
+    therapists: therapists.slice(0, 10).map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      bio: t.bio?.substring(0, 150) + "...",
+      specialties: t.specialties,
+      insurance: t.accepted_insurance,
+    })),
+  };
+}
+
+async function toolGetTherapistDetails(supabase: any, args: any) {
+  const { therapistId, therapistName } = args;
+
+  let query = supabase
+    .from("therapists")
+    .select("id, name, bio, specialties, accepted_insurance, is_active");
+
+  if (therapistId) {
+    query = query.eq("id", therapistId);
+  } else if (therapistName) {
+    query = query.ilike("name", `%${therapistName}%`);
+  } else {
+    return { error: "Need therapist ID or name" };
+  }
+
+  const { data, error } = await query.single();
+
+  if (error || !data) {
+    return { found: false, message: "Therapist not found" };
+  }
+
+  return {
+    found: true,
+    therapist: {
+      id: data.id,
+      name: data.name,
+      bio: data.bio,
+      specialties: data.specialties,
+      acceptedInsurance: data.accepted_insurance,
+    },
+  };
+}
+
+async function toolCheckAvailableSlots(
+  supabase: any,
+  args: any,
+  timeZone: string,
+) {
+  const { therapistId: inputId, date } = args;
+
+  console.log("=== CHECK AVAILABILITY ===");
+  console.log("Input ID:", inputId);
+  console.log("Date:", date);
+  console.log("User Timezone:", timeZone);
+
+  // Resolve therapist ID (handles UUIDs, names, and slugs)
+  const resolved = await resolveTherapistId(supabase, inputId);
+
+  if (!resolved.id) {
+    return {
+      error: resolved.error || "Couldn't find that therapist",
+      availableSlots: [],
+    };
+  }
+
+  const therapistId = resolved.id;
+  const therapistName = resolved.name;
+  console.log("Resolved to:", therapistName, "→", therapistId);
+
+  // Parse date
+  let targetDate = parseFlexibleDate(date);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // WEEKEND VALIDATION - Check BEFORE suggesting time slots
+  // ─────────────────────────────────────────────────────────────────────────────
+  const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 6 = Saturday
+  const dayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+  if (isWeekend) {
+    const formattedDate = targetDate.toLocaleDateString("en-US", {
+      timeZone,
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    // Calculate the next Monday
+    const nextMonday = new Date(targetDate);
+    const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek); // Sunday = 1 day, Saturday = 2 days
+    nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+    const nextMondayFormatted = nextMonday.toLocaleDateString("en-US", {
+      timeZone,
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Calculate the previous Friday
+    const prevFriday = new Date(targetDate);
+    const daysSinceFriday = dayOfWeek === 0 ? 2 : 1; // Sunday = 2 days back, Saturday = 1 day back
+    prevFriday.setDate(prevFriday.getDate() - daysSinceFriday);
+    const prevFridayFormatted = prevFriday.toLocaleDateString("en-US", {
+      timeZone,
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+
+    console.log(
+      `⚠️ Weekend date detected: ${formattedDate} is a ${dayNames[dayOfWeek]}`,
+    );
+
+    return {
+      therapistId: therapistId,
+      therapistName: therapistName,
+      date: formattedDate,
+      isWeekend: true,
+      dayOfWeek: dayNames[dayOfWeek],
+      availableSlots: [],
+      count: 0,
+      suggestedAlternatives: {
+        previousFriday: prevFridayFormatted,
+        nextMonday: nextMondayFormatted,
+      },
+      message: `${formattedDate} falls on a ${
+        dayNames[dayOfWeek]
+      }. Our therapists are available Monday through Friday, 9 AM to 5 PM. Would you prefer ${prevFridayFormatted} or ${nextMondayFormatted} instead?`,
+    };
+  }
+
+  // Get timezone offset for the user's timezone in MINUTES (to handle fractional hours like IST +5:30)
+  const getTimezoneOffsetMinutes = (tz: string): number => {
+    const tzOffsets: Record<string, number> = {
+      "Asia/Kolkata": 330, // +5:30 = 330 minutes
+      "America/New_York": -300, // -5:00 = -300 minutes
+      "America/Chicago": -360, // -6:00 = -360 minutes
+      "America/Denver": -420, // -7:00 = -420 minutes
+      "America/Los_Angeles": -480, // -8:00 = -480 minutes
+      "Europe/London": 0,
+      "UTC": 0,
+    };
+    return tzOffsets[tz] ?? 0;
+  };
+
+  const offsetMinutes = getTimezoneOffsetMinutes(timeZone);
+  console.log("Timezone offset (minutes):", offsetMinutes);
+
+  // Helper: Create a date at a specific hour in the user's timezone, stored as UTC
+  // For IST (UTC+5:30): 2 PM IST = 2 PM - 5:30 = 8:30 AM UTC
+  const createSlotTime = (baseDate: Date, localHour: number): Date => {
+    // Start with midnight UTC on that date
+    const slot = new Date(Date.UTC(
+      baseDate.getFullYear(),
+      baseDate.getMonth(),
+      baseDate.getDate(),
+      0,
+      0,
+      0,
+      0,
+    ));
+
+    // Add the local hour in milliseconds
+    const localTimeMs = localHour * 60 * 60 * 1000;
+
+    // Subtract offset to get UTC time
+    // IST is UTC+5:30, so 2 PM IST = 2 PM - 5:30 = 8:30 AM UTC
+    const offsetMs = offsetMinutes * 60 * 1000;
+
+    slot.setTime(slot.getTime() + localTimeMs - offsetMs);
+
+    console.log(
+      `🕐 createSlotTime: ${localHour}:00 ${timeZone} → ${slot.toISOString()} UTC`,
+    );
+
+    return slot;
+  };
+
+  // Get appointments for that day (9 AM to 5 PM in user's timezone)
+  const dayStart = createSlotTime(targetDate, 9);
+  const dayEnd = createSlotTime(targetDate, 17);
+
+  const { data: appointments } = await supabase
+    .from("appointments")
+    .select("start_time, end_time")
+    .eq("therapist_id", therapistId)
+    .gte("start_time", dayStart.toISOString())
+    .lte("end_time", dayEnd.toISOString());
+
+  // Generate hourly slots from 9 AM to 5 PM in USER'S TIMEZONE
+  const slots: any[] = [];
+  for (let hour = 9; hour < 17; hour++) {
+    const slotStart = createSlotTime(targetDate, hour);
+    const slotEnd = createSlotTime(targetDate, hour + 1);
+
+    const isBooked = (appointments || []).some((apt: any) => {
+      const aptStart = new Date(apt.start_time);
+      const aptEnd = new Date(apt.end_time);
+      return slotStart < aptEnd && slotEnd > aptStart;
+    });
+
+    const isPast = slotStart < new Date();
+
+    if (!isBooked && !isPast) {
+      slots.push({
+        startTime: slotStart.toISOString(),
+        endTime: slotEnd.toISOString(),
+        displayTime: `${hour > 12 ? hour - 12 : hour}:00 ${
+          hour >= 12 ? "PM" : "AM"
+        }`,
+        localHour: hour, // Store the user's local hour for reference
+      });
+    }
+  }
+
+  console.log("Found slots:", slots.length);
+
+  return {
+    therapistId: therapistId, // Include for easy booking
+    date: targetDate.toLocaleDateString("en-US", {
+      timeZone,
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    }),
+    availableSlots: slots,
+    count: slots.length,
+    message: slots.length > 0
+      ? `Found ${slots.length} available slots`
+      : "No slots available that day",
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 📅 BOOK APPOINTMENT - The main booking function
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// This function handles the complete appointment booking flow:
+// 1. Validates all inputs (therapist ID, time, inquiry)
+// 2. Resolves therapist ID (handles both UUID and name-based lookups)
+// 3. Validates working hours (9 AM - 5 PM)
+// 4. Prevents double-booking
+// 5. Creates the appointment
+// 6. Updates the inquiry record
+// 7. Returns success with appointment details
+//
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function toolBookAppointment(
+  supabase: any,
+  args: any,
+  inquiry: any,
+  authHeader: string,
+) {
+  let { therapistId, startTime, endTime, problem } = args;
+
+  console.log("═══════════════════════════════════════════════════");
+  console.log("📅 BOOKING APPOINTMENT");
+  console.log("═══════════════════════════════════════════════════");
+  console.log(
+    "Input:",
+    JSON.stringify({ therapistId, startTime, endTime, problem }),
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 1: Basic input validation
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  if (!therapistId) {
+    return {
+      success: false,
+      error:
+        "I need to know which therapist you'd like to book with. Could you select one from the list?",
+    };
+  }
+
+  if (!startTime) {
+    return {
+      success: false,
+      error:
+        "I need a time for the appointment. When would you like to schedule?",
+    };
+  }
+
+  if (!inquiry?.id) {
+    console.error("ERROR: Missing inquiry context");
+    return {
+      success: false,
+      error: "Session error - please refresh and try again.",
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 2: Resolve therapist ID (handle name-based lookups)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  let therapistName = "";
+
+  if (!uuidRegex.test(therapistId)) {
+    console.log("🔍 Therapist ID is not a UUID, searching by name...");
+
+    // Extract name from slug or use as-is
+    const searchTerm = therapistId
+      .replace(/-/g, " ")
+      .replace(/\b(lcpc|lcsw|lpc|lsw|phd|md|psyd|therapist)\b/gi, "")
+      .trim()
+      .toLowerCase();
+
+    const { data: therapists } = await supabase
+      .from("therapists")
+      .select("id, name")
+      .eq("is_active", true);
+
+    if (!therapists || therapists.length === 0) {
+      return {
+        success: false,
+        error: "No therapists are currently available. Please try again later.",
+      };
+    }
+
+    // Find best match
+    const match = therapists.find((t: any) => {
+      const name = t.name.toLowerCase();
+      const firstName = name.split(" ")[0];
+      const lastName = name.split(" ").slice(-1)[0].replace(/,.*/, ""); // Handle "Name, LCPC"
+
+      return name.includes(searchTerm) ||
+        searchTerm.includes(firstName) ||
+        searchTerm.includes(lastName) ||
+        firstName === searchTerm.split(" ")[0];
+    });
+
+    if (match) {
+      console.log("✅ Found therapist:", match.name, "→", match.id);
+      therapistId = match.id;
+      therapistName = match.name;
+    } else {
+      console.error("❌ No therapist found for:", searchTerm);
+      return {
+        success: false,
+        error:
+          `I couldn't find "${searchTerm}" in our system. Would you like to see the list of available therapists?`,
+      };
+    }
+  } else {
+    // Valid UUID - fetch therapist name
+    const { data: therapist } = await supabase
+      .from("therapists")
+      .select("name")
+      .eq("id", therapistId)
+      .single();
+
+    if (therapist) {
+      therapistName = therapist.name;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 3: Parse and validate appointment time
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const start = new Date(startTime);
+  const now = new Date();
+
+  // Invalid date format
+  if (isNaN(start.getTime())) {
+    return {
+      success: false,
+      error:
+        "I couldn't understand that time. Could you try again? For example: 'tomorrow at 2pm' or '10:00 AM'",
+    };
+  }
+
+  // Can't book in the past
+  if (start < now) {
+    return {
+      success: false,
+      error:
+        "That time has already passed. Would you like to book for a later time today or another day?",
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 4: Working hours validation (9 AM - 5 PM)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const hour = start.getHours();
+  const dayOfWeek = start.getDay(); // 0 = Sunday, 6 = Saturday
+
+  // Weekend check
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return {
+      success: false,
+      error:
+        "We're closed on weekends. Would you like to book for Monday or another weekday?",
+    };
+  }
+
+  // Before opening hours (9 AM)
+  if (hour < 9) {
+    return {
+      success: false,
+      error:
+        "Our earliest appointments are at 9 AM. Would you like to book for 9 AM instead?",
+    };
+  }
+
+  // After closing hours (5 PM is the last slot start, 6 PM is closing)
+  if (hour >= 17) {
+    return {
+      success: false,
+      error:
+        "Our last appointments are at 4 PM. Would you like to book for 4 PM or try another day?",
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 5: Calculate end time (1 hour sessions by default)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const end = endTime
+    ? new Date(endTime)
+    : new Date(start.getTime() + 60 * 60 * 1000);
+  const startTimeISO = start.toISOString();
+  const endTimeISO = end.toISOString();
+
+  // Ensure session doesn't go past 6 PM
+  if (end.getHours() > 18 || (end.getHours() === 18 && end.getMinutes() > 0)) {
+    return {
+      success: false,
+      error:
+        "That session would run past our closing time (5 PM). Would you like an earlier time slot?",
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 6: Double-booking prevention
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  console.log("🔍 Checking for scheduling conflicts...");
+
+  const { data: conflicts, error: conflictError } = await supabase
+    .from("appointments")
+    .select("id, start_time")
+    .eq("therapist_id", therapistId)
+    .neq("status", "cancelled")
+    .lt("start_time", endTimeISO)
+    .gt("end_time", startTimeISO);
+
+  if (conflictError) {
+    console.error("Conflict check failed:", conflictError);
+    // Continue anyway - better to attempt booking than fail silently
+  }
+
+  if (conflicts && conflicts.length > 0) {
+    console.log("❌ Conflict detected:", conflicts);
+    return {
+      success: false,
+      error: `That time slot is already booked. Would you like me to show you ${
+        therapistName || "the therapist"
+      }'s available times?`,
+    };
+  }
+
+  console.log("✅ No conflicts found!");
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 7: Create the appointment
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const appointmentData = {
+    inquiry_id: inquiry.id,
+    therapist_id: therapistId,
+    start_time: startTimeISO,
+    end_time: endTimeISO,
+    status: "scheduled",
+  };
+
+  console.log("📝 Creating appointment:", appointmentData);
+
+  const { data: appointment, error: bookingError } = await supabase
+    .from("appointments")
+    .insert(appointmentData)
+    .select(`
+      id,
+      start_time,
+      end_time,
+      status,
+      therapists (id, name, google_refresh_token)
+    `)
+    .single();
+
+  if (bookingError) {
+    console.error("❌ Booking failed:", bookingError);
+
+    // Provide helpful error messages based on error type
+    if (bookingError.code === "23503") {
+      return {
+        success: false,
+        error: "Session error - please refresh and try again.",
+      };
+    }
+    if (bookingError.code === "23505") {
+      return {
+        success: false,
+        error: "This slot was just taken. Would you like to try another time?",
+      };
+    }
+
+    return {
+      success: false,
+      error: "Something went wrong while booking. Please try again.",
+    };
+  }
+
+  console.log("═══════════════════════════════════════════════════");
+  console.log("✅ BOOKING SUCCESSFUL!");
+  console.log("═══════════════════════════════════════════════════");
+  console.log("Appointment ID:", appointment.id);
+  console.log("Therapist:", appointment.therapists?.name);
+  console.log("Time:", appointment.start_time, "-", appointment.end_time);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 8: Sync to Google Calendar (if admin has connected calendar)
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  let googleCalendarEventId: string | null = null;
+  let googleCalendarError: string | null = null;
+
+  // Find admin calendar (any therapist with a connected Google refresh token)
+  const { data: adminTherapist } = await supabase
+    .from("therapists")
+    .select("id, name, google_refresh_token, google_calendar_id")
+    .not("google_refresh_token", "is", null)
+    .limit(1)
+    .single();
+
+  if (adminTherapist?.google_refresh_token) {
+    console.log("📅 Syncing to Google Calendar...");
+
+    try {
+      const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+      const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+
+      if (!clientId || !clientSecret) {
+        console.warn("⚠️ Google OAuth credentials not configured");
+        googleCalendarError = "Calendar sync not configured";
+      } else {
+        // Get fresh access token
+        const tokenResponse = await fetch(
+          "https://oauth2.googleapis.com/token",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: clientId,
+              client_secret: clientSecret,
+              refresh_token: adminTherapist.google_refresh_token,
+              grant_type: "refresh_token",
+            }),
+          },
+        );
+
+        const tokenData = await tokenResponse.json();
+
+        if (tokenData.access_token) {
+          const calendarId = adminTherapist.google_calendar_id || "primary";
+
+          // Create calendar event
+          const eventBody = {
+            summary: `Therapy Session with ${therapistName}`,
+            description:
+              `Appointment ID: ${appointment.id}\nTherapist: ${therapistName}\n\nBooked via Kai chatbot`,
+            start: {
+              dateTime: startTimeISO,
+              timeZone: "Asia/Kolkata",
+            },
+            end: {
+              dateTime: endTimeISO,
+              timeZone: "Asia/Kolkata",
+            },
+          };
+
+          const calendarResponse = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${tokenData.access_token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(eventBody),
+            },
+          );
+
+          if (calendarResponse.ok) {
+            const eventData = await calendarResponse.json();
+            googleCalendarEventId = eventData.id;
+            console.log(
+              "✅ Google Calendar sync SUCCESS! Event ID:",
+              googleCalendarEventId,
+            );
+
+            // Save the Google Calendar event ID to the appointment
+            await supabase
+              .from("appointments")
+              .update({ google_calendar_event_id: googleCalendarEventId })
+              .eq("id", appointment.id);
+          } else {
+            const errorText = await calendarResponse.text();
+            console.error("❌ Calendar sync failed:", errorText);
+            googleCalendarError = "Failed to sync to calendar";
+          }
+        } else {
+          console.error("❌ Failed to get access token:", tokenData);
+          googleCalendarError = "Calendar authentication failed";
+        }
+      }
+    } catch (e: any) {
+      console.error("❌ Calendar sync error:", e.message);
+      googleCalendarError = e.message;
+    }
+  } else {
+    console.log(
+      "ℹ️ No admin calendar connected - skipping Google Calendar sync",
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 9: Update inquiry record
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  await supabase
+    .from("inquiries")
+    .update({
+      matched_therapist_id: therapistId,
+      status: "scheduled",
+      ...(problem && {
+        problem_description: problem,
+        extracted_specialty: problem,
+      }),
+    })
+    .eq("id", inquiry.id);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // STEP 9: Format and return success response
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  const formattedDate = start.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  const formattedTime = start.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  return {
+    success: true,
+    message: `Appointment booked successfully!`,
+    appointment: {
+      id: appointment.id,
+      therapistId: therapistId,
+      therapistName: appointment.therapists?.name || therapistName,
+      startTime: appointment.start_time,
+      endTime: appointment.end_time,
+      formattedDate: formattedDate,
+      formattedTime: formattedTime,
+      status: appointment.status,
+      googleCalendarEventId: googleCalendarEventId,
+    },
+    calendarSynced: !!googleCalendarEventId,
+    calendarError: googleCalendarError,
+    // Additional data for the AI to include in response
+    confirmationMessage: `Your appointment with ${
+      appointment.therapists?.name || therapistName
+    } is confirmed for ${formattedDate} at ${formattedTime}.${
+      googleCalendarEventId ? " It's been added to the calendar!" : ""
+    }`,
+  };
+}
+
+async function toolViewMyAppointments(
+  supabase: any,
+  patientId: string,
+  args: any,
+  timeZone: string,
+) {
+  const status = args.status || "upcoming";
+  const now = new Date().toISOString();
+
+  // Get inquiries for this patient
+  const { data: inquiries } = await supabase
+    .from("inquiries")
+    .select("id")
+    .eq("patient_identifier", patientId);
+
+  if (!inquiries || inquiries.length === 0) {
+    return { count: 0, appointments: [], message: "No appointments found" };
+  }
+
+  const inquiryIds = inquiries.map((i: any) => i.id);
+
+  // Query appointments
+  let query = supabase
+    .from("appointments")
+    .select(`
+      id,
+      start_time,
+      end_time,
+      status,
+      therapists (id, name, specialties)
+    `)
+    .in("inquiry_id", inquiryIds)
+    .order("start_time", { ascending: true });
+
+  if (status === "upcoming") {
+    query = query.gte("start_time", now);
+  } else if (status === "past") {
+    query = query.lt("start_time", now);
+  }
+
+  const { data: appointments } = await query;
+
+  const formatted = (appointments || []).map((apt: any, i: number) => ({
+    number: i + 1,
+    id: apt.id,
+    therapistName: apt.therapists?.name || "Unknown",
+    therapistId: apt.therapists?.id,
+    startTime: new Date(apt.start_time).toLocaleString("en-US", { timeZone }),
+    endTime: new Date(apt.end_time).toLocaleString("en-US", { timeZone }),
+    startTimeISO: apt.start_time,
+    status: apt.status,
+  }));
+
+  return {
+    count: formatted.length,
+    appointments: formatted,
+    message: formatted.length > 0
+      ? `You have ${formatted.length} ${status} appointment(s)`
+      : `No ${status} appointments`,
+  };
+}
+
+async function toolCancelAppointment(
+  supabase: any,
+  args: any,
+  authHeader: string,
+) {
+  const { appointmentId } = args;
+
+  if (!appointmentId) {
+    return {
+      success: false,
+      error: "Please specify which appointment to cancel",
+    };
+  }
+
+  // Fetch appointment
+  const { data: appointment, error: fetchError } = await supabase
+    .from("appointments")
+    .select("id, start_time, therapists (name)")
+    .eq("id", appointmentId)
+    .single();
+
+  if (fetchError || !appointment) {
+    return { success: false, error: "Appointment not found" };
+  }
+
+  // Cancel it
+  const { error: cancelError } = await supabase
+    .from("appointments")
+    .update({ status: "cancelled" })
+    .eq("id", appointmentId);
+
+  if (cancelError) {
+    return { success: false, error: "Failed to cancel appointment" };
+  }
+
+  return {
+    success: true,
+    message:
+      `Appointment with ${appointment.therapists?.name} has been cancelled`,
+    cancelled: {
+      id: appointment.id,
+      therapistName: appointment.therapists?.name,
+      wasScheduledFor: appointment.start_time,
+    },
+  };
+}
+
+async function toolRescheduleAppointment(
+  supabase: any,
+  args: any,
+  timeZone: string,
+) {
+  const { appointmentId, newStartTime, newEndTime } = args;
+
+  if (!appointmentId) {
+    return {
+      success: false,
+      error: "Please specify which appointment to reschedule",
+    };
+  }
+
+  if (!newStartTime || !newEndTime) {
+    return { success: false, error: "Please provide the new date and time" };
+  }
+
+  // Validate new time
+  const newStart = new Date(newStartTime);
+  const now = new Date();
+
+  if (newStart < now) {
+    return { success: false, error: "Can't reschedule to the past" };
+  }
+
+  const hour = newStart.getHours();
+  if (hour < 9 || hour >= 18) {
+    return { success: false, error: "Outside working hours (9 AM - 6 PM)" };
+  }
+
+  // Fetch appointment
+  const { data: appointment, error: fetchError } = await supabase
+    .from("appointments")
+    .select("id, therapist_id, start_time, therapists (name)")
+    .eq("id", appointmentId)
+    .single();
+
+  if (fetchError || !appointment) {
+    return { success: false, error: "Appointment not found" };
+  }
+
+  // Check for conflicts
+  const { data: conflicts } = await supabase
+    .from("appointments")
+    .select("id")
+    .eq("therapist_id", appointment.therapist_id)
+    .neq("id", appointmentId)
+    .lt("start_time", newEndTime)
+    .gt("end_time", newStartTime);
+
+  if (conflicts && conflicts.length > 0) {
+    return { success: false, error: "That time slot is already booked" };
+  }
+
+  // Update appointment
+  const { error: updateError } = await supabase
+    .from("appointments")
+    .update({
+      start_time: newStartTime,
+      end_time: newEndTime,
+    })
+    .eq("id", appointmentId);
+
+  if (updateError) {
+    return { success: false, error: "Failed to reschedule" };
+  }
+
+  return {
+    success: true,
+    message: `Appointment rescheduled successfully`,
+    rescheduled: {
+      id: appointment.id,
+      therapistName: appointment.therapists?.name,
+      oldTime: new Date(appointment.start_time).toLocaleString("en-US", {
+        timeZone,
+      }),
+      newTime: new Date(newStartTime).toLocaleString("en-US", { timeZone }),
+    },
+  };
+}
+
+function toolListInsurance() {
+  return {
+    insuranceProviders: [
+      "Aetna",
+      "Blue Cross Blue Shield",
+      "Cigna",
+      "UnitedHealthcare",
+      "Humana",
+      "Kaiser Permanente",
+      "Medicare",
+      "Medicaid",
+    ],
+    message: "We accept 8 major insurance providers",
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RULE-BASED CONVERSATION (Fallback when AI is unavailable)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function ruleBasedConversation({
+  supabaseClient,
+  userMessage,
+  context,
+}: any) {
+  const msg = userMessage.toLowerCase();
+
+  // =====================================================
+  // PRIORITY 0: SMART CONTEXT CONTINUATION
+  // If we already know things from conversation history, continue naturally
+  // =====================================================
+
+  const {
+    selectedTherapist,
+    detectedProblem,
+    detectedInsurance,
+    conversationStage,
+    offlineMode,
+  } = context;
+
+  // =====================================================
+  // QUICK COMMANDS (Work in offline mode too)
+  // =====================================================
+
+  // "show therapists" or "list therapists" or just "therapists"
+  if (
+    msg.includes("show therapist") || msg.includes("list therapist") ||
+    msg === "therapists" || msg === "show therapists"
+  ) {
+    const { data: therapists } = await supabaseClient
+      .from("therapists")
+      .select("id, name, specialties")
+      .eq("is_active", true)
+      .limit(5);
+
+    if (therapists && therapists.length > 0) {
+      let response = offlineMode
+        ? "📴 *Limited mode* - Here are our available therapists:\n\n"
+        : "Here are our available therapists:\n\n";
+
+      therapists.forEach((t: any, i: number) => {
+        const specs = Array.isArray(t.specialties)
+          ? t.specialties.slice(0, 2).join(", ")
+          : "General";
+        response += `${i + 1}. **${t.name}** - ${specs}\n`;
+      });
+
+      response +=
+        "\nWho would you like to learn more about? Just say their name!";
+
+      return {
+        success: true,
+        offlineMode,
+        message: response,
+        therapists: therapists.map((t: any) => ({ id: t.id, name: t.name })),
+      };
+    }
+  }
+
+  // "show insurance" or "list insurance" or "insurance"
+  if (
+    msg.includes("show insurance") || msg.includes("list insurance") ||
+    msg === "insurance"
+  ) {
+    const insuranceList = [
+      "Aetna",
+      "Blue Cross Blue Shield",
+      "Cigna",
+      "UnitedHealthcare",
+      "Humana",
+      "Kaiser Permanente",
+      "Medicare",
+      "Medicaid",
+    ];
+
+    let response = offlineMode
+      ? "📴 *Limited mode* - We accept the following insurance providers:\n\n"
+      : "We accept the following insurance providers:\n\n";
+
+    insuranceList.forEach((ins, i) => {
+      response += `${i + 1}. ${ins}\n`;
+    });
+
+    response += "\nDo you have any of these? Just say your insurance name!";
+
+    return {
+      success: true,
+      offlineMode,
+      message: response,
+    };
+  }
+
+  // "helplines" or "crisis" or "help"
+  if (
+    msg.includes("helpline") || msg.includes("crisis") ||
+    (msg === "help" && msg.length < 10)
+  ) {
+    return {
+      success: true,
+      offlineMode,
+      message: `🆘 **Crisis Support Helplines**
+
+If you're in immediate danger or having thoughts of self-harm, please reach out:
+
+**India:**
+- iCall: 9152987821
+- Vandrevala Foundation: 1860-2662-345
+- AASRA: 91-22-27546669
+
+**US:**
+- National Suicide Prevention Lifeline: 988
+- Crisis Text Line: Text HOME to 741741
+
+**International:**
+- findahelpline.com
+
+You matter, and help is available. ❤️`,
+    };
+  }
+
+  // If we have a selected therapist and user mentions a date/time
+  if (selectedTherapist && conversationStage === "date_selected") {
+    console.log("🎯 Context continuation: Therapist selected + date mentioned");
+
+    // Parse the date
+    const parsedDate = parseFlexibleDate(msg);
+    const dateStr = parsedDate.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Check for weekend
+    const dayOfWeek = parsedDate.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return {
+        success: true,
+        message:
+          `I noticed ${dateStr} falls on a weekend, and we're closed on weekends.
+
+Would you like to book with ${selectedTherapist.name} for the Monday after instead, or pick a different weekday?`,
+        therapistId: selectedTherapist.id,
+        therapistName: selectedTherapist.name,
+      };
+    }
+
+    // Generate available slots
+    const slots = [];
+    for (let hour = 9; hour < 17; hour++) {
+      const time = new Date(parsedDate);
+      time.setHours(hour, 0, 0, 0);
+      if (time > new Date()) {
+        slots.push({
+          time: `${hour > 12 ? hour - 12 : hour}:00 ${
+            hour >= 12 ? "PM" : "AM"
+          }`,
+          iso: time.toISOString(),
+        });
+      }
+    }
+
+    if (slots.length === 0) {
+      return {
+        success: true,
+        message:
+          `It looks like ${dateStr} doesn't have available slots (the day may have passed).
+
+Would you like to try a different date with ${selectedTherapist.name}?`,
+        therapistId: selectedTherapist.id,
+      };
+    }
+
+    const slotList = slots.slice(0, 6).map((s, i) => `${i + 1}. ${s.time}`)
+      .join("\n");
+
+    return {
+      success: true,
+      message:
+        `Perfect! Here are the available times for ${selectedTherapist.name} on ${dateStr}:
+
+${slotList}
+
+Which time works best for you? Just say the time like "10 AM" and I'll book it right away!`,
+      therapistId: selectedTherapist.id,
+      therapistName: selectedTherapist.name,
+      date: parsedDate.toISOString(),
+      availableSlots: slots,
+    };
+  }
+
+  // =====================================================
+  // TIME SELECTION - User picked a time slot
+  // =====================================================
+  if (selectedTherapist && conversationStage === "time_selected") {
+    console.log("🎯 Context continuation: Time selected - proceeding to book");
+
+    // Extract time from message
+    const timeMatch = msg.match(/\b(\d{1,2})(:\d{2})?\s*(am|pm)\b/i);
+    if (timeMatch) {
+      let hour = parseInt(timeMatch[1]);
+      const isPM = timeMatch[3].toLowerCase() === "pm";
+      if (isPM && hour < 12) hour += 12;
+      if (!isPM && hour === 12) hour = 0;
+
+      // Find the date from conversation history
+      const conversationHistory = context.conversationHistory || [];
+      let bookingDate: Date | null = null;
+
+      // Look for date in previous messages (most recent first)
+      for (let i = conversationHistory.length - 1; i >= 0; i--) {
+        const content = conversationHistory[i]?.content?.toLowerCase() || "";
+        // Check for date patterns in history
+        const hasDateKeyword =
+          /\bjan|\bfeb|\bmar|\bapr|\bmay|\bjun|\bjul|\baug|\bsep|\boct|\bnov|\bdec|\btomorrow|\btoday|\bmonday|\btuesday|\bwednesday|\bthursday|\bfriday/
+            .test(content);
+        const hasOrdinalDate = /\b\d{1,2}(st|nd|rd|th)\b/.test(content);
+
+        if (hasDateKeyword || hasOrdinalDate) {
+          bookingDate = parseFlexibleDate(content);
+          break;
+        }
+      }
+
+      // Also check context for stored date
+      if (!bookingDate && context.requestedDate) {
+        bookingDate = new Date(context.requestedDate);
+      }
+
+      if (bookingDate) {
+        bookingDate.setHours(hour, 0, 0, 0);
+        const dateStr = bookingDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        });
+        const timeStr = `${hour > 12 ? hour - 12 : hour}:00 ${
+          hour >= 12 ? "PM" : "AM"
+        }`;
+
+        return {
+          success: true,
+          message:
+            `Great! I'm booking your appointment with ${selectedTherapist.name} for ${dateStr} at ${timeStr}.
+
+Just to confirm:
+- **Therapist**: ${selectedTherapist.name}
+- **Date**: ${dateStr}
+- **Time**: ${timeStr}
+
+Type "confirm" to finalize the booking, or let me know if you'd like a different time.`,
+          therapistId: selectedTherapist.id,
+          therapistName: selectedTherapist.name,
+          date: bookingDate.toISOString(),
+          time: timeStr,
+          readyToBook: true,
+        };
+      } else {
+        return {
+          success: true,
+          message: `I have your time preference of ${
+            timeMatch[0]
+          }, but I need to know which date you'd like.
+
+What day works for you? You can say things like:
+- "December 26th"
+- "Next Monday"
+- "Tomorrow"`,
+          therapistId: selectedTherapist.id,
+          therapistName: selectedTherapist.name,
+        };
+      }
+    }
+  }
+
+  // If user selected therapist but no date yet, and says something affirmative
+  if (
+    selectedTherapist && !conversationStage?.includes("date") &&
+    (msg.includes("yes") || msg.includes("ok") || msg.includes("sure") ||
+      msg.includes("go") || msg.includes("book"))
+  ) {
+    return {
+      success: true,
+      message: `Great choice! ${selectedTherapist.name} is wonderful.
+
+When would you like to schedule your appointment? You can say things like:
+- "Tomorrow at 2pm"
+- "Next Monday"
+- "December 23rd"
+
+What works for you?`,
+      therapistId: selectedTherapist.id,
+      therapistName: selectedTherapist.name,
+    };
+  }
+
+  // If user explicitly confirms therapist by name or "chosen" pattern
+  if (selectedTherapist && !conversationStage?.includes("date")) {
+    const nameMentioned = msg.includes(
+      selectedTherapist.name.split(" ")[0].toLowerCase(),
+    );
+    const strictConfirm = msg.includes("chosen") || msg.includes("selected") ||
+      msg.includes("confirm") || nameMentioned;
+
+    if (strictConfirm) {
+      return {
+        success: true,
+        message: `Great choice! ${selectedTherapist.name} is wonderful.
+    
+    When would you like to schedule your appointment? You can say things like:
+    - "Tomorrow at 2pm"
+    - "Next Monday"
+    - "December 23rd"
+    
+    What works for you?`,
+        therapistId: selectedTherapist.id,
+        therapistName: selectedTherapist.name,
+      };
+    }
+  }
+
+  // If we know their problem and insurance but no therapist yet, and they say "yes" or "find"
+  if (
+    !selectedTherapist && (detectedProblem || detectedInsurance) &&
+    (msg.includes("yes") || msg.includes("find") || msg.includes("show") ||
+      msg.includes("please") || msg.includes("go ahead"))
+  ) {
+    console.log(
+      "🎯 Context continuation: Problem/Insurance known, user wants to see therapists",
+    );
+
+    // Actually search for therapists
+    const { data: therapists } = await supabaseClient
+      .from("therapists")
+      .select("id, name, specialties, accepted_insurance")
+      .eq("is_active", true)
+      .limit(10);
+
+    if (therapists && therapists.length > 0) {
+      // Filter by problem
+      let filtered = therapists;
+      if (detectedProblem) {
+        const problemFiltered = therapists.filter((t: any) => {
+          const specs = Array.isArray(t.specialties)
+            ? t.specialties.join(" ").toLowerCase()
+            : "";
+          return specs.includes(detectedProblem);
+        });
+        if (problemFiltered.length > 0) filtered = problemFiltered;
+      }
+
+      // Filter by insurance
+      if (detectedInsurance && filtered.length > 0) {
+        const insFiltered = filtered.filter((t: any) => {
+          const ins = Array.isArray(t.accepted_insurance)
+            ? t.accepted_insurance.join(" ").toLowerCase()
+            : "";
+          return ins.includes(detectedInsurance.toLowerCase());
+        });
+        if (insFiltered.length > 0) filtered = insFiltered;
+      }
+
+      const top3 = filtered.slice(0, 3);
+      let response = `I found some excellent therapists`;
+      if (detectedProblem) response += ` who specialize in ${detectedProblem}`;
+      if (detectedInsurance) response += ` and accept ${detectedInsurance}`;
+      response += ":\n\n";
+
+      top3.forEach((t: any, i: number) => {
+        const specs = Array.isArray(t.specialties)
+          ? t.specialties.slice(0, 3).join(", ")
+          : "General";
+        response += `${i + 1}. **${t.name}** - Specializes in ${specs}\n`;
+      });
+
+      response += `\nWho would you like to book with? Just say their name!`;
+
+      return {
+        success: true,
+        message: response,
+        therapists: top3.map((t: any) => ({ id: t.id, name: t.name })),
+      };
+    }
+  }
+
+  // =====================================================
+  // PRIORITY 1: CRISIS/SUICIDE DETECTION - Always check first!
+  // =====================================================
+  const crisisKeywords = [
+    "suicide",
+    "suicidal",
+    "kill myself",
+    "end my life",
+    "want to die",
+    "don't want to live",
+    "hurt myself",
+    "self harm",
+    "self-harm",
+    "no reason to live",
+    "better off dead",
+    "ending it all",
+  ];
+
+  const isCrisis = crisisKeywords.some((k) => msg.includes(k));
+
+  if (isCrisis) {
+    return {
+      success: true,
+      message:
+        `I'm really glad you reached out. What you're feeling is serious, and you deserve immediate support.
+
+PLEASE REACH OUT NOW:
+
+- India: iCall - 9152987821
+- India: Vandrevala Foundation - 1860-2662-345
+- India: AASRA - 91-22-27546669
+- US: National Suicide Prevention Lifeline - 988
+- International: findahelpline.com
+
+If you're in immediate danger, please call your local emergency number (112 in India, 911 in US).
+
+You matter, and help is available right now. Would you like me to help you find a therapist for ongoing support once you're feeling safer?`,
+    };
+  }
+
+  // =====================================================
+  // PRIORITY 2: INSURANCE QUESTIONS
+  // =====================================================
+  if (
+    msg.includes("insurance") || msg.includes("accept") ||
+    msg.includes("cover") || msg.includes("payment")
+  ) {
+    // Check if asking about a SPECIFIC therapist's insurance
+    const { data: therapistsForInsurance } = await supabaseClient
+      .from("therapists")
+      .select("id, name, accepted_insurance")
+      .eq("is_active", true);
+
+    if (therapistsForInsurance && therapistsForInsurance.length > 0) {
+      // Check if user mentioned any therapist name
+      const mentionedTherapist = therapistsForInsurance.find((t: any) => {
+        const firstName = t.name.split(" ")[0].toLowerCase();
+        const lastName = t.name.split(" ").pop()?.toLowerCase() || "";
+        return msg.includes(firstName) || msg.includes(lastName) ||
+          msg.includes(t.name.toLowerCase());
+      });
+
+      if (mentionedTherapist) {
+        const insurance = Array.isArray(mentionedTherapist.accepted_insurance)
+          ? mentionedTherapist.accepted_insurance.join("\n- ")
+          : "Information not available";
+
+        return {
+          success: true,
+          message:
+            `${mentionedTherapist.name} accepts the following insurance providers:
+
+- ${insurance}
+
+Would you like to book an appointment with ${mentionedTherapist.name}? Just say "book with ${
+              mentionedTherapist.name.split(" ")[0]
+            }" or tell me when you'd like to schedule!`,
+          therapistId: mentionedTherapist.id,
+          therapistName: mentionedTherapist.name,
+        };
+      }
+    }
+
+    // Generic insurance question (no specific therapist mentioned)
+    return {
+      success: true,
+      message: `We accept these insurance providers:
+
+- Blue Cross Blue Shield
+- Aetna
+- Cigna  
+- UnitedHealthcare
+- Humana
+- Kaiser Permanente
+- Medicare
+- Medicaid
+
+Which insurance do you have? I can help find therapists who accept it!
+
+Or type "show therapists" to see all our therapists.`,
+    };
+  }
+
+  // =====================================================
+  // PRIORITY 3: THERAPIST LIST
+  // =====================================================
+  // Only trigger for therapist list if NOT asking about insurance
+  const isInsuranceRelated = msg.includes("insurance");
+  if (
+    !isInsuranceRelated && (
+      msg.includes("therapist") || msg.includes("show all") ||
+      msg.includes("list") || msg.includes("doctor")
+    )
+  ) {
+    const { data: therapists } = await supabaseClient
+      .from("therapists")
+      .select("id, name, specialties, accepted_insurance")
+      .eq("is_active", true)
+      .limit(10);
+
+    if (!therapists || therapists.length === 0) {
+      return {
+        success: true,
+        message:
+          "I couldn't find any therapists right now. Please try again in a moment.",
+      };
+    }
+
+    let response = "Here are our available therapists:\n\n";
+    therapists.forEach((t: any, i: number) => {
+      const specs = Array.isArray(t.specialties)
+        ? t.specialties.slice(0, 3).join(", ")
+        : "General";
+      response += `${i + 1}. ${t.name}\n   Specialties: ${specs}\n\n`;
+    });
+    response +=
+      "Which therapist interests you? Or tell me what you need help with!";
+
+    return { success: true, message: response };
+  }
+
+  // =====================================================
+  // PRIORITY 4: MENTAL HEALTH EDUCATION
+  // =====================================================
+  if (
+    msg.includes("what is") || msg.includes("explain") ||
+    msg.includes("mental health") ||
+    msg.includes("about anxiety") || msg.includes("about depression") ||
+    msg.includes("about therapy")
+  ) {
+    if (msg.includes("anxiety")) {
+      return {
+        success: true,
+        message:
+          `Anxiety is your body's natural stress response. It's normal to feel anxious sometimes, but when anxiety becomes overwhelming or constant, therapy can help.
+
+Common signs:
+- Excessive worry
+- Racing thoughts
+- Physical symptoms (racing heart, sweating)
+- Difficulty sleeping
+- Avoiding situations
+
+Many of our therapists specialize in anxiety treatment. Would you like me to find one for you?`,
+      };
+    }
+
+    if (msg.includes("depression")) {
+      return {
+        success: true,
+        message:
+          `Depression is more than just feeling sad - it's a treatable condition that affects how you feel, think, and handle daily activities.
+
+Common signs:
+- Persistent sadness or emptiness
+- Loss of interest in activities you used to enjoy
+- Changes in sleep or appetite
+- Difficulty concentrating
+- Feelings of worthlessness
+
+Therapy is very effective for depression. Would you like me to find a therapist who specializes in this?`,
+      };
+    }
+
+    if (msg.includes("therapy") || msg.includes("counseling")) {
+      return {
+        success: true,
+        message:
+          `Therapy (or counseling) is a safe space to talk with a trained professional about what you're going through.
+
+What happens in therapy:
+- You share your thoughts and feelings
+- The therapist helps you understand patterns
+- Together you develop coping strategies
+- Sessions are confidential
+- Typically 45-60 minutes weekly
+
+Types we offer:
+- Individual therapy (1-on-1)
+- Couples therapy
+- Trauma-focused therapy (EMDR)
+
+Would you like to see our therapists and book a session?`,
+      };
+    }
+
+    // General mental health
+    return {
+      success: true,
+      message:
+        `Mental health is just as important as physical health. It includes your emotional, psychological, and social well-being.
+
+Common conditions we treat:
+- Anxiety and panic
+- Depression
+- Trauma and PTSD
+- Relationship issues
+- Work stress and burnout
+- Grief and loss
+- Life transitions
+
+Taking care of your mental health is a sign of strength. Would you like me to help you find a therapist?`,
+    };
+  }
+
+  // =====================================================
+  // PRIORITY 5: BOOKING INTENT
+  // =====================================================
+  if (
+    msg.includes("book") || msg.includes("appointment") ||
+    msg.includes("schedule") || msg.includes("see someone")
+  ) {
+    return {
+      success: true,
+      message: `I'd love to help you book an appointment!
+
+To find the right therapist, tell me:
+1. What you're seeking help with (anxiety, depression, stress, etc.)
+2. Your insurance provider (optional)
+
+Or you can:
+- Type "show therapists" to browse all
+- Type "show insurance" to see accepted plans
+
+What would you like to do?`,
+    };
+  }
+
+  // =====================================================
+  // PRIORITY 6: EMOTIONAL SUPPORT (Not booking yet)
+  // =====================================================
+  const emotionalWords = [
+    "anxious",
+    "anxiety",
+    "depressed",
+    "depression",
+    "sad",
+    "stressed",
+    "overwhelmed",
+    "struggling",
+    "grief",
+    "loss",
+    "tired",
+    "exhausted",
+    "burnout",
+    "lonely",
+    "scared",
+    "worried",
+    "hopeless",
+  ];
+
+  const hasEmotionalContent = emotionalWords.some((e) => msg.includes(e));
+
+  if (hasEmotionalContent) {
+    // Customize response based on specific emotion mentioned
+    let empathyMessage = "";
+
+    if (
+      msg.includes("depress") || msg.includes("sad") || msg.includes("hopeless")
+    ) {
+      empathyMessage =
+        `I'm really sorry you're feeling this way. Depression can feel so heavy and isolating, and I want you to know that reaching out right now took courage.
+
+You don't have to carry this alone. A lot of people have found relief by talking to someone who understands what you're going through.`;
+    } else if (
+      msg.includes("anxi") || msg.includes("worried") || msg.includes("scared")
+    ) {
+      empathyMessage =
+        `I hear you, and I'm sorry you're dealing with this. Anxiety can be really overwhelming, and it's completely okay to need support.
+
+The good news is that there are therapists who specialize in exactly this, and they've helped many people feel more at peace.`;
+    } else if (
+      msg.includes("stress") || msg.includes("overwhelm") ||
+      msg.includes("burnout") || msg.includes("exhaust")
+    ) {
+      empathyMessage =
+        `That sounds really exhausting. When life feels like too much, it's so important to have someone in your corner.
+
+You're doing the right thing by reaching out. Taking care of yourself isn't selfish – it's necessary.`;
+    } else if (msg.includes("grief") || msg.includes("loss")) {
+      empathyMessage =
+        `I'm so sorry for what you're going through. Grief is one of the hardest things we experience, and there's no right way to feel about it.
+
+Having someone to talk to can really help during this time.`;
+    } else if (msg.includes("lonely") || msg.includes("alone")) {
+      empathyMessage =
+        `Feeling lonely is really painful, and I'm glad you're reaching out. You're not as alone as you might feel right now.
+
+Talking to a therapist can help you work through these feelings and build connection.`;
+    } else {
+      empathyMessage =
+        `I hear you, and I'm really glad you shared that with me. Whatever you're going through, you don't have to face it alone.
+
+It takes real strength to reach out, and I'd love to help you find someone to talk to.`;
+    }
+
+    return {
+      success: true,
+      message: `${empathyMessage}
+
+Would you like me to show you a few therapists who could be a good fit? Just say "yes" and I'll find some options for you. 💙`,
+    };
+  }
+
+  // =====================================================
+  // PRIORITY 7: HELP/MENU REQUEST
+  // =====================================================
+  if (
+    msg.includes("help") || msg.includes("menu") || msg.includes("options") ||
+    msg.includes("what can you do")
+  ) {
+    return {
+      success: true,
+      message:
+        `I'm Kai, your therapy appointment assistant. Here's what I can help with:
+
+1. "Show therapists" - Browse our team
+2. "Show insurance" - See accepted insurance
+3. "Book appointment" - Schedule a session
+4. "What is anxiety?" - Learn about mental health
+5. "What is therapy?" - Understand how therapy works
+
+If you're in crisis and need immediate help, just tell me and I'll provide emergency resources.
+
+What would you like to do?`,
+    };
+  }
+
+  // =====================================================
+  // PRIORITY 8: THERAPIST SELECTION / NAME MENTIONED
+  // =====================================================
+  // Try to find if user mentioned a therapist name
+  const { data: allTherapists } = await supabaseClient
+    .from("therapists")
+    .select("id, name, specialties")
+    .eq("is_active", true);
+
+  if (allTherapists && allTherapists.length > 0) {
+    // Check if user mentioned any therapist name (check first name)
+    const mentionedTherapist = allTherapists.find((t: any) => {
+      const firstName = t.name.split(" ")[0].toLowerCase();
+      const lastName = t.name.split(" ").pop()?.toLowerCase() || "";
+      return msg.includes(firstName) || msg.includes(lastName) ||
+        msg.includes(t.name.toLowerCase());
+    });
+
+    if (mentionedTherapist) {
+      const specs = Array.isArray(mentionedTherapist.specialties)
+        ? mentionedTherapist.specialties.slice(0, 3).join(", ")
+        : "various areas";
+
+      return {
+        success: true,
+        message:
+          `Great choice! ${mentionedTherapist.name} specializes in ${specs}.
+
+I'd love to book you with them! When would work for you?
+
+You can say:
+- "Tomorrow" or "next Monday"
+- A specific date like "December 15"
+- "Check availability" to see open slots
+
+What works best for you?`,
+        therapistId: mentionedTherapist.id,
+        therapistName: mentionedTherapist.name,
+        nextAction: "check-availability",
+      };
+    }
+  }
+
+  // =====================================================
+  // PRIORITY 9: DATE/TIME MENTIONED - Check availability!
+  // =====================================================
+  const dateWords = [
+    "today",
+    "tomorrow",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+    "next week",
+    "morning",
+    "afternoon",
+    "evening",
+    "pm",
+    "am",
+    "dec",
+    "december",
+    "jan",
+    "january",
+    "feb",
+    "february",
+  ];
+  // Also check for date patterns like "21st", "23rd", "15th"
+  const hasDateMention = dateWords.some((d) => msg.includes(d)) ||
+    /\d{1,2}(st|nd|rd|th)?/.test(msg);
+
+  if (hasDateMention) {
+    // Check conversation history for recently mentioned therapist
+    const historyText = (context.conversationHistory || [])
+      .map((m: any) => m.content?.toLowerCase() || "")
+      .join(" ");
+
+    // Get all therapists to find mentioned ones
+    const { data: therapistsForDate } = await supabaseClient
+      .from("therapists")
+      .select("id, name")
+      .eq("is_active", true);
+
+    let matchedTherapist = null;
+
+    if (therapistsForDate && therapistsForDate.length > 0) {
+      // Check if any therapist was mentioned in conversation history
+      for (const t of therapistsForDate) {
+        const firstName = t.name.split(" ")[0].toLowerCase();
+        const lastName =
+          t.name.split(" ")[1]?.toLowerCase().replace(/,.*/, "") || "";
+
+        if (
+          historyText.includes(firstName) || historyText.includes(lastName) ||
+          msg.includes(firstName) || msg.includes(lastName)
+        ) {
+          matchedTherapist = t;
+          break;
+        }
+      }
+    }
+
+    if (matchedTherapist) {
+      // We have a therapist! Parse the date and check availability
+      console.log(
+        "📅 Date mentioned with therapist context:",
+        matchedTherapist.name,
+      );
+
+      // Parse the date from the message
+      const parsedDate = parseFlexibleDate(msg);
+      const dateStr = parsedDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+
+      // Check if it's a weekend
+      const dayOfWeek = parsedDate.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return {
+          success: true,
+          message:
+            `I noticed ${dateStr} falls on a weekend, and we're closed on weekends. 
+
+Would you like to book for the Monday after instead, or pick a different weekday?`,
+          therapistId: matchedTherapist.id,
+          therapistName: matchedTherapist.name,
+        };
+      }
+
+      // Generate available slots (9 AM - 5 PM)
+      const slots = [];
+      for (let hour = 9; hour < 17; hour++) {
+        const time = new Date(parsedDate);
+        time.setHours(hour, 0, 0, 0);
+        if (time > new Date()) { // Only future slots
+          slots.push({
+            time: `${hour > 12 ? hour - 12 : hour}:00 ${
+              hour >= 12 ? "PM" : "AM"
+            }`,
+            iso: time.toISOString(),
+          });
+        }
+      }
+
+      if (slots.length === 0) {
+        return {
+          success: true,
+          message:
+            `It looks like ${dateStr} doesn't have available times (the day may have passed or it's too late in the day).
+
+Would you like to try a different date?`,
+          therapistId: matchedTherapist.id,
+        };
+      }
+
+      const slotList = slots.slice(0, 6).map((s, i) => `${i + 1}. ${s.time}`)
+        .join("\n");
+
+      return {
+        success: true,
+        message:
+          `Great! Here are the available times for ${matchedTherapist.name} on ${dateStr}:
+
+${slotList}
+
+Which time works best for you? Just say the time (like "10 AM" or "2 PM") and I'll book it!`,
+        therapistId: matchedTherapist.id,
+        therapistName: matchedTherapist.name,
+        date: parsedDate.toISOString(),
+        availableSlots: slots,
+      };
+    }
+
+    // No therapist in context - ask for one
+    return {
+      success: true,
+      message: `I'd be happy to help you book for that time!
+
+Which therapist would you like to see? You can say their name, or I can show you our available therapists.`,
+    };
+  }
+
+  // =====================================================
+  // PRIORITY 10: YES/CONFIRM RESPONSES - Actually perform the action!
+  // =====================================================
+  const affirmativeWords = [
+    "yes",
+    "yeah",
+    "ok",
+    "sure",
+    "please",
+    "go ahead",
+    "yep",
+    "yup",
+  ];
+  const isAffirmative = affirmativeWords.some((w) => msg.includes(w)) ||
+    msg.includes("find") || msg.includes("show") ||
+    msg.includes("someone") || msg.includes("therapist");
+
+  if (isAffirmative) {
+    // Check conversation history for context about what to search for
+    const historyText = (context.conversationHistory || [])
+      .map((m: any) => m.content?.toLowerCase() || "")
+      .join(" ");
+
+    // Detect specialty from conversation
+    let specialty = null;
+    if (historyText.includes("depress") || msg.includes("depress")) {
+      specialty = "depression";
+    } else if (historyText.includes("anxi") || msg.includes("anxi")) {
+      specialty = "anxiety";
+    } else if (historyText.includes("trauma") || msg.includes("trauma")) {
+      specialty = "trauma";
+    } else if (historyText.includes("stress") || msg.includes("stress")) {
+      specialty = "stress";
+    } else if (
+      historyText.includes("relationship") || msg.includes("relationship")
+    ) specialty = "relationships";
+
+    // Detect insurance from conversation
+    let insuranceFilter = null;
+    const insuranceOptions = [
+      "aetna",
+      "blue cross",
+      "cigna",
+      "united",
+      "humana",
+      "kaiser",
+      "medicare",
+      "medicaid",
+    ];
+    for (const ins of insuranceOptions) {
+      if (historyText.includes(ins) || msg.includes(ins)) {
+        insuranceFilter = ins;
+        break;
+      }
+    }
+
+    // Fetch therapists matching the criteria
+    const { data: therapists } = await supabaseClient
+      .from("therapists")
+      .select("id, name, specialties, accepted_insurance, bio")
+      .eq("is_active", true)
+      .limit(10);
+
+    if (therapists && therapists.length > 0) {
+      // Filter by specialty if detected
+      let filtered = therapists;
+      if (specialty) {
+        filtered = therapists.filter((t: any) => {
+          const specs = Array.isArray(t.specialties)
+            ? t.specialties.join(" ").toLowerCase()
+            : "";
+          return specs.includes(specialty!);
+        });
+        // If no matches, fall back to all
+        if (filtered.length === 0) filtered = therapists;
+      }
+
+      // Filter by insurance if detected
+      if (insuranceFilter && filtered.length > 0) {
+        const insFiltered = filtered.filter((t: any) => {
+          const ins = Array.isArray(t.accepted_insurance)
+            ? t.accepted_insurance.join(" ").toLowerCase()
+            : "";
+          return ins.includes(insuranceFilter!);
+        });
+        if (insFiltered.length > 0) filtered = insFiltered;
+      }
+
+      // Build response with matched therapists
+      const top3 = filtered.slice(0, 3);
+      let response = specialty
+        ? `I found some great therapists who specialize in ${specialty}`
+        : "Here are some wonderful therapists who could help";
+
+      if (insuranceFilter) {
+        response += ` and accept ${
+          insuranceFilter.charAt(0).toUpperCase() + insuranceFilter.slice(1)
+        }`;
+      }
+      response += ":\n\n";
+
+      top3.forEach((t: any, i: number) => {
+        const specs = Array.isArray(t.specialties)
+          ? t.specialties.slice(0, 3).join(", ")
+          : "General";
+        response += `${i + 1}. **${t.name}** - Specializes in ${specs}\n`;
+      });
+
+      response +=
+        `\nWho would you like to learn more about or book with? Just say their name!`;
+
+      return {
+        success: true,
+        message: response,
+        therapists: top3.map((t: any) => ({ id: t.id, name: t.name })),
+      };
+    }
+
+    // Fallback if no therapists found
+    return {
+      success: true,
+      message:
+        `I'd love to help you find a therapist!\n\nWhat's been on your mind? For example:\n- Anxiety or stress\n- Depression\n- Relationship issues\n- Life transitions\n\nOr just say "show therapists" to see our full team!`,
+    };
+  }
+
+  // =====================================================
+  // DEFAULT: Friendly fallback with options
+  // =====================================================
+  return {
+    success: true,
+    message: `I want to make sure I help you correctly!
+
+Here's what I can do:
+- **Show therapists** - Browse our team
+- **Show insurance** - See accepted plans
+- **Book appointment** - Schedule a session
+
+You can also tell me:
+- What you're looking for help with
+- A therapist's name if you know who you want to see
+- When you'd like to schedule
+
+What would you like to do?`,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🛠️ UTILITY FUNCTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function getOrCreateInquiry(supabase: any, patientId: string) {
+  // Try to find existing inquiry
+  const { data: existing } = await supabase
+    .from("inquiries")
+    .select("*")
+    .eq("patient_identifier", patientId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (existing) {
+    return existing;
+  }
+
+  // Create new inquiry
+  const { data: newInquiry, error } = await supabase
+    .from("inquiries")
+    .insert({
+      patient_identifier: patientId,
+      status: "pending",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating inquiry:", error);
+    throw new Error("Failed to create inquiry");
+  }
+
+  return newInquiry;
+}
+
+function parseFlexibleDate(dateStr: string): Date {
+  const str = dateStr.toLowerCase();
+  const today = new Date();
+
+  // Handle relative days
+  if (str.includes("today")) return today;
+  if (str.includes("tomorrow")) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + 1);
+    return d;
+  }
+  if (str.includes("next week")) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + 7);
+    return d;
+  }
+
+  // Handle weekdays (next Monday, next Friday, etc.)
+  const days = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+  for (let i = 0; i < 7; i++) {
+    if (str.includes(days[i])) {
+      const d = new Date(today);
+      const currentDay = today.getDay();
+      const targetDay = i;
+      let daysToAdd = targetDay - currentDay;
+      if (daysToAdd <= 0) daysToAdd += 7; // Next occurrence
+      d.setDate(today.getDate() + daysToAdd);
+      return d;
+    }
+  }
+
+  // Regex for "29th Dec" or "Dec 29" or "29 December"
+  // Matches: 29th, 1st, 3, etc. followed by month (Jan, January) or vice versa
+  const months = [
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+  ];
+  const fullMonths = [
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
+  ];
+
+  // Clean string: remove "st", "nd", "rd", "th" from numbers
+  const cleanStr = str.replace(/(\d+)(st|nd|rd|th)/g, "$1");
+
+  // Pattern A: "29 dec" or "29 december"
+  const dayMonthRegex = new RegExp(
+    `(\\d{1,2})\\s+(${months.join("|")}|${fullMonths.join("|")})`,
+    "i",
+  );
+  const matchA = cleanStr.match(dayMonthRegex);
+
+  if (matchA) {
+    const day = parseInt(matchA[1]);
+    const monthStr = matchA[2];
+    let month = months.findIndex((m) => monthStr.startsWith(m)); // 0-11
+
+    const d = new Date(today.getFullYear(), month, day);
+    if (d < today) d.setFullYear(today.getFullYear() + 1); // Next year if passed
+    return d;
+  }
+
+  // Pattern B: "dec 29" or "december 29"
+  const monthDayRegex = new RegExp(
+    `(${months.join("|")}|${fullMonths.join("|")})\\s+(\\d{1,2})`,
+    "i",
+  );
+  const matchB = cleanStr.match(monthDayRegex);
+
+  if (matchB) {
+    const monthStr = matchB[1];
+    const day = parseInt(matchB[2]);
+    let month = months.findIndex((m) => monthStr.startsWith(m)); // 0-11
+
+    const d = new Date(today.getFullYear(), month, day);
+    if (d < today) d.setFullYear(today.getFullYear() + 1); // Next year if passed
+    return d;
+  }
+
+  // Last resort: basic Date parsing (might fail for complex strings)
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  return today; // Fallback to today if all else fails
+}
+
+function jsonResponse(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
