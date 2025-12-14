@@ -1713,14 +1713,15 @@ async function toolBookAppointment(
   // ─────────────────────────────────────────────────────────────────────────────
 
   // Format date and time in the user's timezone to ensure correct display
-  const formattedDate = start.toLocaleDateString("en-US", {
+  // The start time is in UTC, so we need to format it properly in the user's timezone
+  const formattedDate = new Date(startTimeISO).toLocaleDateString("en-US", {
     timeZone: timeZone,
     weekday: "long",
     month: "long",
     day: "numeric",
   });
 
-  const formattedTime = start.toLocaleTimeString("en-US", {
+  const formattedTime = new Date(startTimeISO).toLocaleTimeString("en-US", {
     timeZone: timeZone,
     hour: "numeric",
     minute: "2-digit",
