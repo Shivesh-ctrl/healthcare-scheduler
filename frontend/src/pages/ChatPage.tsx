@@ -53,7 +53,7 @@ export default function ChatPage() {
               border: `1px solid ${alpha('#1b4332', 0.2)}`,
             }}
           >
-            <AutoAwesomeIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+            <AutoAwesomeIcon sx={{ color: '#1b4332', fontSize: 20 }} />
             <Typography 
               variant="caption" 
               sx={{ 

@@ -174,7 +174,7 @@ export default function App() {
         >
           <Container maxWidth="lg">
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-              <AutoAwesomeIcon sx={{ color: 'primary.main', fontSize: 20 }} />
+              <AutoAwesomeIcon sx={{ color: '#1b4332', fontSize: 20 }} />
               <Typography
                 variant="body2"
                 sx={{
@@ -182,7 +182,7 @@ export default function App() {
                   color: 'text.primary',
                 }}
               >
-                Kai Health Bot
+                Omi Health Bot
               </Typography>
             </Box>
             <Typography
@@ -192,7 +192,7 @@ export default function App() {
                 display: 'block',
               }}
             >
-              © {new Date().getFullYear()} Kai Health Bot. Powered by AI. All rights reserved.
+              © {new Date().getFullYear()} Omi Health Bot. Powered by AI. All rights reserved.
             </Typography>
             <Typography
               variant="caption"
