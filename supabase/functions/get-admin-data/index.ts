@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
           *,
           therapists ( name ) 
         `)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .limit(6),
 
       supabase
         .from('appointments')
