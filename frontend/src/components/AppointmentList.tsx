@@ -30,6 +30,9 @@ type Appointment = {
   status?: string | null;
   created_at?: string | null;
   therapist_name?: string | null;
+  therapists?: {
+    name?: string | null;
+  } | null;
 };
 
 // Helper function to format dates in the user's local timezone
@@ -149,11 +152,11 @@ export default function AppointmentList() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {appointments.map((a) => (
+              {appointments.map((a: any) => (
                 <TableRow key={a.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                   <TableCell>{formatDateTime(a.start_time)}</TableCell>
                   <TableCell>{formatDateTime(a.end_time)}</TableCell>
-                  <TableCell>{a.therapist_name ?? a.therapist_id ?? "-"}</TableCell>
+                  <TableCell>{(a.therapists?.name) ?? a.therapist_name ?? a.therapist_id ?? "-"}</TableCell>
                   <TableCell>{a.patient_identifier ?? "-"}</TableCell>
                   <TableCell>{a.status ?? "-"}</TableCell>
                   <TableCell align="right">
