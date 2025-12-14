@@ -162,13 +162,13 @@ Deno.serve(async (req) => {
         const calendarId = adminTherapist.google_calendar_id || "primary";
 
         // Convert UTC ISO times to the user's timezone for Google Calendar
-        // This ensures the appointment shows at the correct local time (e.g., 9 AM IST, not 2:30 PM)
-        const startDate = new Date(startTime);
-        const endDate = new Date(endTime);
-        
-        // Format as ISO string without the Z (UTC indicator) and use the timezone
-        const formatForTimezone = (date: Date, tz: string): string => {
-          // Use Intl.DateTimeFormat to get the date components in the target timezone
+        // The startTime and endTime are in UTC, but represent local times
+        // We need to format them correctly for Google Calendar
+        const formatForGoogleCalendar = (utcISOString: string, tz: string): string => {
+          // Parse the UTC ISO string
+          const utcDate = new Date(utcISOString);
+          
+          // Format it in the target timezone to get the local time components
           const formatter = new Intl.DateTimeFormat("en-CA", {
             timeZone: tz,
             year: "numeric",
@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
             hour12: false,
           });
           
-          const parts = formatter.formatToParts(date);
+          const parts = formatter.formatToParts(utcDate);
           const year = parts.find(p => p.type === "year")?.value;
           const month = parts.find(p => p.type === "month")?.value;
           const day = parts.find(p => p.type === "day")?.value;
@@ -188,19 +188,30 @@ Deno.serve(async (req) => {
           const minute = parts.find(p => p.type === "minute")?.value;
           const second = parts.find(p => p.type === "second")?.value;
           
+          // Return in ISO format without timezone indicator
+          // Google Calendar will interpret this as local time in the specified timeZone
           return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
         };
+        
+        console.log(`📅 Creating Google Calendar event (book-appointment):`);
+        console.log(`   UTC startTime: ${startTime}`);
+        console.log(`   UTC endTime: ${endTime}`);
+        console.log(`   Target timezone: ${timeZoneToUse}`);
+        const formattedStart = formatForGoogleCalendar(startTime, timeZoneToUse);
+        const formattedEnd = formatForGoogleCalendar(endTime, timeZoneToUse);
+        console.log(`   Formatted start: ${formattedStart}`);
+        console.log(`   Formatted end: ${formattedEnd}`);
         
         const eventBody = {
           summary: `Therapy Session: ${patientName || "Patient"}`,
           description:
             `Internal Therapist ID: ${therapistId}\nInquiry ID: ${inquiryId}\n\n(Routed to Admin Calendar)`,
           start: {
-            dateTime: formatForTimezone(startDate, timeZoneToUse),
+            dateTime: formattedStart,
             timeZone: timeZoneToUse,
           },
           end: {
-            dateTime: formatForTimezone(endDate, timeZoneToUse),
+            dateTime: formattedEnd,
             timeZone: timeZoneToUse,
           },
           reminders: {
