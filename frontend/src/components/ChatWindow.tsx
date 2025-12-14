@@ -7,13 +7,11 @@ import {
   Typography,
   Avatar,
   CircularProgress,
-  IconButton,
-  alpha
+  IconButton
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import PersonIcon from "@mui/icons-material/Person";
-import { AutoAwesome as AutoAwesomeIcon } from "@mui/icons-material";
 
 type Message = { sender: "user" | "bot"; text: string };
 
@@ -337,34 +335,6 @@ export default function ChatWindow() {
             position: 'relative',
           }}
         >
-          {/* Icon Badge */}
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 1,
-              px: 2.5,
-              py: 1,
-              mb: 2,
-              borderRadius: '24px',
-              bgcolor: alpha('#1b4332', 0.08),
-              border: `1px solid ${alpha('#1b4332', 0.2)}`,
-            }}
-          >
-            <AutoAwesomeIcon sx={{ color: '#1b4332', fontSize: 20 }} />
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                fontWeight: 600,
-                color: 'primary.main',
-                letterSpacing: '0.05em',
-                fontSize: '0.8rem',
-              }}
-            >
-              AI-POWERED ASSISTANT
-            </Typography>
-          </Box>
-
           {/* Main Heading */}
           <Typography 
             variant="h4" 
