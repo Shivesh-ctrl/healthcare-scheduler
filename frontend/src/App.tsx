@@ -88,7 +88,7 @@ export default function App() {
                       letterSpacing: '-0.02em',
                     }}
                   >
-                    Omi Health Bot
+                    Health Scheduler
                   </Typography>
                   <Typography
                     variant="caption"
@@ -182,7 +182,7 @@ export default function App() {
                   color: 'text.primary',
                 }}
               >
-                Omi Health Bot
+                Health Scheduler
               </Typography>
             </Box>
             <Typography
@@ -192,7 +192,7 @@ export default function App() {
                 display: 'block',
               }}
             >
-              © {new Date().getFullYear()} Omi Health Bot. Powered by AI. All rights reserved.
+              © {new Date().getFullYear()} Health Scheduler. Powered by AI. All rights reserved.
             </Typography>
             <Typography
               variant="caption"
