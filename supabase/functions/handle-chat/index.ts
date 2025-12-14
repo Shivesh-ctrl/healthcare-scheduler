@@ -838,13 +838,13 @@ async function aiConversation({
 
     for (const { tool, result } of lastToolResults) {
       if (tool === "check_available_slots" && result.availableSlots) {
-        const slots = result.availableSlots.slice(0, 5);
-        const slotList = slots.map((s: any, i: number) =>
-          `${i + 1}. ${s.displayTime}`
+        const slots = result.availableSlots.slice(0, 8);
+        const slotList = slots.map((s: any) =>
+          `• **${s.displayTime}**`
         ).join("\n");
 
         finalResponse =
-          `I found ${result.count} available times on ${result.date}:\n\n${slotList}\n\nWhich time works best for you?`;
+          `Great! ${result.therapistName || 'The therapist'} has several openings ${result.date.includes('next') ? 'on' : 'on'} ${result.date}.\n\nHere are the available times:\n${slotList}\n\nDo any of these times work for you?`;
       } else if (tool === "search_therapists" && result.therapists) {
         const therapists = result.therapists.slice(0, 3);
         const list = therapists.map((t: any, i: number) => {
@@ -2072,13 +2072,13 @@ Would you like to try a different date with ${selectedTherapist.name}?`,
       };
     }
 
-    const slotList = slots.slice(0, 6).map((s, i) => `${i + 1}. ${s.time}`)
+    const slotList = slots.slice(0, 8).map((s) => `• **${s.time}**`)
       .join("\n");
 
     return {
       success: true,
       message:
-        `Perfect! Here are the available times for ${selectedTherapist.name} on ${dateStr}:
+        `Perfect! Here are the available times for **${selectedTherapist.name}** on ${dateStr}:
 
 ${slotList}
 
@@ -2791,13 +2791,13 @@ Would you like to try a different date?`,
         };
       }
 
-      const slotList = slots.slice(0, 6).map((s, i) => `${i + 1}. ${s.time}`)
+      const slotList = slots.slice(0, 8).map((s) => `• **${s.time}**`)
         .join("\n");
 
       return {
         success: true,
         message:
-          `Great! Here are the available times for ${matchedTherapist.name} on ${dateStr}:
+          `Great! Here are the available times for **${matchedTherapist.name}** on ${dateStr}:
 
 ${slotList}
 
@@ -3031,11 +3031,18 @@ function parseFlexibleDate(dateStr: string): Date {
   for (let i = 0; i < 7; i++) {
     if (str.includes(days[i])) {
       const d = new Date(today);
-      const currentDay = today.getDay();
+      // Set to midnight in local timezone to avoid timezone shift issues
+      d.setHours(0, 0, 0, 0);
+      const currentDay = d.getDay();
       const targetDay = i;
       let daysToAdd = targetDay - currentDay;
-      if (daysToAdd <= 0) daysToAdd += 7; // Next occurrence
-      d.setDate(today.getDate() + daysToAdd);
+      // If target day is today or in the past this week, go to next week
+      if (daysToAdd <= 0) {
+        daysToAdd += 7; // Next occurrence
+      }
+      d.setDate(d.getDate() + daysToAdd);
+      // Ensure we're still at midnight local time
+      d.setHours(0, 0, 0, 0);
       return d;
     }
   }
