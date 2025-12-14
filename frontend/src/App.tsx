@@ -15,7 +15,8 @@ import {
   alpha
 } from "@mui/material";
 import {
-  Chat as ChatIcon
+  Chat as ChatIcon,
+  Home as HomeIcon
 } from "@mui/icons-material";
 import theme from "./theme";
 
@@ -78,6 +79,27 @@ export default function App() {
 
               {/* Navigation Buttons */}
               <Box sx={{ display: 'flex', gap: 1.5 }}>
+                <Button
+                  component={Link}
+                  to="/"
+                  startIcon={<HomeIcon />}
+                  variant={location.pathname === '/' ? "contained" : "text"}
+                  sx={{
+                    color: location.pathname === '/'
+                      ? 'white'
+                      : 'text.primary',
+                    bgcolor: location.pathname === '/'
+                      ? 'primary.main'
+                      : 'transparent',
+                    '&:hover': {
+                      bgcolor: location.pathname === '/'
+                        ? 'primary.dark'
+                        : alpha('#1b4332', 0.08),
+                    },
+                  }}
+                >
+                  Home
+                </Button>
                 <Button
                   component={Link}
                   to="/chat"
