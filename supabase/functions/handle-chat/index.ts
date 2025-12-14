@@ -1598,34 +1598,28 @@ async function toolBookAppointment(
               return tzOffsets[tz] ?? 0;
             };
             
-            // Use Intl.DateTimeFormat to correctly convert UTC to local time in the target timezone
-            // This properly handles DST and timezone conversions
-            const dateFormatter = new Intl.DateTimeFormat("en-CA", {
-              timeZone: tz,
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-            });
-            const timeFormatter = new Intl.DateTimeFormat("en-US", {
-              timeZone: tz,
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              hour12: false,
-            });
+            const offsetMinutes = getTimezoneOffsetMinutes(tz);
             
-            const dateStr = dateFormatter.format(utcDate); // YYYY-MM-DD
-            const timeStr = timeFormatter.format(utcDate); // HH:MM:SS
+            // When creating the slot: localTime - offset = UTC
+            // To get local time back: UTC + offset = localTime
+            // But since offset is negative for EST (-300), adding it means subtracting
+            const localTimeMs = utcDate.getTime() + (offsetMinutes * 60 * 1000);
+            const localDate = new Date(localTimeMs);
             
-            const [year, month, day] = dateStr.split('-');
-            const [hour, minute, second] = timeStr.split(':');
+            // Extract components in UTC (since we've adjusted the time)
+            const year = localDate.getUTCFullYear();
+            const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(localDate.getUTCDate()).padStart(2, '0');
+            const hour = String(localDate.getUTCHours()).padStart(2, '0');
+            const minute = String(localDate.getUTCMinutes()).padStart(2, '0');
+            const second = String(localDate.getUTCSeconds()).padStart(2, '0');
             
             // Construct the ISO format string (YYYY-MM-DDTHH:MM:SS)
             // Google Calendar will interpret this as local time in the specified timeZone
             const formatted = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
             
             console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
-            console.log(`   Local time: ${hour}:${minute}:${second} on ${year}-${month}-${day}`);
+            console.log(`   Offset: ${offsetMinutes}min, Local time: ${hour}:${minute}:${second} on ${year}-${month}-${day}`);
             return formatted;
           };
           
