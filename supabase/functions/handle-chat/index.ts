@@ -3030,9 +3030,13 @@ function parseFlexibleDate(dateStr: string): Date {
   ];
   for (let i = 0; i < 7; i++) {
     if (str.includes(days[i])) {
-      const d = new Date(today);
-      // Set to midnight in local timezone to avoid timezone shift issues
-      d.setHours(0, 0, 0, 0);
+      // Create date at local midnight to avoid timezone conversion issues
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      const day = now.getDate();
+      const d = new Date(year, month, day, 0, 0, 0, 0); // Local midnight
+      
       const currentDay = d.getDay();
       const targetDay = i;
       let daysToAdd = targetDay - currentDay;
@@ -3041,8 +3045,6 @@ function parseFlexibleDate(dateStr: string): Date {
         daysToAdd += 7; // Next occurrence
       }
       d.setDate(d.getDate() + daysToAdd);
-      // Ensure we're still at midnight local time
-      d.setHours(0, 0, 0, 0);
       return d;
     }
   }
