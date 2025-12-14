@@ -54,6 +54,12 @@ serve(async (req) => {
       }),
     })
 
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Token exchange failed:', tokenResponse.status, errorText);
+      throw new Error(`Google token exchange failed: ${tokenResponse.status} - ${errorText}`);
+    }
+    
     const tokens = await tokenResponse.json()
     console.log(`Token response status: ${tokenResponse.status}`);
     console.log(`Refresh token received: ${!!tokens.refresh_token}`);
@@ -63,7 +69,7 @@ serve(async (req) => {
       // access_type=offline wasn't sent or the user was already authorized.
       // prompt=consent fixes this.
       console.error('No refresh token in response:', JSON.stringify(tokens));
-      throw new Error("No refresh token returned from Google.")
+      throw new Error("No refresh token returned from Google. Make sure access_type=offline and prompt=consent are set in the OAuth request.")
     }
 
     // 2. Save Refresh Token to Supabase
@@ -92,10 +98,27 @@ serve(async (req) => {
     return Response.redirect(`${redirectHost}/admin?success=true&state=${therapistId}`, 302)
 
   } catch (err) {
+    console.error('OAuth callback error:', err);
     let errorMessage = 'An unknown error occurred';
     if (err instanceof Error) {
       errorMessage = err.message;
+    } else if (typeof err === 'string') {
+      errorMessage = err;
+    } else {
+      errorMessage = JSON.stringify(err);
     }
-    return new Response(`OAuth Failed: ${errorMessage}`, { status: 500 })
+    
+    // Return error with details for debugging
+    return new Response(
+      JSON.stringify({ 
+        error: 'OAuth Failed', 
+        message: errorMessage,
+        details: err instanceof Error ? err.stack : undefined
+      }), 
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
 })
