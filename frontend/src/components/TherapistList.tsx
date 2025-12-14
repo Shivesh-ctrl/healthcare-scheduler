@@ -116,9 +116,8 @@ export default function TherapistList() {
     const stateParam = params.get('state'); // Format: "therapistId|origin" or just "therapistId"
     
     if (success === 'true' && stateParam) {
-      // Extract therapist ID (before the | separator if present)
-      const therapistId = stateParam.includes('|') ? stateParam.split('|')[0] : stateParam;
-      
+      // OAuth callback successful - state param contains therapistId|origin
+      // We don't need to extract it, just refresh the therapist list
       window.history.replaceState({}, document.title, window.location.pathname);
       alert("Calendar connected successfully!");
       setConnectingId(null);
