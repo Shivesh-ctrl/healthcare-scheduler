@@ -115,9 +115,10 @@ export default function AdminPage() {
   }
 
   return (
-    <Box>
-      {/* Header */}
-      <Box 
+    <Container maxWidth="lg">
+      <Box>
+        {/* Header */}
+        <Box 
         sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -235,6 +236,7 @@ export default function AdminPage() {
         </Box>
         <TherapistList />
       </Paper>
-    </Box>
+      </Box>
+    </Container>
   );
 }
