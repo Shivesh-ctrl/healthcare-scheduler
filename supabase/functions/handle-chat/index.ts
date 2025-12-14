@@ -1712,13 +1712,16 @@ async function toolBookAppointment(
   // STEP 9: Format and return success response
   // ─────────────────────────────────────────────────────────────────────────────
 
+  // Format date and time in the user's timezone to ensure correct display
   const formattedDate = start.toLocaleDateString("en-US", {
+    timeZone: timeZone,
     weekday: "long",
     month: "long",
     day: "numeric",
   });
 
   const formattedTime = start.toLocaleTimeString("en-US", {
+    timeZone: timeZone,
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
