@@ -1062,8 +1062,8 @@ async function toolCheckAvailableSlots(
   const therapistName = resolved.name;
   console.log("Resolved to:", therapistName, "→", therapistId);
 
-  // Parse date
-  let targetDate = parseFlexibleDate(date);
+  // Parse date using the user's timezone
+  let targetDate = parseFlexibleDate(date, timeZone);
 
   // ─────────────────────────────────────────────────────────────────────────────
   // WEEKEND VALIDATION - Check BEFORE suggesting time slots
@@ -3001,9 +3001,12 @@ async function getOrCreateInquiry(supabase: any, patientId: string) {
   return newInquiry;
 }
 
-function parseFlexibleDate(dateStr: string): Date {
+function parseFlexibleDate(dateStr: string, timeZone: string = "Asia/Kolkata"): Date {
   const str = dateStr.toLowerCase();
-  const today = new Date();
+  // Get today's date in the specified timezone to avoid timezone shift issues
+  const now = new Date();
+  const todayInTz = new Date(now.toLocaleString("en-US", { timeZone }));
+  const today = new Date(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate());
 
   // Handle relative days
   if (str.includes("today")) return today;
@@ -3030,22 +3033,40 @@ function parseFlexibleDate(dateStr: string): Date {
   ];
   for (let i = 0; i < 7; i++) {
     if (str.includes(days[i])) {
-      // Create date at local midnight to avoid timezone conversion issues
+      // Get current date in the specified timezone
       const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
-      const day = now.getDate();
-      const d = new Date(year, month, day, 0, 0, 0, 0); // Local midnight
+      const formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const parts = formatter.formatToParts(now);
+      const year = parseInt(parts.find(p => p.type === "year")?.value || "2024");
+      const month = parseInt(parts.find(p => p.type === "month")?.value || "1") - 1;
+      const day = parseInt(parts.find(p => p.type === "day")?.value || "1");
       
-      const currentDay = d.getDay();
+      // Create date object using UTC to avoid timezone shifts
+      const d = new Date(Date.UTC(year, month, day, 12, 0, 0, 0)); // Use noon UTC to avoid date boundary issues
+      
+      // Get the day of week in the target timezone
+      const dayFormatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: timeZone,
+        weekday: "long",
+      });
+      const currentDayName = dayFormatter.format(d).toLowerCase();
+      const currentDayIndex = days.findIndex(d => currentDayName.includes(d));
+      const currentDay = currentDayIndex >= 0 ? currentDayIndex : d.getUTCDay();
+      
       const targetDay = i;
       let daysToAdd = targetDay - currentDay;
       // If target day is today or in the past this week, go to next week
       if (daysToAdd <= 0) {
         daysToAdd += 7; // Next occurrence
       }
-      // Add the days directly without using setDate to avoid timezone issues
-      d.setDate(day + daysToAdd);
+      
+      // Add days using UTC to avoid timezone shifts
+      d.setUTCDate(d.getUTCDate() + daysToAdd);
       return d;
     }
   }
