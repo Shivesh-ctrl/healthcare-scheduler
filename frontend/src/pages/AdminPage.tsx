@@ -236,9 +236,9 @@ export default function AdminPage() {
           borderRadius: 3,
           background: therapist?.google_refresh_token
             ? `linear-gradient(135deg, ${alpha('#1e8e3e', 0.05)} 0%, ${alpha('#34a853', 0.05)} 100%)`
-            : `linear-gradient(135deg, ${alpha('#1a73e8', 0.05)} 0%, ${alpha('#4285f4', 0.05)} 100%)`,
+            : `linear-gradient(135deg, ${alpha('#1b4332', 0.05)} 0%, ${alpha('#40916c', 0.05)} 100%)`,
           border: '1px solid',
-          borderColor: therapist?.google_refresh_token ? alpha('#1e8e3e', 0.2) : alpha('#1a73e8', 0.2),
+          borderColor: therapist?.google_refresh_token ? alpha('#1e8e3e', 0.2) : alpha('#1b4332', 0.2),
           position: 'relative',
           overflow: 'hidden',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
