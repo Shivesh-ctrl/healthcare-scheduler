@@ -1584,37 +1584,40 @@ async function toolBookAppointment(
             // Parse the UTC ISO string
             const utcDate = new Date(utcISOString);
             
-            // Get the actual timezone offset for this specific date/time (accounts for DST)
-            // Calculate offset: local time - UTC time = offset
-            const utcTime = utcDate.getTime();
+            // Get the timezone offset used when creating the slot (same function as createSlotTime)
+            const getTimezoneOffsetMinutes = (tz: string): number => {
+              const tzOffsets: Record<string, number> = {
+                "Asia/Kolkata": 330, // +5:30 = 330 minutes
+                "America/New_York": -300, // -5:00 = -300 minutes (EST) or -240 (EDT)
+                "America/Chicago": -360, // -6:00 = -360 minutes (CST) or -300 (CDT)
+                "America/Denver": -420, // -7:00 = -420 minutes (MST) or -360 (MDT)
+                "America/Los_Angeles": -480, // -8:00 = -480 minutes (PST) or -420 (PDT)
+                "Europe/London": 0,
+                "UTC": 0,
+              };
+              return tzOffsets[tz] ?? 0;
+            };
             
-            // Create a formatter to get what this UTC time represents in the local timezone
-            const formatter = new Intl.DateTimeFormat("en-CA", {
-              timeZone: tz,
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              hour12: false,
-            });
+            const offsetMinutes = getTimezoneOffsetMinutes(tz);
             
-            // Format the UTC date to see what it represents in local timezone
-            const parts = formatter.formatToParts(utcDate);
-            const year = parts.find(p => p.type === "year")?.value;
-            const month = parts.find(p => p.type === "month")?.value;
-            const day = parts.find(p => p.type === "day")?.value;
-            const hour = parts.find(p => p.type === "hour")?.value;
-            const minute = parts.find(p => p.type === "minute")?.value;
-            const second = parts.find(p => p.type === "second")?.value;
+            // Add the offset back to get the original local time
+            // Since we subtracted it when creating the slot, we add it back now
+            const localTime = new Date(utcDate.getTime() + (offsetMinutes * 60 * 1000));
+            
+            // Extract date and time components from the local time
+            const year = localTime.getUTCFullYear();
+            const month = String(localTime.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(localTime.getUTCDate()).padStart(2, '0');
+            const hour = String(localTime.getUTCHours()).padStart(2, '0');
+            const minute = String(localTime.getUTCMinutes()).padStart(2, '0');
+            const second = String(localTime.getUTCSeconds()).padStart(2, '0');
             
             // Construct the ISO format string (YYYY-MM-DDTHH:MM:SS)
             // Google Calendar will interpret this as local time in the specified timeZone
             const formatted = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
             
             console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
-            console.log(`   Extracted local time: ${hour}:${minute}:${second} on ${year}-${month}-${day}`);
+            console.log(`   Offset used: ${offsetMinutes} minutes, Local time: ${hour}:${minute}:${second} on ${year}-${month}-${day}`);
             return formatted;
           };
           
