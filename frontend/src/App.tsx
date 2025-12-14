@@ -1,4 +1,5 @@
 import { Routes, Route, Link, useLocation } from "react-router-dom";
+import HomePage from "./pages/HomePage";
 import ChatPage from "./pages/ChatPage";
 import AdminPage from "./pages/AdminPage";
 import DebugPage from "./pages/DebugPage";
@@ -81,16 +82,16 @@ export default function App() {
                   component={Link}
                   to="/chat"
                   startIcon={<ChatIcon />}
-                  variant={location.pathname.includes('/chat') || location.pathname === '/' ? "contained" : "text"}
+                  variant={location.pathname.includes('/chat') ? "contained" : "text"}
                   sx={{
-                    color: location.pathname.includes('/chat') || location.pathname === '/'
+                    color: location.pathname.includes('/chat')
                       ? 'white'
                       : 'text.primary',
-                    bgcolor: location.pathname.includes('/chat') || location.pathname === '/'
+                    bgcolor: location.pathname.includes('/chat')
                       ? 'primary.main'
                       : 'transparent',
                     '&:hover': {
-                      bgcolor: location.pathname.includes('/chat') || location.pathname === '/'
+                      bgcolor: location.pathname.includes('/chat')
                         ? 'primary.dark'
                         : alpha('#1b4332', 0.08),
                     },
@@ -118,7 +119,7 @@ export default function App() {
         {/* Main Content */}
         <Box component="main" sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Routes>
-            <Route path="/" element={<ChatPage />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/debug" element={<DebugPage />} />
