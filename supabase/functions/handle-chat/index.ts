@@ -1574,15 +1574,14 @@ async function toolBookAppointment(
         if (tokenData.access_token) {
           const calendarId = adminTherapist.google_calendar_id || "primary";
 
-          // The startTimeISO and endTimeISO are in UTC, but represent local times
-          // We need to extract what the local time was intended to be
-          // The slot times are created with local hours (9 AM, 10 AM, etc.) in the timezone
-          // So we need to format the UTC date as if it's in the target timezone
+          // The startTimeISO and endTimeISO are UTC times that represent local times
+          // The slot times are created with local hours (9 AM, 10 AM, etc.) converted to UTC
+          // We need to convert them back to show the correct local time in Google Calendar
           const formatForGoogleCalendar = (utcISOString: string, tz: string): string => {
             // Parse the UTC ISO string
             const utcDate = new Date(utcISOString);
             
-            // Format it in the target timezone to get the local time components
+            // Format it in the target timezone to get what the local time should be
             const formatter = new Intl.DateTimeFormat("en-CA", {
               timeZone: tz,
               year: "numeric",
@@ -1604,7 +1603,9 @@ async function toolBookAppointment(
             
             // Return in ISO format without timezone indicator
             // Google Calendar will interpret this as local time in the specified timeZone
-            return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+            const formatted = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+            console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
+            return formatted;
           };
           
           console.log(`📅 Creating Google Calendar event:`);
