@@ -3112,19 +3112,30 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York
       // Calculate the target day number
       const targetDayNum = dayNum + daysToAdd;
       
-      // Create the target date in the local timezone first (to avoid shifts)
-      // Then convert to UTC for consistent storage
-      // Create at noon local time to avoid date boundary issues
-      const targetLocalDate = new Date(year, month - 1, targetDayNum, 12, 0, 0, 0);
+      // Create the target date directly using the timezone-aware components
+      // We already have year, month, dayNum from the timezone-aware today's date
+      // So we can directly create a UTC date that represents midnight on that date in the timezone
+      // Then format it back to verify it's correct
+      const targetDate = new Date(Date.UTC(year, month - 1, targetDayNum, 12, 0, 0, 0));
       
-      // Convert to UTC by extracting components and creating UTC date
-      // This preserves the date without timezone shifts
-      const utcYear = targetLocalDate.getUTCFullYear();
-      const utcMonth = targetLocalDate.getUTCMonth();
-      const utcDay = targetLocalDate.getUTCDate();
-      const targetDate = new Date(Date.UTC(utcYear, utcMonth, utcDay, 12, 0, 0, 0));
+      // Verify the date is correct by formatting it in the target timezone
+      const verifyFormatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+      const verifyStr = verifyFormatter.format(targetDate);
+      const [verifyYear, verifyMonth, verifyDay] = verifyStr.split('-').map(Number);
       
-      console.log(`Date calc: today=${dateStr} (${currentWeekdayName}), currentDay=${currentDay}, targetDay=${targetDay}, daysToAdd=${daysToAdd}, targetDayNum=${targetDayNum}, result=${targetDate.toISOString()}`);
+      // If the formatted date doesn't match, adjust (this handles edge cases)
+      if (verifyYear !== year || verifyMonth !== month || verifyDay !== targetDayNum) {
+        console.log(`⚠️ Date adjustment needed: expected ${year}-${month}-${targetDayNum}, got ${verifyStr}`);
+        // Recreate with the verified components
+        return new Date(Date.UTC(verifyYear, verifyMonth - 1, verifyDay, 12, 0, 0, 0));
+      }
+      
+      console.log(`Date calc: today=${dateStr} (${currentWeekdayName}), currentDay=${currentDay}, targetDay=${targetDay}, daysToAdd=${daysToAdd}, targetDayNum=${targetDayNum}, result=${targetDate.toISOString()}, verified=${verifyStr}`);
       
       return targetDate;
     }
