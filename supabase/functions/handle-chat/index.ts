@@ -1578,37 +1578,43 @@ async function toolBookAppointment(
           // The startTimeISO and endTimeISO are UTC times that represent local times
           // The slot times are created with local hours (9 AM, 10 AM, etc.) converted to UTC
           // We need to reconstruct the original local time for Google Calendar
+          // The key insight: the UTC time was created by subtracting the timezone offset from local time
+          // So to get back the local time, we need to add the offset back
           const formatForGoogleCalendar = (utcISOString: string, tz: string): string => {
             // Parse the UTC ISO string
             const utcDate = new Date(utcISOString);
             
-            // Get the date components in the target timezone
-            // This tells us what date and time this UTC moment represents in the local timezone
-            const dateFormatter = new Intl.DateTimeFormat("en-CA", {
+            // Get the actual timezone offset for this specific date/time (accounts for DST)
+            // Calculate offset: local time - UTC time = offset
+            const utcTime = utcDate.getTime();
+            
+            // Create a formatter to get what this UTC time represents in the local timezone
+            const formatter = new Intl.DateTimeFormat("en-CA", {
               timeZone: tz,
               year: "numeric",
               month: "2-digit",
               day: "2-digit",
-            });
-            const timeFormatter = new Intl.DateTimeFormat("en-US", {
-              timeZone: tz,
               hour: "2-digit",
               minute: "2-digit",
               second: "2-digit",
               hour12: false,
             });
             
-            const dateStr = dateFormatter.format(utcDate); // YYYY-MM-DD
-            const timeStr = timeFormatter.format(utcDate); // HH:MM:SS
-            
-            // Parse the time string to get hours and minutes
-            const [hour, minute, second] = timeStr.split(':').map(Number);
+            // Format the UTC date to see what it represents in local timezone
+            const parts = formatter.formatToParts(utcDate);
+            const year = parts.find(p => p.type === "year")?.value;
+            const month = parts.find(p => p.type === "month")?.value;
+            const day = parts.find(p => p.type === "day")?.value;
+            const hour = parts.find(p => p.type === "hour")?.value;
+            const minute = parts.find(p => p.type === "minute")?.value;
+            const second = parts.find(p => p.type === "second")?.value;
             
             // Construct the ISO format string (YYYY-MM-DDTHH:MM:SS)
-            const formatted = `${dateStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:${String(second).padStart(2, '0')}`;
+            // Google Calendar will interpret this as local time in the specified timeZone
+            const formatted = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
             
             console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
-            console.log(`   Date: ${dateStr}, Time: ${timeStr}`);
+            console.log(`   Extracted local time: ${hour}:${minute}:${second} on ${year}-${month}-${day}`);
             return formatted;
           };
           
@@ -3113,12 +3119,23 @@ function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York
         daysToAdd += 7;
       }
       
-      // Calculate the target day number (subtract 1 to fix the off-by-one issue)
-      const targetDayNum = dayNum + daysToAdd - 1;
+      // Calculate the target day number
+      const targetDayNum = dayNum + daysToAdd;
       
-      // Create the target date at noon UTC using the timezone-aware date components
-      // Using noon avoids date boundary issues when converting between timezones
-      const targetDate = new Date(Date.UTC(year, month - 1, targetDayNum, 12, 0, 0, 0));
+      // Create a date object in the local timezone first to avoid UTC conversion issues
+      // This ensures the date doesn't shift when we format it later
+      const localDate = new Date(year, month - 1, targetDayNum, 12, 0, 0, 0);
+      
+      // Now create UTC date using the local date components to preserve the date
+      const targetDate = new Date(Date.UTC(
+        localDate.getFullYear(),
+        localDate.getMonth(),
+        localDate.getDate(),
+        12,
+        0,
+        0,
+        0
+      ));
       
       console.log(`Date calc: today=${dateStr} (${currentWeekdayName}), currentDay=${currentDay}, targetDay=${targetDay}, daysToAdd=${daysToAdd}, targetDayNum=${targetDayNum}, result=${targetDate.toISOString()}`);
       
