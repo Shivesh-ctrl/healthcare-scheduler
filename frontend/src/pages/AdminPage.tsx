@@ -217,6 +217,33 @@ export default function AdminPage() {
         </Button>
       </Box>
 
+      {/* Scheduled Appointments */}
+      <Paper 
+        elevation={2} 
+        sx={{ 
+          p: 4,
+          mb: 4,
+          borderRadius: 3,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            boxShadow: '0px 8px 20px rgba(60, 64, 67, 0.15)',
+          }
+        }}
+      >
+        <Typography 
+          variant="h5" 
+          gutterBottom 
+          sx={{ 
+            color: 'primary.main',
+            fontWeight: 600,
+            mb: 3,
+          }}
+        >
+          Scheduled Appointments
+        </Typography>
+        <AppointmentList />
+      </Paper>
+
       {/* Calendar Sync Card */}
       <Paper 
         elevation={2} 
@@ -315,58 +342,31 @@ export default function AdminPage() {
         </Box>
       </Paper>
 
-      {/* Data Tables */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Paper 
-          elevation={2} 
+      {/* Patient Inquiries */}
+      <Paper 
+        elevation={2} 
+        sx={{ 
+          p: 4,
+          borderRadius: 3,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            boxShadow: '0px 8px 20px rgba(60, 64, 67, 0.15)',
+          }
+        }}
+      >
+        <Typography 
+          variant="h5" 
+          gutterBottom 
           sx={{ 
-            p: 4,
-            borderRadius: 3,
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            '&:hover': {
-              boxShadow: '0px 8px 20px rgba(60, 64, 67, 0.15)',
-            }
+            color: 'primary.main',
+            fontWeight: 600,
+            mb: 3,
           }}
         >
-          <Typography 
-            variant="h5" 
-            gutterBottom 
-            sx={{ 
-              color: 'primary.main',
-              fontWeight: 600,
-              mb: 3,
-            }}
-          >
-            Scheduled Appointments
-          </Typography>
-          <AppointmentList />
-        </Paper>
-
-        <Paper 
-          elevation={2} 
-          sx={{ 
-            p: 4,
-            borderRadius: 3,
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            '&:hover': {
-              boxShadow: '0px 8px 20px rgba(60, 64, 67, 0.15)',
-            }
-          }}
-        >
-          <Typography 
-            variant="h5" 
-            gutterBottom 
-            sx={{ 
-              color: 'primary.main',
-              fontWeight: 600,
-              mb: 3,
-            }}
-          >
-            Patient Inquiries
-          </Typography>
-          <InquiryList />
-        </Paper>
-      </Box>
+          Patient Inquiries
+        </Typography>
+        <InquiryList />
+      </Paper>
     </Box>
   );
 }
