@@ -80,8 +80,9 @@ export default function TherapistList() {
     const redirectUri = `${supabaseUrl}/functions/v1/google-callback`;
     const scope = 'https://www.googleapis.com/auth/calendar.events';
 
-    // Pass therapist ID as state
-    const state = therapistId;
+    // Pass therapist ID and origin as state (separated by |)
+    const origin = window.location.origin;
+    const state = `${therapistId}|${origin}`;
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${state}`;
 

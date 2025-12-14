@@ -4,25 +4,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 serve(async (req) => {
   const url = new URL(req.url)
   const code = url.searchParams.get('code')
-  const therapistId = url.searchParams.get('state') // We passed this earlier
+  const stateParam = url.searchParams.get('state') || ''
   const error = url.searchParams.get('error')
   
-  // Get the origin from referer header to redirect back to the correct host
-  const referer = req.headers.get('referer') || ''
+  // Parse state: format is "therapistId|origin" or just "therapistId" for backward compatibility
+  let therapistId = stateParam
   let redirectHost = Deno.env.get('SITE_URL') || 'https://ai-scheduler-oqbk.vercel.app'
   
-  // Try to extract origin from referer for localhost support
-  try {
-    if (referer) {
-      const refererUrl = new URL(referer)
-      // If it's localhost or 127.0.0.1, use it
-      if (refererUrl.hostname === 'localhost' || refererUrl.hostname === '127.0.0.1' || refererUrl.hostname.startsWith('localhost:')) {
-        redirectHost = `${refererUrl.protocol}//${refererUrl.host}`
-      }
+  if (stateParam.includes('|')) {
+    const [id, origin] = stateParam.split('|')
+    therapistId = id
+    if (origin) {
+      redirectHost = origin
     }
-  } catch (e) {
-    // If parsing fails, use the default
-    console.log('Could not parse referer, using default:', redirectHost)
   }
 
   if (error || !code || !therapistId) {
