@@ -546,13 +546,14 @@ export default function ChatWindow() {
               }
             }}
             multiline
-            maxRows={4}
+            maxRows={5}
             sx={{
               '& .MuiOutlinedInput-root': {
                 bgcolor: '#f8f9fa',
                 borderRadius: '16px',
-                fontSize: '1rem',
-                padding: '4px 8px',
+                fontSize: '1.125rem',
+                padding: '12px 16px',
+                minHeight: '56px',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
                   bgcolor: '#f1f3f4',
@@ -561,6 +562,11 @@ export default function ChatWindow() {
                   bgcolor: 'white',
                   boxShadow: '0 0 0 3px rgba(27, 67, 50, 0.1)',
                 }
+              },
+              '& .MuiInputBase-input': {
+                padding: '0 !important',
+                fontSize: '1.125rem',
+                lineHeight: 1.5,
               }
             }}
           />
