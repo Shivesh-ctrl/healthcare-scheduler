@@ -186,6 +186,7 @@ export default function AdminPage() {
         elevation={2} 
         sx={{ 
           p: 4,
+          mb: 4,
           borderRadius: 3,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
@@ -205,6 +206,34 @@ export default function AdminPage() {
           Patient Inquiries
         </Typography>
         <InquiryList />
+      </Paper>
+
+      {/* All Therapists */}
+      <Paper 
+        elevation={2} 
+        sx={{ 
+          p: 4,
+          mb: 4,
+          borderRadius: 3,
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            boxShadow: '0px 8px 20px rgba(60, 64, 67, 0.15)',
+          }
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+          <PeopleIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              color: 'primary.main',
+              fontWeight: 600,
+            }}
+          >
+            All Therapists
+          </Typography>
+        </Box>
+        <TherapistList />
       </Paper>
     </Box>
   );
