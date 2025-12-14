@@ -1069,7 +1069,12 @@ async function toolCheckAvailableSlots(
   // ─────────────────────────────────────────────────────────────────────────────
   // WEEKEND VALIDATION - Check BEFORE suggesting time slots
   // ─────────────────────────────────────────────────────────────────────────────
-  const dayOfWeek = targetDate.getDay(); // 0 = Sunday, 6 = Saturday
+  // Get day of week in the user's timezone, not UTC
+  const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timeZone,
+    weekday: "long",
+  });
+  const weekdayName = weekdayFormatter.format(targetDate).toLowerCase();
   const dayNames = [
     "Sunday",
     "Monday",
@@ -1079,6 +1084,8 @@ async function toolCheckAvailableSlots(
     "Friday",
     "Saturday",
   ];
+  const dayOfWeekIndex = dayNames.findIndex(d => weekdayName.includes(d.toLowerCase()));
+  const dayOfWeek = dayOfWeekIndex >= 0 ? dayOfWeekIndex : targetDate.getDay(); // Fallback to UTC if needed
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
   if (isWeekend) {
