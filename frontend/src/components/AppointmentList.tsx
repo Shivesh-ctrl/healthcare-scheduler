@@ -93,37 +93,20 @@ export default function AppointmentList() {
     setActionLoadingId(appointmentId);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error("Not authenticated");
-
-      const res = await fetch(`${import.meta.env.VITE_FUNCTIONS_BASE}/cancel-appointment`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ appointmentId }),
+      const { data, error } = await supabase.functions.invoke('cancel-appointment', {
+        body: { appointmentId },
       });
 
-      // Check if response has content before parsing JSON
-      const text = await res.text();
-      if (!text) {
-        throw new Error("Empty response from server");
+      if (error) {
+        throw new Error(error.message || "Failed to cancel appointment");
       }
 
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch (e) {
-        throw new Error(`Invalid response from server: ${text.substring(0, 100)}`);
-      }
-
-      if (!res.ok) {
-        throw new Error(json?.error || json?.message || "Failed to cancel appointment");
+      if (!data?.success) {
+        throw new Error(data?.error || "Failed to cancel appointment");
       }
 
       await fetchAppointments();
+      alert("Appointment cancelled successfully");
     } catch (err: any) {
       console.error("Cancel failed:", err);
       alert("Failed to cancel appointment: " + (err.message ?? err));
