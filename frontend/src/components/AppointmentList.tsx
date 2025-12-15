@@ -42,16 +42,18 @@ const formatDateTime = (isoString: string | null | undefined): string => {
   
   try {
     // Parse the UTC ISO string - this creates a Date object correctly
+    // The Date constructor automatically parses ISO strings with 'Z' as UTC
     const date = new Date(isoString);
     
     // Verify the date is valid
     if (isNaN(date.getTime())) {
+      console.warn("Invalid date:", isoString);
       return isoString;
     }
     
-    // Format in India Standard Time (IST)
-    // The Date object internally stores UTC time, toLocaleString converts it to the specified timezone
-    const formatted = date.toLocaleString("en-IN", {
+    // Use Intl.DateTimeFormat for accurate timezone conversion
+    // This ensures UTC time is correctly converted to IST
+    const formatter = new Intl.DateTimeFormat("en-IN", {
       timeZone: "Asia/Kolkata",
       weekday: "short",
       year: "numeric",
@@ -62,6 +64,7 @@ const formatDateTime = (isoString: string | null | undefined): string => {
       hour12: true,
     });
     
+    const formatted = formatter.format(date);
     return formatted;
   } catch (error) {
     console.error("Error formatting date:", error, isoString);
