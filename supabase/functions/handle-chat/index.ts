@@ -1400,11 +1400,25 @@ async function toolBookAppointment(
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // STEP 4: Working hours validation (9 AM - 5 PM)
+  // STEP 4: Working hours validation (9 AM - 5 PM) in USER'S TIMEZONE
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const hour = start.getHours();
-  const dayOfWeek = start.getDay(); // 0 = Sunday, 6 = Saturday
+  // Get the hour in the user's timezone, not server timezone
+  const hourStr = new Intl.DateTimeFormat("en-US", {
+    timeZone: timeZone,
+    hour: "numeric",
+    hour12: false,
+  }).format(start);
+  const hour = parseInt(hourStr, 10);
+
+  // Get day of week in user's timezone
+  const weekdayFormatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timeZone,
+    weekday: "long",
+  });
+  const weekdayName = weekdayFormatter.format(start).toLowerCase();
+  const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const dayOfWeek = dayNames.findIndex(d => weekdayName.includes(d));
 
   // Weekend check
   if (dayOfWeek === 0 || dayOfWeek === 6) {

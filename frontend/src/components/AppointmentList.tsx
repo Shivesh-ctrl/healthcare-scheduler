@@ -36,13 +36,22 @@ type Appointment = {
 };
 
 // Helper function to format dates in the user's local timezone
+// The ISO string from database is in UTC, we need to display it in IST
 const formatDateTime = (isoString: string | null | undefined): string => {
   if (!isoString) return "-";
   
   try {
+    // Parse the UTC ISO string - this creates a Date object correctly
     const date = new Date(isoString);
-    // Format in India Standard Time
-    return date.toLocaleString("en-IN", {
+    
+    // Verify the date is valid
+    if (isNaN(date.getTime())) {
+      return isoString;
+    }
+    
+    // Format in India Standard Time (IST)
+    // The Date object internally stores UTC time, toLocaleString converts it to the specified timezone
+    const formatted = date.toLocaleString("en-IN", {
       timeZone: "Asia/Kolkata",
       weekday: "short",
       year: "numeric",
@@ -52,7 +61,10 @@ const formatDateTime = (isoString: string | null | undefined): string => {
       minute: "2-digit",
       hour12: true,
     });
-  } catch {
+    
+    return formatted;
+  } catch (error) {
+    console.error("Error formatting date:", error, isoString);
     return isoString;
   }
 };
