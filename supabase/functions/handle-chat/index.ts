@@ -84,14 +84,14 @@ const TOOLS = {
     {
       name: "book_appointment",
       description:
-        "Book an appointment. ONLY use after confirming user wants to book and slot is available.",
+        "Book an appointment. Use when user has selected a therapist, date, and time. Call this IMMEDIATELY when user selects a time slot - do not ask for confirmation. Include any reason/problem the user mentioned (stress, anxiety, depression, etc.) in the 'problem' field.",
       parameters: {
         type: "OBJECT",
         properties: {
           therapistId: { type: "STRING", description: "ID of the therapist" },
           startTime: { type: "STRING", description: "ISO 8601 start time" },
           endTime: { type: "STRING", description: "ISO 8601 end time" },
-          problem: { type: "STRING", description: "Reason for visit" },
+          problem: { type: "STRING", description: "Reason for visit (e.g., stress, anxiety, depression, relationship issues)" },
         },
         required: ["therapistId", "startTime", "endTime"],
       },
@@ -317,7 +317,10 @@ BOOKING FLOW (After emotional connection):
 4. User picks one → "Great choice! Let me check when they're available..."
 5. When user suggests a date → VALIDATE it's a weekday BEFORE calling check_available_slots
 6. If weekday, show available times → "Does any of these work for you?"
-7. Book → Celebrate warmly: "You're all set! I'm really glad you're taking this step."
+7. User selects a time → IMMEDIATELY call book_appointment with the therapist, date, time, and any reason/problem the user mentioned
+   - DO NOT ask for confirmation again after the user has selected a time
+   - If the user provides a reason (stress, anxiety, etc.) after selecting time, include it in the booking
+   - Celebrate warmly: "You're all set! I'm really glad you're taking this step."
 
 INSURANCE INFORMATION:
 We accept: Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Humana, Kaiser Permanente, Medicare, Medicaid
@@ -2210,22 +2213,17 @@ Which time works best for you? Just say the time like "10 AM" and I'll book it r
           hour >= 12 ? "PM" : "AM"
         }`;
 
+        // Don't return here - let the AI handle the booking immediately
+        // This is just a fallback, so we'll return a simple message and let AI book
         return {
           success: true,
           message:
-            `Great! I'm booking your appointment with ${selectedTherapist.name} for ${dateStr} at ${timeStr}.
-
-Just to confirm:
-- **Therapist**: ${selectedTherapist.name}
-- **Date**: ${dateStr}
-- **Time**: ${timeStr}
-
-Type "confirm" to finalize the booking, or let me know if you'd like a different time.`,
+            `Perfect! I have all the details to book your appointment with ${selectedTherapist.name} for ${dateStr} at ${timeStr}. Let me book that for you now.`,
           therapistId: selectedTherapist.id,
           therapistName: selectedTherapist.name,
           date: bookingDate.toISOString(),
           time: timeStr,
-          readyToBook: true,
+          shouldBook: true, // Signal that booking should proceed
         };
       } else {
         return {
