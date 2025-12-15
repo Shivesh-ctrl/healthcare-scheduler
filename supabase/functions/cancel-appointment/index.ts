@@ -31,8 +31,23 @@ Deno.serve(async (req) => {
     }
 
     // 3. Parse Request
-    const { appointmentId } = await req.json()
-    if (!appointmentId) throw new Error("Missing appointmentId")
+    let appointmentId: string;
+    try {
+      const body = await req.json()
+      appointmentId = body.appointmentId
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request body. Expected JSON with appointmentId.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    if (!appointmentId) {
+      return new Response(
+        JSON.stringify({ error: 'Missing appointmentId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // 4. Fetch Appointment Details (to get Google Event ID and Therapist credential)
     const { data: appointment, error: fetchError } = await supabase
@@ -41,7 +56,12 @@ Deno.serve(async (req) => {
       .eq('id', appointmentId)
       .single()
 
-    if (fetchError || !appointment) throw new Error("Appointment not found")
+    if (fetchError || !appointment) {
+      return new Response(
+        JSON.stringify({ error: 'Appointment not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     const therapist = appointment.therapists;
 
@@ -88,7 +108,13 @@ Deno.serve(async (req) => {
       .delete()
       .eq('id', appointmentId)
 
-    if (deleteError) throw deleteError
+    if (deleteError) {
+      console.error("Delete error:", deleteError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to delete appointment: ' + deleteError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Optional: Update inquiry status back to 'matched' or 'pending'? 
     // For now, let's leave it or maybe set it back so they can book again.
@@ -97,8 +123,15 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        success: true, 
+        message: 'Appointment cancelled successfully',
+        appointmentId: appointmentId
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     )
 
   } catch (error: any) {
