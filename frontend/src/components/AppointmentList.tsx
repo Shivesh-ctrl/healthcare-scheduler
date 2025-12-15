@@ -106,9 +106,21 @@ export default function AppointmentList() {
         body: JSON.stringify({ appointmentId }),
       });
 
-      const json = await res.json();
+      // Check if response has content before parsing JSON
+      const text = await res.text();
+      if (!text) {
+        throw new Error("Empty response from server");
+      }
+
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Invalid response from server: ${text.substring(0, 100)}`);
+      }
+
       if (!res.ok) {
-        throw new Error(json?.error?.message ?? JSON.stringify(json));
+        throw new Error(json?.error || json?.message || "Failed to cancel appointment");
       }
 
       await fetchAppointments();
