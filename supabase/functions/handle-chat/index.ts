@@ -26,7 +26,7 @@ const TOOLS = {
     {
       name: "search_therapists",
       description:
-        "Search for therapists by specialty, insurance, or general query. Use when user asks 'find me a therapist', 'who can help with X', 'show therapists', etc.",
+        "Search for therapists by specialty, insurance, or general query. ALWAYS call this automatically when user provides insurance information (e.g., 'Blue Cross', 'Aetna'). Also use when user asks 'find me a therapist', 'who can help with X', 'show therapists', etc.",
       parameters: {
         type: "OBJECT",
         properties: {
