@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
       userMessage,
       conversationHistory = [],
       patientId = "anon-" + Date.now(),
-      timeZone = "America/New_York",
+      timeZone = "Asia/Kolkata",
     } = body;
 
     if (!userMessage) {
@@ -1609,25 +1609,29 @@ async function toolBookAppointment(
               day: "2-digit",
             }).format(utcDate);
             
-            const hour = new Intl.DateTimeFormat("en-US", {
+            // Use formatToParts to get exact numeric values
+            const parts = new Intl.DateTimeFormat("en-US", {
               timeZone: tz,
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
               hour: "2-digit",
-              hour12: false,
-            }).format(utcDate);
-            
-            const minute = new Intl.DateTimeFormat("en-US", {
-              timeZone: tz,
               minute: "2-digit",
-            }).format(utcDate);
-            
-            const second = new Intl.DateTimeFormat("en-US", {
-              timeZone: tz,
               second: "2-digit",
-            }).format(utcDate);
+              hour12: false,
+            }).formatToParts(utcDate);
+            
+            const hourPart = parts.find(p => p.type === "hour");
+            const minutePart = parts.find(p => p.type === "minute");
+            const secondPart = parts.find(p => p.type === "second");
+            
+            const hour = hourPart ? hourPart.value.padStart(2, '0') : '00';
+            const minute = minutePart ? minutePart.value.padStart(2, '0') : '00';
+            const second = secondPart ? secondPart.value.padStart(2, '0') : '00';
             
             // Construct the ISO format string (YYYY-MM-DDTHH:MM:SS)
             // Google Calendar will interpret this as local time in the specified timeZone
-            const formatted = `${year}-${month}-${day}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}`;
+            const formatted = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
             
             console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
             console.log(`   Local time: ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')} on ${year}-${month}-${day}`);
@@ -3071,7 +3075,7 @@ async function getOrCreateInquiry(supabase: any, patientId: string) {
   return newInquiry;
 }
 
-function parseFlexibleDate(dateStr: string, timeZone: string = "America/New_York"): Date {
+function parseFlexibleDate(dateStr: string, timeZone: string = "Asia/Kolkata"): Date {
   const str = dateStr.toLowerCase();
   // Get today's date in the specified timezone to avoid timezone shift issues
   const now = new Date();

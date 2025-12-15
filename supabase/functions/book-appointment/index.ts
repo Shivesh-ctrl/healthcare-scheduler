@@ -186,25 +186,29 @@ Deno.serve(async (req) => {
             day: "2-digit",
           }).format(utcDate);
           
-          const hour = new Intl.DateTimeFormat("en-US", {
+          // Use formatToParts to get exact numeric values
+          const parts = new Intl.DateTimeFormat("en-US", {
             timeZone: tz,
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
             hour: "2-digit",
-            hour12: false,
-          }).format(utcDate);
-          
-          const minute = new Intl.DateTimeFormat("en-US", {
-            timeZone: tz,
             minute: "2-digit",
-          }).format(utcDate);
-          
-          const second = new Intl.DateTimeFormat("en-US", {
-            timeZone: tz,
             second: "2-digit",
-          }).format(utcDate);
+            hour12: false,
+          }).formatToParts(utcDate);
+          
+          const hourPart = parts.find(p => p.type === "hour");
+          const minutePart = parts.find(p => p.type === "minute");
+          const secondPart = parts.find(p => p.type === "second");
+          
+          const hour = hourPart ? hourPart.value.padStart(2, '0') : '00';
+          const minute = minutePart ? minutePart.value.padStart(2, '0') : '00';
+          const second = secondPart ? secondPart.value.padStart(2, '0') : '00';
           
           // Construct the ISO format string (YYYY-MM-DDTHH:MM:SS)
           // Google Calendar will interpret this as local time in the specified timeZone
-          const formatted = `${year}-${month}-${day}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}`;
+          const formatted = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
           
           console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
           console.log(`   Local time: ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')} on ${year}-${month}-${day}`);
