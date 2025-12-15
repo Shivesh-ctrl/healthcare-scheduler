@@ -1634,12 +1634,15 @@ async function toolBookAppointment(
             return formatted;
           };
           
+          // Ensure we use Asia/Kolkata timezone for calendar events
+          const calendarTimeZone = timeZone || "Asia/Kolkata";
+          
           console.log(`📅 Creating Google Calendar event:`);
           console.log(`   UTC startTime: ${startTimeISO}`);
           console.log(`   UTC endTime: ${endTimeISO}`);
-          console.log(`   Target timezone: ${timeZone}`);
-          const formattedStart = formatForGoogleCalendar(startTimeISO, timeZone);
-          const formattedEnd = formatForGoogleCalendar(endTimeISO, timeZone);
+          console.log(`   Target timezone: ${calendarTimeZone}`);
+          const formattedStart = formatForGoogleCalendar(startTimeISO, calendarTimeZone);
+          const formattedEnd = formatForGoogleCalendar(endTimeISO, calendarTimeZone);
           console.log(`   Formatted start: ${formattedStart}`);
           console.log(`   Formatted end: ${formattedEnd}`);
           
@@ -1650,11 +1653,11 @@ async function toolBookAppointment(
               `Appointment ID: ${appointment.id}\nTherapist: ${therapistName}\n\nBooked via Omi chatbot`,
             start: {
               dateTime: formattedStart,
-              timeZone: timeZone,
+              timeZone: calendarTimeZone,
             },
             end: {
               dateTime: formattedEnd,
-              timeZone: timeZone,
+              timeZone: calendarTimeZone,
             },
           };
 

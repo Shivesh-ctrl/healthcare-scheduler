@@ -197,12 +197,15 @@ Deno.serve(async (req) => {
           return formatted;
         };
         
+        // Ensure we use Asia/Kolkata timezone for calendar events
+        const calendarTimeZone = timeZoneToUse || "Asia/Kolkata";
+        
         console.log(`📅 Creating Google Calendar event (book-appointment):`);
         console.log(`   UTC startTime: ${startTime}`);
         console.log(`   UTC endTime: ${endTime}`);
-        console.log(`   Target timezone: ${timeZoneToUse}`);
-        const formattedStart = formatForGoogleCalendar(startTime, timeZoneToUse);
-        const formattedEnd = formatForGoogleCalendar(endTime, timeZoneToUse);
+        console.log(`   Target timezone: ${calendarTimeZone}`);
+        const formattedStart = formatForGoogleCalendar(startTime, calendarTimeZone);
+        const formattedEnd = formatForGoogleCalendar(endTime, calendarTimeZone);
         console.log(`   Formatted start: ${formattedStart}`);
         console.log(`   Formatted end: ${formattedEnd}`);
         
@@ -212,11 +215,11 @@ Deno.serve(async (req) => {
             `Internal Therapist ID: ${therapistId}\nInquiry ID: ${inquiryId}\n\n(Routed to Admin Calendar)`,
           start: {
             dateTime: formattedStart,
-            timeZone: timeZoneToUse,
+            timeZone: calendarTimeZone,
           },
           end: {
             dateTime: formattedEnd,
-            timeZone: timeZoneToUse,
+            timeZone: calendarTimeZone,
           },
           reminders: {
             useDefault: false,
