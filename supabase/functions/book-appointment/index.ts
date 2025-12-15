@@ -163,34 +163,52 @@ Deno.serve(async (req) => {
 
         // Convert UTC ISO times to the user's timezone for Google Calendar
         // The startTime and endTime are in UTC, but represent local times
-        // We need to format them correctly for Google Calendar
+        // We need to extract the local time components in the target timezone
+        // Google Calendar expects dateTime in format YYYY-MM-DDTHH:MM:SS interpreted as local time in the specified timeZone
         const formatForGoogleCalendar = (utcISOString: string, tz: string): string => {
           // Parse the UTC ISO string
           const utcDate = new Date(utcISOString);
           
-          // Format it in the target timezone to get the local time components
-          const formatter = new Intl.DateTimeFormat("en-CA", {
+          // Use Intl.DateTimeFormat to get the local time components in the target timezone
+          // This correctly handles DST and timezone conversions
+          const year = new Intl.DateTimeFormat("en-CA", {
             timeZone: tz,
             year: "numeric",
+          }).format(utcDate);
+          
+          const month = new Intl.DateTimeFormat("en-CA", {
+            timeZone: tz,
             month: "2-digit",
+          }).format(utcDate);
+          
+          const day = new Intl.DateTimeFormat("en-CA", {
+            timeZone: tz,
             day: "2-digit",
+          }).format(utcDate);
+          
+          const hour = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
             hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
             hour12: false,
-          });
+          }).format(utcDate);
           
-          const parts = formatter.formatToParts(utcDate);
-          const year = parts.find(p => p.type === "year")?.value;
-          const month = parts.find(p => p.type === "month")?.value;
-          const day = parts.find(p => p.type === "day")?.value;
-          const hour = parts.find(p => p.type === "hour")?.value;
-          const minute = parts.find(p => p.type === "minute")?.value;
-          const second = parts.find(p => p.type === "second")?.value;
+          const minute = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            minute: "2-digit",
+          }).format(utcDate);
           
-          // Return in ISO format without timezone indicator
+          const second = new Intl.DateTimeFormat("en-US", {
+            timeZone: tz,
+            second: "2-digit",
+          }).format(utcDate);
+          
+          // Construct the ISO format string (YYYY-MM-DDTHH:MM:SS)
           // Google Calendar will interpret this as local time in the specified timeZone
-          return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+          const formatted = `${year}-${month}-${day}T${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')}`;
+          
+          console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
+          console.log(`   Local time: ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')} on ${year}-${month}-${day}`);
+          return formatted;
         };
         
         console.log(`📅 Creating Google Calendar event (book-appointment):`);
