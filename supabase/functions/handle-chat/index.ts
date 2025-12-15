@@ -1600,31 +1600,14 @@ async function toolBookAppointment(
           const calendarId = adminTherapist.google_calendar_id || "primary";
 
           // The startTimeISO and endTimeISO are UTC times that represent local times
-          // We need to extract the local time components in the target timezone
+          // We need to extract the local time components in the target timezone (IST)
           // Google Calendar expects dateTime in format YYYY-MM-DDTHH:MM:SS interpreted as local time in the specified timeZone
           const formatForGoogleCalendar = (utcISOString: string, tz: string): string => {
             // Parse the UTC ISO string
             const utcDate = new Date(utcISOString);
             
-            // Use Intl.DateTimeFormat to get the local time components in the target timezone
-            // This correctly handles DST and timezone conversions
-            const year = new Intl.DateTimeFormat("en-CA", {
-              timeZone: tz,
-              year: "numeric",
-            }).format(utcDate);
-            
-            const month = new Intl.DateTimeFormat("en-CA", {
-              timeZone: tz,
-              month: "2-digit",
-            }).format(utcDate);
-            
-            const day = new Intl.DateTimeFormat("en-CA", {
-              timeZone: tz,
-              day: "2-digit",
-            }).format(utcDate);
-            
-            // Use formatToParts to get exact numeric values
-            const parts = new Intl.DateTimeFormat("en-US", {
+            // Use a single formatToParts call to get all components consistently in the target timezone
+            const parts = new Intl.DateTimeFormat("en-CA", {
               timeZone: tz,
               year: "numeric",
               month: "2-digit",
@@ -1635,20 +1618,19 @@ async function toolBookAppointment(
               hour12: false,
             }).formatToParts(utcDate);
             
-            const hourPart = parts.find(p => p.type === "hour");
-            const minutePart = parts.find(p => p.type === "minute");
-            const secondPart = parts.find(p => p.type === "second");
-            
-            const hour = hourPart ? hourPart.value.padStart(2, '0') : '00';
-            const minute = minutePart ? minutePart.value.padStart(2, '0') : '00';
-            const second = secondPart ? secondPart.value.padStart(2, '0') : '00';
+            const year = parts.find(p => p.type === "year")?.value || '0000';
+            const month = parts.find(p => p.type === "month")?.value || '01';
+            const day = parts.find(p => p.type === "day")?.value || '01';
+            const hour = parts.find(p => p.type === "hour")?.value.padStart(2, '0') || '00';
+            const minute = parts.find(p => p.type === "minute")?.value.padStart(2, '0') || '00';
+            const second = parts.find(p => p.type === "second")?.value.padStart(2, '0') || '00';
             
             // Construct the ISO format string (YYYY-MM-DDTHH:MM:SS)
             // Google Calendar will interpret this as local time in the specified timeZone
             const formatted = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
             
             console.log(`   Converting: ${utcISOString} (UTC) → ${formatted} (${tz})`);
-            console.log(`   Local time: ${hour.padStart(2, '0')}:${minute.padStart(2, '0')}:${second.padStart(2, '0')} on ${year}-${month}-${day}`);
+            console.log(`   Local time in ${tz}: ${hour}:${minute}:${second} on ${year}-${month}-${day}`);
             return formatted;
           };
           
